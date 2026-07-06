@@ -38,3 +38,34 @@ test('utente disattivato non può loggare', async () => {
   const res = await request(app).post('/api/auth/login').send({ username: 'mik', password: 'pw' });
   assert.strictEqual(res.status, 401);
 });
+
+test('login senza password → 400', async () => {
+  const user = { id: 1, username: 'mik', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
+  const app = await appWithUser(user);
+  const res = await request(app).post('/api/auth/login').send({ username: 'mik' });
+  assert.strictEqual(res.status, 400);
+});
+
+test('login seguito da logout → 200 e {ok:true}', async () => {
+  const user = { id: 1, username: 'mik', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
+  const app = await appWithUser(user);
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ username: 'mik', password: 'pw' });
+  const res = await agent.post('/api/auth/logout');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body, { ok: true });
+});
+
+test('GET /api/me senza login → 401, con login → 200 e username', async () => {
+  const user = { id: 1, username: 'mik', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
+  const app = await appWithUser(user);
+
+  const resNoAuth = await request(app).get('/api/me');
+  assert.strictEqual(resNoAuth.status, 401);
+
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ username: 'mik', password: 'pw' });
+  const resAuth = await agent.get('/api/me');
+  assert.strictEqual(resAuth.status, 200);
+  assert.strictEqual(resAuth.body.user.username, user.username);
+});

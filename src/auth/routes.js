@@ -18,12 +18,21 @@ function createAuthRouter(db) {
     if (!ok) {
       return res.status(401).json({ error: 'Credenziali non valide' });
     }
-    req.session.user = { id: user.id, username: user.username, role: user.role };
-    res.json({ user: req.session.user });
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: 'Errore di sessione' });
+      req.session.user = { id: user.id, username: user.username, role: user.role };
+      req.session.save((saveErr) => {
+        if (saveErr) return res.status(500).json({ error: 'Errore di sessione' });
+        res.json({ user: req.session.user });
+      });
+    });
   });
 
   router.post('/logout', (req, res) => {
-    req.session.destroy(() => res.json({ ok: true }));
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid');
+      res.json({ ok: true });
+    });
   });
 
   return router;
