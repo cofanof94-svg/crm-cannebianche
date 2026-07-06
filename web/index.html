@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CRM Direct Holiday</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main id="app">
+    <section id="login-view" hidden>
+      <h1>CRM Direct Holiday</h1>
+      <form id="login-form">
+        <label>Utente <input name="username" required /></label>
+        <label>Password <input name="password" type="password" required /></label>
+        <button type="submit">Accedi</button>
+        <p id="login-error" class="error"></p>
+      </form>
+    </section>
+
+    <section id="home-view" hidden>
+      <header>
+        <span id="welcome"></span>
+        <button id="logout-btn">Esci</button>
+      </header>
+      <section id="admin-panel" hidden>
+        <h2>Utenti</h2>
+        <ul id="user-list"></ul>
+        <form id="new-user-form">
+          <input name="username" placeholder="username" required />
+          <input name="password" type="password" placeholder="password" required />
+          <select name="role">
+            <option value="reception">reception</option>
+            <option value="marketing">marketing</option>
+            <option value="admin">admin</option>
+          </select>
+          <button type="submit">Crea utente</button>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
