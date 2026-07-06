@@ -114,6 +114,14 @@ test('guardia ultimo admin: disattivare l\'unico admin attivo → 400', async ()
   assert.strictEqual(res.status, 400);
 });
 
+test('un admin non può modificare il proprio ruolo/stato → 400', async () => {
+  const { app } = await makeApp();
+  const agent = await loginAgent(app); // admin id=1
+  const res = await agent.patch('/api/admin/users/1').send({ role: 'reception' });
+  assert.strictEqual(res.status, 400);
+  assert.match(res.body.error, /tuo ruolo o stato/);
+});
+
 test('route che lancia → 500 JSON', async () => {
   const { app } = await makeApp({ listUsersShouldFail: true });
   const agent = await loginAgent(app);
