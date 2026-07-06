@@ -20,6 +20,12 @@ function createApp({ crmDb, pmsDb, sessionSecret }) {
   app.get('/api/me', requireAuth, (req, res) => res.json({ user: req.session.user }));
 
   app.use(express.static(path.join(__dirname, '..', 'web')));
+
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    console.error('Errore non gestito:', err);
+    res.status(500).json({ error: 'Errore interno del server' });
+  });
   return app;
 }
 

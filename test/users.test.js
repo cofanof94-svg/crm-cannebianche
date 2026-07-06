@@ -33,3 +33,21 @@ test('setUserActive normalizza a 0/1', async () => {
   await users.setUserActive(db, 3, false);
   assert.strictEqual(db.calls[0].params.attivo, 0);
 });
+
+test('getUserById restituisce la prima riga', async () => {
+  const db = fakeDb([{ id: 7, username: 'mik', role: 'admin', attivo: 1 }]);
+  const u = await users.getUserById(db, 7);
+  assert.strictEqual(u.id, 7);
+  assert.strictEqual(db.calls[0].params.id, 7);
+});
+
+test('getUserById restituisce null se nessuna riga', async () => {
+  const db = fakeDb([]);
+  assert.strictEqual(await users.getUserById(db, 99), null);
+});
+
+test('countActiveAdmins restituisce il valore n', async () => {
+  const db = fakeDb([{ n: 2 }]);
+  const n = await users.countActiveAdmins(db);
+  assert.strictEqual(n, 2);
+});

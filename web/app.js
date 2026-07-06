@@ -1,4 +1,5 @@
 const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -26,7 +27,7 @@ async function refresh() {
 async function loadUsers() {
   const { body } = await api('/api/admin/users');
   $('#user-list').innerHTML = (body.users || [])
-    .map((u) => `<li>${u.username} — ${u.role} ${u.attivo ? '' : '(disattivato)'}</li>`)
+    .map((u) => `<li>${esc(u.username)} — ${esc(u.role)} ${u.attivo ? '' : '(disattivato)'}</li>`)
     .join('');
 }
 
@@ -53,7 +54,8 @@ $('#new-user-form').addEventListener('submit', async (e) => {
     method: 'POST',
     body: JSON.stringify({ username: f.username.value, password: f.password.value, role: f.role.value }),
   });
-  if (status === 201) { f.reset(); loadUsers(); }
+  if (status === 201) { f.reset(); $('#new-user-error').textContent = ''; loadUsers(); }
+  else { $('#new-user-error').textContent = 'Errore nella creazione utente'; }
 });
 
 refresh();

@@ -33,4 +33,28 @@ async function setUserRole(db, id, role) {
   await db.query('UPDATE users SET role = @role WHERE id = @id', { id, role });
 }
 
-module.exports = { findUserByUsername, createUser, listUsers, setUserActive, setUserRole };
+async function getUserById(db, id) {
+  const rows = await db.query(
+    'SELECT id, username, role, attivo FROM users WHERE id = @id',
+    { id }
+  );
+  return rows[0] || null;
+}
+
+async function countActiveAdmins(db) {
+  const rows = await db.query(
+    "SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND attivo = 1",
+    {}
+  );
+  return rows[0].n;
+}
+
+module.exports = {
+  findUserByUsername,
+  createUser,
+  listUsers,
+  setUserActive,
+  setUserRole,
+  getUserById,
+  countActiveAdmins,
+};
