@@ -16,6 +16,14 @@ function createApp({ crmDb, pmsDb, sessionSecret }) {
     cookie: { httpOnly: true, sameSite: 'lax', maxAge: 8 * 60 * 60 * 1000 },
   }));
 
+  // Le risposte API (autenticate/dinamiche) non devono essere memorizzate né
+  // rivalidate dal browser: senza questo, un ETag genera 304 e il frontend
+  // interpreta il non-200 come "non autenticato".
+  app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
+
   app.use('/api/auth', createAuthRouter(crmDb));
   app.use('/api/admin', createAdminRouter(crmDb));
   app.get('/api/me', requireAuth, (req, res) => res.json({ user: req.session.user }));
