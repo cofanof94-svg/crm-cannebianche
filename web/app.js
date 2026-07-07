@@ -15,7 +15,8 @@ async function refresh() {
   currentUser = body.user;
   $('#login-view').hidden = true;
   $('#app').hidden = false;
-  $('#welcome').textContent = `${currentUser.username} (${currentUser.role})`;
+  $('#welcome').textContent = currentUser.username;
+  $('#avatar').textContent = (currentUser.username[0] || '?').toUpperCase();
   $('#nav-utenti').hidden = currentUser.role !== 'admin';
   if (!location.hash) location.hash = '#home';
   route();
@@ -37,6 +38,8 @@ function route() {
     location.hash = '#home';
     return;
   }
+  const titoli = { home: 'Home', arrivi: 'Arrivi', utenti: 'Utenti' };
+  $('#topbar-title').textContent = titoli[v] || 'Home';
   document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
   document.querySelectorAll('.sidebar a').forEach((a) => a.classList.toggle('active', a.dataset.nav === v));
   $(`#view-${v}`).hidden = false;
@@ -47,8 +50,14 @@ function route() {
 window.addEventListener('hashchange', route);
 
 // --- Home ---
+function dataEstesa() {
+  const s = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 async function loadHome() {
   $('#home-error').textContent = '';
+  $('#home-date').textContent = dataEstesa();
   const { status, body } = await api('/api/dashboard');
   if (status !== 200) { $('#home-error').textContent = 'Impossibile leggere i dati dal PMS.'; return; }
   $('#kpi-arrivi').textContent = body.arrivi;
@@ -71,35 +80,55 @@ function initArrivi() {
 async function loadArrivi() {
   const data = $('#arrivi-data').value || new Date().toISOString().slice(0, 10);
   const tab = $('#arrivi-tab');
+  const msg = $('#arrivi-msg');
   const stato = $('#arrivi-stato');
-  tab.hidden = true;
-  stato.textContent = 'Caricamento…';
+  tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
   const { status, body } = await api(`/api/arrivi?data=${encodeURIComponent(data)}`);
-  if (status !== 200) { stato.textContent = 'Errore nel leggere gli arrivi dal PMS.'; return; }
+  if (status !== 200) { msg.textContent = 'Errore nel leggere gli arrivi dal PMS.'; return; }
   const arrivi = body.arrivi || [];
-  if (arrivi.length === 0) { stato.textContent = 'Nessun arrivo per questa data.'; return; }
-  stato.textContent = `${arrivi.length} arrivi`;
-  $('#arrivi-body').innerHTML = arrivi.map((a) => `
+  if (arrivi.length === 0) { msg.textContent = 'Nessun arrivo per questa data.'; stato.textContent = '0 arrivi'; return; }
+  stato.textContent = `${arrivi.length} ${arrivi.length === 1 ? 'arrivo' : 'arrivi'}`;
+  $('#arrivi-body').innerHTML = arrivi.map(rigaArrivo).join('');
+  msg.hidden = true; tab.hidden = false;
+}
+
+const dash = '<span class="dash">—</span>';
+function cell(v) { return v ? esc(v) : dash; }
+
+function chipCamere(camere) {
+  if (!camere) return dash;
+  return camere.split(',').map((c) => `<span class="room">${esc(c.trim())}</span>`).join('');
+}
+
+function rigaArrivo(a) {
+  const pax = a.paxBambini ? `${a.paxAdulti}+${a.paxBambini}` : `${a.paxAdulti}`;
+  const stato = a.inCasa
+    ? '<span class="pill pill-incasa">In casa</span>'
+    : '<span class="pill pill-atteso">Atteso</span>';
+  const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
+  return `
     <tr>
-      <td>${a.nominativo ? esc(a.nominativo) : '<em>(senza nominativo)</em>'}</td>
-      <td>${a.camere ? esc(a.camere) : '—'}</td>
-      <td>${a.paxAdulti}${a.paxBambini ? '+' + a.paxBambini : ''}</td>
-      <td>${a.notti}</td>
-      <td>${esc(a.dtpartenza)}</td>
-      <td>${a.oraArrivo ? esc(a.oraArrivo) : '—'}</td>
-      <td>${a.inCasa ? '<span class="badge badge-incasa">In casa</span>' : '<span class="badge badge-atteso">Atteso</span>'}</td>
-      <td>${a.provenienza ? esc(a.provenienza) : '—'}</td>
-      <td>${a.trattamento ? esc(a.trattamento) : '—'}</td>
-      <td>${a.note ? esc(a.note) : ''}</td>
-    </tr>`).join('');
-  tab.hidden = false;
+      <td class="cell-name">${a.nominativo ? esc(a.nominativo) : '<span class="dash">(senza nominativo)</span>'}</td>
+      <td>${chipCamere(a.camere)}</td>
+      <td class="cell-muted">${pax}</td>
+      <td class="cell-muted">${a.notti}</td>
+      <td class="cell-muted">${cell(partenza)}</td>
+      <td class="cell-muted">${cell(a.oraArrivo)}</td>
+      <td>${stato}</td>
+      <td class="cell-muted">${cell(a.provenienza)}</td>
+      <td class="cell-muted">${cell(a.trattamento)}</td>
+      <td class="cell-note">${a.note ? esc(a.note) : ''}</td>
+    </tr>`;
 }
 
 // --- Utenti (admin) ---
 async function loadUsers() {
   const { body } = await api('/api/admin/users');
   $('#user-list').innerHTML = (body.users || [])
-    .map((u) => `<li>${esc(u.username)} — ${esc(u.role)} ${u.attivo ? '' : '(disattivato)'}</li>`)
+    .map((u) => `<li>
+      <span class="u-name">${esc(u.username)}</span>
+      <span class="role-tag ${u.attivo ? '' : 'off'}">${esc(u.role)}${u.attivo ? '' : ' · off'}</span>
+    </li>`)
     .join('');
 }
 
