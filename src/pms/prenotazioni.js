@@ -12,7 +12,7 @@ const COLONNE = `
        FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = p.codpratica AND ISNULL(ad.codcam,'') <> ''
          AND CAST(@data AS date) >= CAST(ad.dtarrivo AS date)
-         AND CAST(@data AS date) <  CAST(ad.dtpartenza AS date)
+         AND CAST(@data AS date) <= CAST(ad.dtpartenza AS date)
        FOR XML PATH('')), 1, 2, '')),
     (SELECT STUFF((SELECT DISTINCT ', ' + tp.codcam
        FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.codcam,'') <> ''
