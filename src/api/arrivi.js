@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../auth/middleware');
-const { getArriviByData, getRiepilogoGiorno, getDataLavoro } = require('../pms/prenotazioni');
+const { getArriviByData, getInCasaByData, getRiepilogoGiorno, getDataLavoro } = require('../pms/prenotazioni');
 
 function oggiISO() {
   return new Date().toISOString().slice(0, 10);
@@ -21,6 +21,13 @@ function createArriviRouter(pmsDb) {
     if (!dataValida(data)) return res.status(400).json({ error: 'Data non valida' });
     const arrivi = await getArriviByData(pmsDb, data);
     res.json({ data, arrivi });
+  });
+
+  router.get('/incasa', async (req, res) => {
+    const data = req.query.data || (await getDataLavoro(pmsDb)) || oggiISO();
+    if (!dataValida(data)) return res.status(400).json({ error: 'Data non valida' });
+    const clienti = await getInCasaByData(pmsDb, data);
+    res.json({ data, clienti });
   });
 
   router.get('/dashboard', async (req, res) => {

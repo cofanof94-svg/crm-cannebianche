@@ -50,6 +50,10 @@
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
           <span>Arrivi</span>
         </a>
+        <a href="#incasa" data-nav="incasa">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-5a2 2 0 0 1 2-2h11a3 3 0 0 1 3 3v4"/><path d="M3 18h18"/><path d="M7 11V8a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v3"/></svg>
+          <span>In casa</span>
+        </a>
         <a href="#utenti" data-nav="utenti" id="nav-utenti" hidden>
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M18 13.5a5.5 5.5 0 0 1 3.5 5.5"/></svg>
           <span>Utenti</span>
@@ -118,6 +122,29 @@
             </table>
           </div>
           <div id="arrivi-msg" class="state" hidden></div>
+        </section>
+
+        <!-- CLIENTI IN CASA -->
+        <section id="view-incasa" class="view" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Clienti in casa</h1>
+              <p class="sub" id="incasa-stato"></p>
+            </div>
+            <label class="date-field">Data
+              <input type="date" id="incasa-data" />
+            </label>
+          </div>
+          <div class="card table-wrap">
+            <table id="incasa-tab" hidden>
+              <thead><tr>
+                <th>Num.pratica</th><th>Ospite</th><th>Camera</th><th>Pax</th>
+                <th>Arrivo</th><th>Partenza</th><th>Notti</th><th>Trattamento</th><th>Tariffa</th><th>Importo</th>
+              </tr></thead>
+              <tbody id="incasa-body"></tbody>
+            </table>
+          </div>
+          <div id="incasa-msg" class="state" hidden></div>
         </section>
 
         <!-- UTENTI (admin) -->

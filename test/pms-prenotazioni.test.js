@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { getArriviByData, getRiepilogoGiorno } = require('../src/pms/prenotazioni');
+const { getArriviByData, getInCasaByData, getRiepilogoGiorno } = require('../src/pms/prenotazioni');
 
 function fakePms(recordset) {
   return { calls: [], async query(text, params) { this.calls.push({ text, params }); return recordset; } };
@@ -29,6 +29,18 @@ test('getArriviByData: nominativo assente -> null', async () => {
   const [a] = await getArriviByData(pms, '2026-07-06');
   assert.strictEqual(a.nominativo, null);
   assert.strictEqual(a.inCasa, true);
+});
+
+test('getInCasaByData mappa le righe (con dtarrivo)', async () => {
+  const pms = fakePms([{ codpratica: 5, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
+    paxAdulti: 2, paxBambini: 0, dtarrivo: '2026-04-20', dtpartenza: '2026-04-25', notti: 5,
+    oraArrivo: '', inCasa: 'S', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }]);
+  const [c] = await getInCasaByData(pms, '2026-04-22');
+  assert.strictEqual(c.nominativo, 'VERDI LUIGI');
+  assert.strictEqual(c.dtarrivo, '2026-04-20');
+  assert.strictEqual(c.inCasa, true);
+  assert.strictEqual(c.importo, 500);
+  assert.strictEqual(pms.calls[0].params.data, '2026-04-22');
 });
 
 test('getRiepilogoGiorno restituisce i tre conteggi', async () => {

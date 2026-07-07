@@ -16,6 +16,9 @@ async function makeApp() {
     async query(text) {
       if (/FROM Persona/.test(text)) return [{ data: '2026-07-07' }];
       if (/AS arrivi/.test(text)) return [{ arrivi: 8, partenze: 3, presenti: 21 }];
+      if (/AS dtarrivo/.test(text)) return [{ codpratica: 5, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
+        paxAdulti: 2, paxBambini: 0, dtarrivo: '2026-04-20', dtpartenza: '2026-04-25', notti: 5,
+        oraArrivo: null, inCasa: 'S', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }];
       // query arrivi
       return [{ codpratica: 1, cognome: 'ROSSI', nome: 'MARIO', camere: '101',
         paxAdulti: 2, paxBambini: 0, dtpartenza: '2026-07-10', notti: 4,
@@ -59,6 +62,21 @@ test('GET /api/arrivi senza data → usa la data di lavoro del PMS (Persona.Data
   const res = await ag.get('/api/arrivi');
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.body.data, '2026-07-07');
+});
+
+test('senza login GET /api/incasa → 401', async () => {
+  const app = await makeApp();
+  const res = await request(app).get('/api/incasa?data=2026-04-22');
+  assert.strictEqual(res.status, 401);
+});
+
+test('GET /api/incasa → 200 con clienti in casa', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const res = await ag.get('/api/incasa?data=2026-04-22');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.data, '2026-04-22');
+  assert.strictEqual(res.body.clienti[0].nominativo, 'VERDI LUIGI');
 });
 
 test('GET /api/dashboard → 200 con i tre conteggi', async () => {

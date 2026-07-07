@@ -31,20 +31,21 @@ function showLogin() {
 // --- router hash ---
 function route() {
   const view = (location.hash || '#home').slice(1);
-  const known = ['home', 'arrivi', 'utenti'];
+  const known = ['home', 'arrivi', 'incasa', 'utenti'];
   let v = known.includes(view) ? view : 'home';
   // Utenti è riservato agli admin: reindirizza gli altri alla home
   if (v === 'utenti' && !(currentUser && currentUser.role === 'admin')) {
     location.hash = '#home';
     return;
   }
-  const titoli = { home: 'Home', arrivi: 'Arrivi', utenti: 'Utenti' };
+  const titoli = { home: 'Home', arrivi: 'Arrivi', incasa: 'In casa', utenti: 'Utenti' };
   $('#topbar-title').textContent = titoli[v] || 'Home';
   document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
   document.querySelectorAll('.sidebar a').forEach((a) => a.classList.toggle('active', a.dataset.nav === v));
   $(`#view-${v}`).hidden = false;
   if (v === 'home') loadHome();
   else if (v === 'arrivi') initArrivi();
+  else if (v === 'incasa') initInCasa();
   else if (v === 'utenti') { if (currentUser && currentUser.role === 'admin') loadUsers(); }
 }
 window.addEventListener('hashchange', route);
@@ -121,6 +122,55 @@ function rigaArrivo(a) {
       <td class="cell-muted">${cell(partenza)}</td>
       <td class="cell-muted">${cell(a.oraArrivo)}</td>
       <td>${stato}</td>
+      <td class="cell-muted">${cell(a.trattamento)}</td>
+      <td class="cell-muted">${cell(a.tariffa)}</td>
+      <td class="cell-num">${a.importo != null ? euro(a.importo) : dash}</td>
+    </tr>${noteRow}`;
+}
+
+// --- Clienti in casa ---
+let incasaInit = false;
+function initInCasa() {
+  if (!incasaInit) {
+    $('#incasa-data').addEventListener('change', loadInCasa);
+    incasaInit = true;
+  }
+  loadInCasa();
+}
+
+async function loadInCasa() {
+  const input = $('#incasa-data');
+  const tab = $('#incasa-tab');
+  const msg = $('#incasa-msg');
+  const stato = $('#incasa-stato');
+  tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
+  const q = input.value ? `?data=${encodeURIComponent(input.value)}` : '';
+  const { status, body } = await api(`/api/incasa${q}`);
+  if (status !== 200) { msg.textContent = 'Errore nel leggere i dati dal PMS.'; return; }
+  if (!input.value && body.data) input.value = body.data; // data di lavoro dal server
+  const clienti = body.clienti || [];
+  if (clienti.length === 0) { msg.textContent = 'Nessun cliente in casa per questa data.'; stato.textContent = '0 in casa'; return; }
+  stato.textContent = `${clienti.length} in casa`;
+  $('#incasa-body').innerHTML = clienti.map(rigaInCasa).join('');
+  msg.hidden = true; tab.hidden = false;
+}
+
+function rigaInCasa(a) {
+  const pax = a.paxBambini ? `${a.paxAdulti}+${a.paxBambini}` : `${a.paxAdulti}`;
+  const arrivo = a.dtarrivo ? a.dtarrivo.split('-').reverse().join('/') : null;
+  const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
+  const noteRow = a.note
+    ? `<tr class="note-row"><td colspan="10"><span class="note-label">Note</span>${esc(a.note)}</td></tr>`
+    : '';
+  return `
+    <tr class="arr-row${a.note ? ' has-note' : ''}">
+      <td class="prat">${esc(a.codpratica)}</td>
+      <td class="cell-name">${a.nominativo ? esc(a.nominativo) : '<span class="dash">(senza nominativo)</span>'}</td>
+      <td>${chipCamere(a.camere)}</td>
+      <td class="cell-muted">${pax}</td>
+      <td class="cell-muted">${cell(arrivo)}</td>
+      <td class="cell-muted">${cell(partenza)}</td>
+      <td class="cell-muted">${a.notti}</td>
       <td class="cell-muted">${cell(a.trattamento)}</td>
       <td class="cell-muted">${cell(a.tariffa)}</td>
       <td class="cell-num">${a.importo != null ? euro(a.importo) : dash}</td>

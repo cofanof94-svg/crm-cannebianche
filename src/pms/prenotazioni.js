@@ -1,18 +1,18 @@
-// Arrivi di una data. Camera = COALESCE(assegnazione roomlist in AlbergDay, pianificata in TipoPre).
+// Lista arrivi / clienti in casa di una data.
+// Camera = COALESCE(assegnazione roomlist in AlbergDay per @data, pianificata in TipoPre).
 // OSPITE = codclinterm (l'ospite reale); codcli è l'intestatario del conto/pagante.
 // Trattamento (codice codarr, es. BB), Tariffa (CodConvenzione, concat distinte) e Importo (SUM)
-// presi con COALESCE(Alberg, TipoPre): al check-in i dati passano da TipoPre ad Alberg. Una riga per prenotazione.
-const SQL_ARRIVI = `
-SELECT
-  p.codpratica,
-  a.Cognome AS cognome,
-  a.Nome AS nome,
+// presi con COALESCE(Alberg, TipoPre): al check-in i dati passano da TipoPre ad Alberg.
+// Una riga per prenotazione.
+
+// Colonne arricchite condivise da arrivi e "in casa" (riferiscono p e @data).
+const COLONNE = `
   COALESCE(
     (SELECT STUFF((SELECT DISTINCT ', ' + ad.codcam
        FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = p.codpratica AND ISNULL(ad.codcam,'') <> ''
-         AND CAST(p.dtarrivo AS date) >= CAST(ad.dtarrivo AS date)
-         AND CAST(p.dtarrivo AS date) <  CAST(ad.dtpartenza AS date)
+         AND CAST(@data AS date) >= CAST(ad.dtarrivo AS date)
+         AND CAST(@data AS date) <  CAST(ad.dtpartenza AS date)
        FOR XML PATH('')), 1, 2, '')),
     (SELECT STUFF((SELECT DISTINCT ', ' + tp.codcam
        FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.codcam,'') <> ''
@@ -20,8 +20,6 @@ SELECT
   ) AS camere,
   p.paxadulti AS paxAdulti,
   p.paxbambini AS paxBambini,
-  CONVERT(varchar(10), p.dtpartenza, 23) AS dtpartenza,
-  DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
   (SELECT MIN(NULLIF(LTRIM(RTRIM(tp.EstTimeArr)), '')) FROM TipoPre tp WHERE tp.codpratica = p.codpratica) AS oraArrivo,
   p.flgincasa AS inCasa,
   COALESCE(
@@ -40,11 +38,38 @@ SELECT
     (SELECT SUM(al.impoeur) FROM Alberg al WHERE al.codpratica = p.codpratica),
     (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
   ) AS importo,
-  p.Note AS note
+  p.Note AS note`;
+
+// Arrivi della data: prenotazioni con dtarrivo = @data (esclusi i 'P' partiti).
+const SQL_ARRIVI = `
+SELECT
+  p.codpratica,
+  a.Cognome AS cognome,
+  a.Nome AS nome,
+  CONVERT(varchar(10), p.dtpartenza, 23) AS dtpartenza,
+  DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
+  ${COLONNE}
 FROM Prenota p
 LEFT JOIN Anagra a ON a.CodCli = p.codclinterm
 WHERE p.DataEliminazione IS NULL AND ISNULL(p.flgincasa, '') <> 'P'
   AND CAST(p.dtarrivo AS date) = CAST(@data AS date)
+ORDER BY a.Cognome, p.codpratica`;
+
+// Clienti in casa alla data: check-in fatto (flgincasa='S') e @data nel soggiorno [arrivo, partenza).
+const SQL_INCASA = `
+SELECT
+  p.codpratica,
+  a.Cognome AS cognome,
+  a.Nome AS nome,
+  CONVERT(varchar(10), p.dtarrivo, 23) AS dtarrivo,
+  CONVERT(varchar(10), p.dtpartenza, 23) AS dtpartenza,
+  DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
+  ${COLONNE}
+FROM Prenota p
+LEFT JOIN Anagra a ON a.CodCli = p.codclinterm
+WHERE p.DataEliminazione IS NULL AND p.flgincasa = 'S'
+  AND CAST(p.dtarrivo AS date) <= CAST(@data AS date)
+  AND CAST(p.dtpartenza AS date) >  CAST(@data AS date)
 ORDER BY a.Cognome, p.codpratica`;
 
 const SQL_RIEPILOGO = `
@@ -66,7 +91,7 @@ function normalizzaOra(v) {
   return s;
 }
 
-function mapArrivo(r) {
+function mapRiga(r) {
   const nominativo = [r.cognome, r.nome]
     .map((s) => (s == null ? '' : String(s)).trim())
     .filter(Boolean)
@@ -77,6 +102,7 @@ function mapArrivo(r) {
     camere: pulisci(r.camere),
     paxAdulti: r.paxAdulti,
     paxBambini: r.paxBambini,
+    dtarrivo: r.dtarrivo, // presente solo in "clienti in casa"
     dtpartenza: r.dtpartenza,
     notti: r.notti,
     oraArrivo: normalizzaOra(r.oraArrivo),
@@ -90,7 +116,12 @@ function mapArrivo(r) {
 
 async function getArriviByData(pmsDb, data) {
   const rows = await pmsDb.query(SQL_ARRIVI, { data });
-  return rows.map(mapArrivo);
+  return rows.map(mapRiga);
+}
+
+async function getInCasaByData(pmsDb, data) {
+  const rows = await pmsDb.query(SQL_INCASA, { data });
+  return rows.map(mapRiga);
 }
 
 async function getRiepilogoGiorno(pmsDb, data) {
@@ -109,4 +140,4 @@ async function getDataLavoro(pmsDb) {
   return rows[0] && rows[0].data ? rows[0].data : null;
 }
 
-module.exports = { getArriviByData, getRiepilogoGiorno, getDataLavoro };
+module.exports = { getArriviByData, getInCasaByData, getRiepilogoGiorno, getDataLavoro };
