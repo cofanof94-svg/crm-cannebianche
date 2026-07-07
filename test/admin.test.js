@@ -10,9 +10,11 @@ async function makeApp(opts = {}) {
     duplicateUsernames = [],
     listUsersShouldFail = false,
     countActiveAdminsOverride = null,
+    fkDeleteIds = [],
   } = opts;
   const admin = { id: 1, username: 'admin', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
   const created = [];
+  const deleted = [];
   const baseUsers = [admin, ...extraUsers];
   const allUsers = () => [...baseUsers, ...created];
   const crmDb = {
@@ -23,12 +25,22 @@ async function makeApp(opts = {}) {
       }
       if (/INSERT INTO users/.test(text)) {
         if (duplicateUsernames.includes(params.username)) {
-          const err = new Error('Violation of UNIQUE KEY constraint');
-          err.number = 2627;
-          throw err;
+          const err = new Error('Violation of UNIQUE KEY constraint'); err.number = 2627; throw err;
         }
         const u = { id: 100 + created.length, username: params.username, role: params.role, attivo: 1 };
         created.push(u); return [u];
+      }
+      if (/UPDATE users SET/.test(text)) {
+        if (params.username !== undefined && duplicateUsernames.includes(params.username)) {
+          const err = new Error('Violation of UNIQUE KEY constraint'); err.number = 2627; throw err;
+        }
+        return [];
+      }
+      if (/DELETE FROM users/.test(text)) {
+        if (fkDeleteIds.includes(params.id)) {
+          const err = new Error('REFERENCE constraint'); err.number = 547; throw err;
+        }
+        deleted.push(params.id); return [];
       }
       if (/FROM users ORDER BY username/.test(text)) {
         if (listUsersShouldFail) throw new Error('DB non disponibile');
@@ -128,4 +140,78 @@ test('route che lancia → 500 JSON', async () => {
   const res = await agent.get('/api/admin/users');
   assert.strictEqual(res.status, 500);
   assert.ok(res.body.error);
+});
+
+test('creazione con nome/cognome/email → 201', async () => {
+  const { app } = await makeApp();
+  const agent = await loginAgent(app);
+  const res = await agent.post('/api/admin/users').send({ username: 'nuovo', password: 'pw', role: 'reception', nome: 'Anna', cognome: 'Bianchi', email: 'a@b.it' });
+  assert.strictEqual(res.status, 201);
+});
+
+test('modifica nome/email/password → 200', async () => {
+  const { app } = await makeApp();
+  const agent = await loginAgent(app);
+  const res = await agent.patch('/api/admin/users/2').send({ nome: 'X', email: 'x@y.it', password: 'nuova' });
+  assert.strictEqual(res.status, 200);
+});
+
+test('DELETE utente non-admin → 200', async () => {
+  const recep = { id: 2, username: 'recep', password_hash: await hashPassword('pw'), role: 'reception', attivo: 1 };
+  const { app } = await makeApp({ extraUsers: [recep] });
+  const agent = await loginAgent(app);
+  const res = await agent.delete('/api/admin/users/2');
+  assert.strictEqual(res.status, 200);
+});
+
+test('DELETE del proprio account → 400', async () => {
+  const { app } = await makeApp();
+  const agent = await loginAgent(app); // admin id=1
+  const res = await agent.delete('/api/admin/users/1');
+  assert.strictEqual(res.status, 400);
+});
+
+test('DELETE ultimo admin attivo → 400', async () => {
+  const admin2 = { id: 2, username: 'admin2', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
+  const { app } = await makeApp({ extraUsers: [admin2], countActiveAdminsOverride: 1 });
+  const agent = await loginAgent(app);
+  const res = await agent.delete('/api/admin/users/2');
+  assert.strictEqual(res.status, 400);
+});
+
+test('DELETE id non numerico → 400', async () => {
+  const { app } = await makeApp();
+  const agent = await loginAgent(app);
+  const res = await agent.delete('/api/admin/users/abc');
+  assert.strictEqual(res.status, 400);
+});
+
+test('DELETE senza login → 401', async () => {
+  const { app } = await makeApp();
+  const res = await request(app).delete('/api/admin/users/2');
+  assert.strictEqual(res.status, 401);
+});
+
+test('guardia ultimo admin: PATCH {attivo:""} sull\'unico admin → 400', async () => {
+  const admin2 = { id: 2, username: 'admin2', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
+  const { app } = await makeApp({ extraUsers: [admin2], countActiveAdminsOverride: 1 });
+  const agent = await loginAgent(app);
+  const res = await agent.patch('/api/admin/users/2').send({ attivo: '' });
+  assert.strictEqual(res.status, 400);
+});
+
+test('DELETE con vincolo FK → 409', async () => {
+  const recep = { id: 2, username: 'recep', password_hash: await hashPassword('pw'), role: 'reception', attivo: 1 };
+  const { app } = await makeApp({ extraUsers: [recep], fkDeleteIds: [2] });
+  const agent = await loginAgent(app);
+  const res = await agent.delete('/api/admin/users/2');
+  assert.strictEqual(res.status, 409);
+});
+
+test('PATCH con username duplicato → 409', async () => {
+  const recep = { id: 2, username: 'recep', password_hash: await hashPassword('pw'), role: 'reception', attivo: 1 };
+  const { app } = await makeApp({ extraUsers: [recep], duplicateUsernames: ['esistente'] });
+  const agent = await loginAgent(app);
+  const res = await agent.patch('/api/admin/users/2').send({ username: 'esistente' });
+  assert.strictEqual(res.status, 409);
 });

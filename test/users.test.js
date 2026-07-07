@@ -51,3 +51,35 @@ test('countActiveAdmins restituisce il valore n', async () => {
   const n = await users.countActiveAdmins(db);
   assert.strictEqual(n, 2);
 });
+
+test('updateUser aggiorna solo i campi in whitelist', async () => {
+  const db = fakeDb([]);
+  await users.updateUser(db, 7, { nome: 'Mario', email: 'm@x.it', ruoloFinto: 'x' });
+  const { text, params } = db.calls[0];
+  assert.match(text, /UPDATE users SET/);
+  assert.match(text, /nome = @nome/);
+  assert.match(text, /email = @email/);
+  assert.doesNotMatch(text, /ruoloFinto/);
+  assert.strictEqual(params.nome, 'Mario');
+  assert.strictEqual(params.id, 7);
+});
+
+test('updateUser senza campi validi non esegue query', async () => {
+  const db = fakeDb([]);
+  await users.updateUser(db, 7, { qualcosa: 1 });
+  assert.strictEqual(db.calls.length, 0);
+});
+
+test('deleteUser esegue DELETE per id', async () => {
+  const db = fakeDb([]);
+  await users.deleteUser(db, 9);
+  assert.match(db.calls[0].text, /DELETE FROM users WHERE id = @id/);
+  assert.strictEqual(db.calls[0].params.id, 9);
+});
+
+test('createUser passa i campi anagrafici', async () => {
+  const db = fakeDb([{ id: 5 }]);
+  await users.createUser(db, { username: 'u', passwordHash: 'h', role: 'reception', nome: 'A', cognome: 'B', email: 'a@b.it' });
+  assert.strictEqual(db.calls[0].params.nome, 'A');
+  assert.strictEqual(db.calls[0].params.email, 'a@b.it');
+});

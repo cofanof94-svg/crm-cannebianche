@@ -108,6 +108,7 @@ function rigaArrivo(a) {
   const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
   return `
     <tr>
+      <td class="prat">${esc(a.codpratica)}</td>
       <td class="cell-name">${a.nominativo ? esc(a.nominativo) : '<span class="dash">(senza nominativo)</span>'}</td>
       <td>${chipCamere(a.camere)}</td>
       <td class="cell-muted">${pax}</td>
@@ -122,15 +123,88 @@ function rigaArrivo(a) {
 }
 
 // --- Utenti (admin) ---
+let usersCache = [];
+let editingId = null;
+
 async function loadUsers() {
   const { body } = await api('/api/admin/users');
-  $('#user-list').innerHTML = (body.users || [])
-    .map((u) => `<li>
-      <span class="u-name">${esc(u.username)}</span>
-      <span class="role-tag ${u.attivo ? '' : 'off'}">${esc(u.role)}${u.attivo ? '' : ' · off'}</span>
-    </li>`)
-    .join('');
+  usersCache = body.users || [];
+  $('#user-list').innerHTML = usersCache.map((u) => `
+    <tr>
+      <td class="cell-name">${esc(u.username)}</td>
+      <td>${cell(u.nome)}</td>
+      <td>${cell(u.cognome)}</td>
+      <td class="cell-muted">${cell(u.email)}</td>
+      <td><span class="role-tag">${esc(u.role)}</span></td>
+      <td>${u.attivo ? '<span class="pill pill-incasa">Attivo</span>' : '<span class="pill pill-atteso">Disattivato</span>'}</td>
+      <td class="row-actions">
+        <button class="btn-icon" data-edit="${u.id}">Modifica</button>
+        <button class="btn-icon danger" data-del="${u.id}">Elimina</button>
+      </td>
+    </tr>`).join('');
 }
+
+function openUserDialog(user) {
+  editingId = user ? user.id : null;
+  const f = $('#user-form');
+  f.reset();
+  $('#user-form-error').textContent = '';
+  $('#user-dialog-title').textContent = user ? 'Modifica utente' : 'Nuovo utente';
+  $('#attivo-wrap').hidden = !user;
+  if (user) {
+    f.username.value = user.username || '';
+    f.role.value = user.role || 'reception';
+    f.nome.value = user.nome || '';
+    f.cognome.value = user.cognome || '';
+    f.email.value = user.email || '';
+    f.attivo.checked = !!user.attivo;
+    f.password.placeholder = 'lascia vuoto per non cambiarla';
+    f.password.required = false;
+  } else {
+    f.password.placeholder = '';
+    f.password.required = true;
+  }
+  $('#user-dialog').showModal();
+}
+
+async function salvaUtente(e) {
+  e.preventDefault();
+  const f = e.target;
+  const orNull = (v) => { const s = v.trim(); return s === '' ? null : s; };
+  const payload = {
+    username: f.username.value.trim(),
+    role: f.role.value,
+    nome: orNull(f.nome.value),
+    cognome: orNull(f.cognome.value),
+    email: orNull(f.email.value),
+  };
+  if (f.password.value) payload.password = f.password.value;
+  let res;
+  if (editingId) {
+    payload.attivo = f.attivo.checked;
+    res = await api(`/api/admin/users/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  } else {
+    res = await api('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) });
+  }
+  if (res.status === 200 || res.status === 201) { $('#user-dialog').close(); loadUsers(); }
+  else $('#user-form-error').textContent = res.body.error || 'Errore nel salvataggio';
+}
+
+async function eliminaUtente(id) {
+  const res = await api(`/api/admin/users/${id}`, { method: 'DELETE' });
+  if (res.status === 200) loadUsers();
+  else alert(res.body.error || 'Impossibile eliminare l\'utente');
+}
+
+$('#btn-nuovo-utente').addEventListener('click', () => openUserDialog(null));
+$('#user-cancel').addEventListener('click', () => $('#user-dialog').close());
+$('#user-form').addEventListener('submit', salvaUtente);
+$('#user-list').addEventListener('click', (e) => {
+  const ed = e.target.closest('[data-edit]');
+  const dl = e.target.closest('[data-del]');
+  if (ed) { const u = usersCache.find((x) => x.id === Number(ed.dataset.edit)); if (u) openUserDialog(u); }
+  else if (dl) eliminaUtente(Number(dl.dataset.del));
+});
 
 // --- eventi login/logout/crea utente ---
 $('#login-form').addEventListener('submit', async (e) => {
@@ -147,17 +221,6 @@ $('#login-form').addEventListener('submit', async (e) => {
 $('#logout-btn').addEventListener('click', async () => {
   await api('/api/auth/logout', { method: 'POST' });
   showLogin();
-});
-
-$('#new-user-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const f = e.target;
-  const { status } = await api('/api/admin/users', {
-    method: 'POST',
-    body: JSON.stringify({ username: f.username.value, password: f.password.value, role: f.role.value }),
-  });
-  if (status === 201) { f.reset(); $('#new-user-error').textContent = ''; loadUsers(); }
-  else $('#new-user-error').textContent = 'Errore nella creazione utente';
 });
 
 refresh();
