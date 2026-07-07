@@ -22,7 +22,7 @@ SELECT
   DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
   (SELECT MIN(NULLIF(LTRIM(RTRIM(tp.EstTimeArr)), '')) FROM TipoPre tp WHERE tp.codpratica = p.codpratica) AS oraArrivo,
   p.flgincasa AS inCasa,
-  (SELECT DesProvenienza FROM PrenotaProvenienze WHERE CodProvenienza = p.CodProvenienza) AS provenienza,
+  (SELECT TOP 1 DesProvenienza FROM PrenotaProvenienze WHERE CodProvenienza = p.CodProvenienza) AS provenienza,
   (SELECT TOP 1 desarra FROM Arrangia WHERE codarra = p.codarr) AS trattamento,
   p.Note AS note
 FROM Prenota p
