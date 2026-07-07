@@ -30,7 +30,17 @@ function showLogin() {
 
 // --- router hash ---
 function route() {
-  const view = (location.hash || '#home').slice(1);
+  const hash = (location.hash || '#home').slice(1);
+  // Scheda ospite: #cliente/<CodCli>
+  if (hash.startsWith('cliente/')) {
+    $('#topbar-title').textContent = 'Scheda ospite';
+    document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
+    document.querySelectorAll('.sidebar a').forEach((a) => a.classList.remove('active'));
+    $('#view-cliente').hidden = false;
+    loadCliente(hash.split('/')[1]);
+    return;
+  }
+  const view = hash;
   const known = ['home', 'arrivi', 'incasa', 'utenti'];
   let v = known.includes(view) ? view : 'home';
   // Utenti è riservato agli admin: reindirizza gli altri alla home
@@ -142,7 +152,7 @@ function scheda(a, pill) {
       <header class="bcard-head">
         <div class="bcard-prat"><span>Pratica</span><strong>${esc(a.codpratica)}</strong></div>
         <div class="bcard-created"><span>Data creazione</span><strong>${fmtData(a.dtPrenota)}</strong></div>
-        <div class="bcard-name">${a.nominativo ? esc(a.nominativo) : '(senza nominativo)'}</div>
+        <div class="bcard-name">${a.nominativo ? (a.codCliente ? `<a class="cli-link" href="#cliente/${a.codCliente}">${esc(a.nominativo)}</a>` : esc(a.nominativo)) : '(senza nominativo)'}</div>
         <div class="bcard-pills">${pill}</div>
       </header>
       <div class="bcard-body">
@@ -313,6 +323,123 @@ $('#login-form').addEventListener('submit', async (e) => {
 $('#logout-btn').addEventListener('click', async () => {
   await api('/api/auth/logout', { method: 'POST' });
   showLogin();
+});
+
+// --- Scheda ospite 360° ---
+let clienteCorrente = null;
+
+async function loadCliente(codCli) {
+  const body = $('#cliente-body');
+  const msg = $('#cliente-msg');
+  body.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…';
+  const { status, body: d } = await api(`/api/clienti/${encodeURIComponent(codCli)}`);
+  if (status === 404) { msg.textContent = 'Ospite non trovato.'; return; }
+  if (status !== 200) { msg.textContent = 'Errore nel leggere l\'ospite dal PMS.'; return; }
+  clienteCorrente = codCli;
+  const a = d.anagrafica;
+  const s = d.statistiche;
+  $('#cli-nome').textContent = a.nominativo || '(senza nominativo)';
+  $('#cli-avatar').textContent = ((a.cognome || a.nome || '?')[0] || '?').toUpperCase();
+  const luogo = [a.citta, a.nazione].filter(Boolean).join(' · ');
+  $('#cli-contatti').textContent = [a.telefono, a.cellulare, a.email, luogo].filter(Boolean).join('   ·   ') || '—';
+  $('#cli-vip').hidden = !a.vip;
+  $('#cli-nsogg').textContent = s.nSoggiorni;
+  $('#cli-speso').textContent = euro(s.totaleSpeso || 0);
+  $('#cli-visite').textContent = `${fmtData(s.primaVisita)} → ${fmtData(s.ultimaVisita)}`;
+  const an = $('#cli-anagnote');
+  if (a.note) { an.hidden = false; an.innerHTML = `<b>Note anagrafica (PMS)</b>${esc(a.note)}`; } else an.hidden = true;
+  $('#cli-soggiorni').innerHTML = (d.soggiorni || []).map(rigaSoggiorno).join('')
+    || '<tr><td colspan="7" class="cell-muted">Nessun soggiorno registrato.</td></tr>';
+  const c = a.consensi;
+  const cons = (ok, label) => `<span class="cons ${ok ? 'si' : 'no'}">${label}: ${ok ? 'Sì' : 'No'}</span>`;
+  $('#cli-consensi').innerHTML = cons(c.generale, 'Trattamento') + cons(c.conservazione, 'Conservazione') + cons(c.cessione, 'Cessione');
+  await caricaNote(codCli);
+  msg.hidden = true; body.hidden = false;
+}
+
+function statoSoggPill(stato) {
+  if (stato === 'In casa') return 'pill-incasa';
+  if (stato === 'Concluso') return 'pill-checkout';
+  if (stato === 'Partito') return 'pill-partenza';
+  return 'pill-atteso';
+}
+
+function rigaSoggiorno(x) {
+  return `<tr>
+    <td class="cell-num">${esc(x.codpratica)}</td>
+    <td class="cell-muted">${fmtData(x.dtarrivo)}</td>
+    <td class="cell-muted">${fmtData(x.dtpartenza)}</td>
+    <td class="cell-muted">${x.notti != null ? esc(x.notti) : '—'}</td>
+    <td>${x.camere ? chipCamere(x.camere) : dash}</td>
+    <td class="cell-num">${x.importo != null ? euro(x.importo) : dash}</td>
+    <td><span class="pill ${statoSoggPill(x.stato)}">${esc(x.stato)}</span></td>
+  </tr>`;
+}
+
+async function caricaNote(codCli) {
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/note`);
+  const note = body.note || [];
+  $('#cli-note').innerHTML = note.map((n) => `
+    <li data-nota="${n.id}">
+      <div class="nota-testo">${esc(n.testo)}</div>
+      <div class="nota-meta">
+        <span>${esc(n.autore || '?')} · ${new Date(n.created_at).toLocaleString('it-IT')}</span>
+        <span class="nota-az">
+          <button class="btn-icon" data-edit-nota="${n.id}">Modifica</button>
+          <button class="btn-icon danger" data-del-nota="${n.id}">Elimina</button>
+        </span>
+      </div>
+    </li>`).join('') || '<li class="nota-vuota">Nessuna nota. Aggiungine una qui sopra.</li>';
+}
+
+$('#nota-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const testo = f.testo.value.trim();
+  if (!testo || !clienteCorrente) return;
+  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/note`, {
+    method: 'POST', body: JSON.stringify({ testo }),
+  });
+  if (status === 201) { f.reset(); caricaNote(clienteCorrente); }
+});
+
+$('#cli-note').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-del-nota]');
+  const edit = e.target.closest('[data-edit-nota]');
+  if (del) {
+    await api(`/api/note/${del.dataset.delNota}`, { method: 'DELETE' });
+    caricaNote(clienteCorrente);
+  } else if (edit) {
+    const li = edit.closest('[data-nota]');
+    const nuovo = prompt('Modifica nota:', li.querySelector('.nota-testo').textContent);
+    if (nuovo != null && nuovo.trim()) {
+      await api(`/api/note/${edit.dataset.editNota}`, { method: 'PATCH', body: JSON.stringify({ testo: nuovo.trim() }) });
+      caricaNote(clienteCorrente);
+    }
+  }
+});
+
+// --- Ricerca ospite nella topbar ---
+let cliSearchTimer = null;
+$('#cli-search-input').addEventListener('input', (e) => {
+  const q = e.target.value.trim();
+  clearTimeout(cliSearchTimer);
+  const box = $('#cli-search-results');
+  if (q.length < 2) { box.hidden = true; box.innerHTML = ''; return; }
+  cliSearchTimer = setTimeout(async () => {
+    const { body } = await api(`/api/clienti?q=${encodeURIComponent(q)}`);
+    const r = body.risultati || [];
+    box.innerHTML = r.length
+      ? r.map((c) => `<a href="#cliente/${c.codCli}" data-cli>${esc(c.nominativo || '(senza nome)')}<span>${esc([c.citta, c.email].filter(Boolean).join(' · '))}</span></a>`).join('')
+      : '<div class="cli-vuoto">Nessun ospite trovato</div>';
+    box.hidden = false;
+  }, 250);
+});
+$('#cli-search-results').addEventListener('click', (e) => {
+  if (e.target.closest('[data-cli]')) { $('#cli-search-results').hidden = true; $('#cli-search-input').value = ''; }
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.cli-search')) $('#cli-search-results').hidden = true;
 });
 
 refresh();
