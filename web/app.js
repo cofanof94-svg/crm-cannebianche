@@ -108,7 +108,7 @@ function rigaArrivo(a) {
   const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
   return `
     <tr>
-      <td class="prat">${a.codpratica}</td>
+      <td class="prat">${esc(a.codpratica)}</td>
       <td class="cell-name">${a.nominativo ? esc(a.nominativo) : '<span class="dash">(senza nominativo)</span>'}</td>
       <td>${chipCamere(a.camere)}</td>
       <td class="cell-muted">${pax}</td>
@@ -170,12 +170,13 @@ function openUserDialog(user) {
 async function salvaUtente(e) {
   e.preventDefault();
   const f = e.target;
+  const orNull = (v) => { const s = v.trim(); return s === '' ? null : s; };
   const payload = {
     username: f.username.value.trim(),
     role: f.role.value,
-    nome: f.nome.value.trim(),
-    cognome: f.cognome.value.trim(),
-    email: f.email.value.trim(),
+    nome: orNull(f.nome.value),
+    cognome: orNull(f.cognome.value),
+    email: orNull(f.email.value),
   };
   if (f.password.value) payload.password = f.password.value;
   let res;

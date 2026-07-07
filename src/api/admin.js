@@ -3,8 +3,6 @@ const { requireRole } = require('../auth/middleware');
 const {
   listUsers,
   createUser,
-  setUserActive,
-  setUserRole,
   getUserById,
   countActiveAdmins,
   updateUser,
@@ -43,7 +41,9 @@ function createAdminRouter(db) {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
     const { username, role, attivo, nome, cognome, email, password } = req.body || {};
-    const disattiva = attivo === false || attivo === 0;
+    const cambiaAttivo = attivo !== undefined;
+    const nuovoAttivo = !!attivo;
+    const disattiva = cambiaAttivo && !nuovoAttivo;
     // Un admin non può cambiare il PROPRIO ruolo (verso un ruolo diverso) o disattivarsi
     if (id === req.session.user.id && ((role !== undefined && role !== req.session.user.role) || disattiva)) {
       return res.status(400).json({ error: 'Non puoi modificare il tuo ruolo o stato' });
@@ -61,7 +61,7 @@ function createAdminRouter(db) {
     const campi = {};
     if (username !== undefined) campi.username = username;
     if (role !== undefined) campi.role = role;
-    if (attivo !== undefined) campi.attivo = attivo ? 1 : 0;
+    if (cambiaAttivo) campi.attivo = nuovoAttivo ? 1 : 0;
     if (nome !== undefined) campi.nome = nome;
     if (cognome !== undefined) campi.cognome = cognome;
     if (email !== undefined) campi.email = email;

@@ -197,16 +197,7 @@ tbody tr:hover { background: var(--surface-2); }
 .state { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
 
 /* ===== Utenti ===== */
-.list-card { padding: 6px 4px; margin-bottom: 18px; }
-.user-list { list-style: none; margin: 0; padding: 0; }
-.user-list li { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--border); }
-.user-list li:last-child { border-bottom: none; }
-.user-list .u-name { font-weight: 600; }
 .role-tag { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--brand); background: var(--brand-050); border-radius: 6px; padding: 2px 8px; }
-.role-tag.off { color: var(--danger); background: #f6e4e2; }
-.new-user { padding: 18px; }
-.new-user-title { font-family: var(--font-display); font-weight: 600; font-size: 15px; margin-bottom: 12px; }
-.new-user-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
 /* codpratica */
 .prat { font-family: var(--font-display); font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; }
