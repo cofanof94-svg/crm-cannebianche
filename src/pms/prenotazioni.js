@@ -33,13 +33,14 @@ SELECT
   p.Note AS note
 FROM Prenota p
 LEFT JOIN Anagra a ON a.CodCli = p.codclinterm
-WHERE p.DataEliminazione IS NULL AND CAST(p.dtarrivo AS date) = CAST(@data AS date)
+WHERE p.DataEliminazione IS NULL AND ISNULL(p.flgincasa, '') <> 'P'
+  AND CAST(p.dtarrivo AS date) = CAST(@data AS date)
 ORDER BY a.Cognome, p.codpratica`;
 
 const SQL_RIEPILOGO = `
 SELECT
-  (SELECT COUNT(*) FROM Prenota WHERE DataEliminazione IS NULL AND CAST(dtarrivo AS date) = CAST(@data AS date)) AS arrivi,
-  (SELECT COUNT(*) FROM Prenota WHERE DataEliminazione IS NULL AND CAST(dtpartenza AS date) = CAST(@data AS date)) AS partenze,
+  (SELECT COUNT(*) FROM Prenota WHERE DataEliminazione IS NULL AND ISNULL(flgincasa, '') <> 'P' AND CAST(dtarrivo AS date) = CAST(@data AS date)) AS arrivi,
+  (SELECT COUNT(*) FROM Prenota WHERE DataEliminazione IS NULL AND ISNULL(flgincasa, '') <> 'P' AND CAST(dtpartenza AS date) = CAST(@data AS date)) AS partenze,
   (SELECT COUNT(*) FROM Prenota WHERE DataEliminazione IS NULL AND flgincasa = 'S'
      AND CAST(dtarrivo AS date) <= CAST(@data AS date) AND CAST(dtpartenza AS date) > CAST(@data AS date)) AS presenti`;
 
