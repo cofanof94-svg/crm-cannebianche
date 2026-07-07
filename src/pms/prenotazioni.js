@@ -1,5 +1,7 @@
 // Arrivi di una data. Camera = COALESCE(assegnazione roomlist in AlbergDay, pianificata in TipoPre).
-// Trattamento/provenienza via subquery TOP 1 per evitare fan-out. Una riga per prenotazione.
+// OSPITE = codclinterm (l'ospite reale); codcli è l'intestatario del conto/pagante.
+// Trattamento: codtrat da TipoPre.CodArr, decodificato in Trattamenti.destrat (NON Arrangia).
+// Provenienza via subquery TOP 1 per evitare fan-out. Una riga per prenotazione.
 const SQL_ARRIVI = `
 SELECT
   p.codpratica,
@@ -23,10 +25,14 @@ SELECT
   (SELECT MIN(NULLIF(LTRIM(RTRIM(tp.EstTimeArr)), '')) FROM TipoPre tp WHERE tp.codpratica = p.codpratica) AS oraArrivo,
   p.flgincasa AS inCasa,
   (SELECT TOP 1 DesProvenienza FROM PrenotaProvenienze WHERE CodProvenienza = p.CodProvenienza) AS provenienza,
-  (SELECT TOP 1 desarra FROM Arrangia WHERE codarra = p.codarr) AS trattamento,
+  (SELECT TOP 1 t.destrat FROM Trattamenti t
+   WHERE t.codtrat = COALESCE(
+     (SELECT TOP 1 tp.CodArr FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.CodArr, '') <> ''),
+     NULLIF(p.codarr, ''))
+   ORDER BY t.CodStag DESC) AS trattamento,
   p.Note AS note
 FROM Prenota p
-LEFT JOIN Anagra a ON a.CodCli = p.codcli
+LEFT JOIN Anagra a ON a.CodCli = p.codclinterm
 WHERE p.DataEliminazione IS NULL AND CAST(p.dtarrivo AS date) = CAST(@data AS date)
 ORDER BY a.Cognome, p.codpratica`;
 
