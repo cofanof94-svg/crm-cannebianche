@@ -7,39 +7,78 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <main id="app">
-    <section id="login-view" hidden>
+  <!-- LOGIN -->
+  <section id="login-view" class="login" hidden>
+    <form id="login-form" class="login-card">
       <h1>CRM Direct Holiday</h1>
-      <form id="login-form">
-        <label>Utente <input name="username" required /></label>
-        <label>Password <input name="password" type="password" required /></label>
-        <button type="submit">Accedi</button>
-        <p id="login-error" class="error"></p>
-      </form>
-    </section>
+      <label>Utente <input name="username" required autocomplete="username" /></label>
+      <label>Password <input name="password" type="password" required autocomplete="current-password" /></label>
+      <button type="submit">Accedi</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </section>
 
-    <section id="home-view" hidden>
-      <header>
-        <span id="welcome"></span>
-        <button id="logout-btn">Esci</button>
-      </header>
-      <section id="admin-panel" hidden>
-        <h2>Utenti</h2>
-        <ul id="user-list"></ul>
-        <form id="new-user-form">
-          <input name="username" placeholder="username" required />
-          <input name="password" type="password" placeholder="password" required />
-          <select name="role">
-            <option value="reception">reception</option>
-            <option value="marketing">marketing</option>
-            <option value="admin">admin</option>
-          </select>
-          <button type="submit">Crea utente</button>
-          <p id="new-user-error" class="error"></p>
-        </form>
-      </section>
-    </section>
-  </main>
+  <!-- APP -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand">CRM Direct Holiday</div>
+      <div class="user"><span id="welcome"></span><button id="logout-btn">Esci</button></div>
+    </header>
+    <div class="layout">
+      <nav class="sidebar">
+        <a href="#home" data-nav="home">Home</a>
+        <a href="#arrivi" data-nav="arrivi">Arrivi</a>
+        <a href="#utenti" data-nav="utenti" id="nav-utenti" hidden>Utenti</a>
+      </nav>
+      <main class="content">
+        <!-- HOME -->
+        <section id="view-home" class="view" hidden>
+          <h2>Oggi</h2>
+          <div class="kpi-row">
+            <a class="kpi" href="#arrivi"><span class="kpi-n" id="kpi-arrivi">–</span><span class="kpi-l">Arrivi</span></a>
+            <div class="kpi"><span class="kpi-n" id="kpi-partenze">–</span><span class="kpi-l">Partenze</span></div>
+            <div class="kpi"><span class="kpi-n" id="kpi-presenti">–</span><span class="kpi-l">Presenti</span></div>
+          </div>
+          <p id="home-error" class="error"></p>
+        </section>
+
+        <!-- ARRIVI -->
+        <section id="view-arrivi" class="view" hidden>
+          <div class="view-head">
+            <h2>Arrivi</h2>
+            <label>Data <input type="date" id="arrivi-data" /></label>
+          </div>
+          <div id="arrivi-stato" class="stato"></div>
+          <div class="table-wrap">
+            <table id="arrivi-tab" hidden>
+              <thead><tr>
+                <th>Nominativo</th><th>Camera</th><th>Pax</th><th>Notti</th>
+                <th>Partenza</th><th>Ora</th><th>Stato</th><th>Provenienza</th><th>Trattamento</th><th>Note</th>
+              </tr></thead>
+              <tbody id="arrivi-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- UTENTI (admin) -->
+        <section id="view-utenti" class="view" hidden>
+          <h2>Utenti</h2>
+          <ul id="user-list"></ul>
+          <form id="new-user-form" class="inline-form">
+            <input name="username" placeholder="username" required />
+            <input name="password" type="password" placeholder="password" required />
+            <select name="role">
+              <option value="reception">reception</option>
+              <option value="marketing">marketing</option>
+              <option value="admin">admin</option>
+            </select>
+            <button type="submit">Crea utente</button>
+            <p id="new-user-error" class="error"></p>
+          </form>
+        </section>
+      </main>
+    </div>
+  </div>
   <script src="/app.js"></script>
 </body>
 </html>
