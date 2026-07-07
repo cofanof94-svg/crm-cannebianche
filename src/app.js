@@ -4,6 +4,7 @@ const path = require('path');
 const { createAuthRouter } = require('./auth/routes');
 const { createAdminRouter } = require('./api/admin');
 const { createArriviRouter } = require('./api/arrivi');
+const { createClientiRouter } = require('./api/clienti');
 const { requireAuth } = require('./auth/middleware');
 
 function createApp({ crmDb, pmsDb, sessionSecret }) {
@@ -28,6 +29,7 @@ function createApp({ crmDb, pmsDb, sessionSecret }) {
   app.use('/api/admin', createAdminRouter(crmDb));
   app.get('/api/me', requireAuth, (req, res) => res.json({ user: req.session.user }));
   app.use('/api', createArriviRouter(pmsDb));
+  app.use('/api', createClientiRouter(pmsDb, crmDb));
 
   app.use(express.static(path.join(__dirname, '..', 'web')));
 
