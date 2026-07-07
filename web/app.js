@@ -134,7 +134,8 @@ function chipCamere(camere) {
 function scheda(a, pill) {
   const pax = a.paxBambini ? `${a.paxAdulti}+${a.paxBambini}` : `${a.paxAdulti}`;
   const tratt = [a.trattamento, a.tariffa].filter(Boolean).map(esc).join(' / ') || '—';
-  const notti = a.notti != null ? ` · ${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}` : '';
+  const nottiLine = a.notti != null ? `<br><span class="tile-sub">${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}</span>` : '';
+  const tot = a.importo != null ? euro(a.importo) : dash;
   const note = a.note ? `<div class="bcard-note"><b>Note</b>${esc(a.note)}</div>` : '';
   return `
     <article class="bcard">
@@ -145,11 +146,9 @@ function scheda(a, pill) {
         <div class="bcard-pills">${pill}</div>
       </header>
       <div class="bcard-body">
-        <div class="tile"><span class="tile-l">Arrivo → Partenza</span><span class="tile-v">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${notti}</span></div>
-        <div class="tile"><span class="tile-l">Pax</span><span class="tile-v">${pax}</span></div>
-        <div class="tile"><span class="tile-l">Camere</span><span class="tile-v">${a.camere ? chipCamere(a.camere) : dash}</span></div>
-        <div class="tile"><span class="tile-l">Trattamento / Tariffa</span><span class="tile-v"><span class="chip">${tratt}</span></span></div>
-        <div class="tile tile--tot"><span class="tile-l">Totale</span><span class="tile-v">${a.importo != null ? euro(a.importo) : dash}</span></div>
+        <div class="tile"><span class="tile-l">Arrivo → Partenza</span><span class="tile-v">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${nottiLine}</span></div>
+        <div class="tile"><span class="tile-l">Pax / Camere</span><span class="tile-v">${pax} pax · ${a.camere ? chipCamere(a.camere) : dash}</span></div>
+        <div class="tile"><span class="tile-l">Trattamento / Tariffa</span><div class="tratt-row"><span class="chip">${tratt}</span><span class="tratt-tot">${tot}</span></div></div>
       </div>
       ${note}
     </article>`;
