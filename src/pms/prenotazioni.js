@@ -45,6 +45,7 @@ const COLONNE = `
 const SQL_ARRIVI = `
 SELECT
   p.codpratica,
+  p.codclinterm AS codCliente,
   a.Cognome AS cognome,
   a.Nome AS nome,
   CONVERT(varchar(10), p.dtarrivo, 23) AS dtarrivo,
@@ -61,6 +62,7 @@ ORDER BY a.Cognome, p.codpratica`;
 const SQL_INCASA = `
 SELECT
   p.codpratica,
+  p.codclinterm AS codCliente,
   a.Cognome AS cognome,
   a.Nome AS nome,
   CONVERT(varchar(10), p.dtarrivo, 23) AS dtarrivo,
@@ -105,6 +107,7 @@ function mapRiga(r) {
     .join(' ') || null;
   return {
     codpratica: r.codpratica,
+    codCliente: r.codCliente,
     nominativo,
     camere: pulisci(r.camere),
     paxAdulti: r.paxAdulti,

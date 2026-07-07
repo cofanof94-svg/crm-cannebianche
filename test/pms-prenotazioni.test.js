@@ -8,12 +8,13 @@ function fakePms(recordset) {
 
 test('getArriviByData mappa e normalizza le righe', async () => {
   const pms = fakePms([{
-    codpratica: 60176, cognome: 'HILTON', nome: '', camere: '211',
+    codpratica: 60176, codCliente: 47186, cognome: 'HILTON', nome: '', camere: '211',
     paxAdulti: 2, paxBambini: 0, dtpartenza: '2026-07-11', notti: 5,
     oraArrivo: '__.__', inCasa: 'N', provenienza: 'Booking.com', trattamento: 'Mezza Pensione', note: '  ',
   }]);
   const [a] = await getArriviByData(pms, '2026-07-06');
   assert.strictEqual(a.codpratica, 60176);
+  assert.strictEqual(a.codCliente, 47186);          // per link scheda cliente
   assert.strictEqual(a.nominativo, 'HILTON');       // nome vuoto ignorato
   assert.strictEqual(a.camere, '211');
   assert.strictEqual(a.oraArrivo, null);            // '__.__' -> null
