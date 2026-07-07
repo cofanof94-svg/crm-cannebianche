@@ -14,6 +14,7 @@ async function makeApp() {
   };
   const pmsDb = {
     async query(text) {
+      if (/FROM Persona/.test(text)) return [{ data: '2026-07-07' }];
       if (/AS arrivi/.test(text)) return [{ arrivi: 8, partenze: 3, presenti: 21 }];
       // query arrivi
       return [{ codpratica: 1, cognome: 'ROSSI', nome: 'MARIO', camere: '101',
@@ -52,12 +53,12 @@ test('GET /api/arrivi con data non valida → 400', async () => {
   assert.strictEqual(res.status, 400);
 });
 
-test('GET /api/arrivi senza data → 200 e usa oggi (formato ISO)', async () => {
+test('GET /api/arrivi senza data → usa la data di lavoro del PMS (Persona.Dataggio)', async () => {
   const app = await makeApp();
   const ag = await agente(app);
   const res = await ag.get('/api/arrivi');
   assert.strictEqual(res.status, 200);
-  assert.match(res.body.data, /^\d{4}-\d{2}-\d{2}$/);
+  assert.strictEqual(res.body.data, '2026-07-07');
 });
 
 test('GET /api/dashboard → 200 con i tre conteggi', async () => {

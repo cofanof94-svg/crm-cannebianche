@@ -178,6 +178,7 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--surface-2); }
 .cell-name { font-weight: 600; color: var(--text); }
 .cell-muted { color: var(--muted); }
+.cell-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); font-weight: 500; }
 .cell-note { color: var(--muted); max-width: 260px; }
 .dash { color: var(--faint); }
 

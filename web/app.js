@@ -50,16 +50,17 @@ function route() {
 window.addEventListener('hashchange', route);
 
 // --- Home ---
-function dataEstesa() {
-  const s = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+function dataEstesa(iso) {
+  const d = iso ? new Date(iso + 'T00:00:00') : new Date();
+  const s = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 async function loadHome() {
   $('#home-error').textContent = '';
-  $('#home-date').textContent = dataEstesa();
   const { status, body } = await api('/api/dashboard');
   if (status !== 200) { $('#home-error').textContent = 'Impossibile leggere i dati dal PMS.'; return; }
+  $('#home-date').textContent = dataEstesa(body.data);
   $('#kpi-arrivi').textContent = body.arrivi;
   $('#kpi-partenze').textContent = body.partenze;
   $('#kpi-presenti').textContent = body.presenti;
@@ -69,22 +70,22 @@ async function loadHome() {
 let arriviInit = false;
 function initArrivi() {
   if (!arriviInit) {
-    const input = $('#arrivi-data');
-    input.value = new Date().toISOString().slice(0, 10);
-    input.addEventListener('change', loadArrivi);
+    $('#arrivi-data').addEventListener('change', loadArrivi);
     arriviInit = true;
   }
   loadArrivi();
 }
 
 async function loadArrivi() {
-  const data = $('#arrivi-data').value || new Date().toISOString().slice(0, 10);
+  const input = $('#arrivi-data');
   const tab = $('#arrivi-tab');
   const msg = $('#arrivi-msg');
   const stato = $('#arrivi-stato');
   tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
-  const { status, body } = await api(`/api/arrivi?data=${encodeURIComponent(data)}`);
+  const q = input.value ? `?data=${encodeURIComponent(input.value)}` : '';
+  const { status, body } = await api(`/api/arrivi${q}`);
   if (status !== 200) { msg.textContent = 'Errore nel leggere gli arrivi dal PMS.'; return; }
+  if (!input.value && body.data) input.value = body.data; // data di lavoro dal server
   const arrivi = body.arrivi || [];
   if (arrivi.length === 0) { msg.textContent = 'Nessun arrivo per questa data.'; stato.textContent = '0 arrivi'; return; }
   stato.textContent = `${arrivi.length} ${arrivi.length === 1 ? 'arrivo' : 'arrivi'}`;
@@ -94,6 +95,7 @@ async function loadArrivi() {
 
 const dash = '<span class="dash">—</span>';
 function cell(v) { return v ? esc(v) : dash; }
+const euro = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
 function chipCamere(camere) {
   if (!camere) return dash;
@@ -107,7 +109,7 @@ function rigaArrivo(a) {
     : '<span class="pill pill-atteso">Atteso</span>';
   const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
   const noteRow = a.note
-    ? `<tr class="note-row"><td colspan="10"><span class="note-label">Note</span>${esc(a.note)}</td></tr>`
+    ? `<tr class="note-row"><td colspan="11"><span class="note-label">Note</span>${esc(a.note)}</td></tr>`
     : '';
   return `
     <tr class="arr-row${a.note ? ' has-note' : ''}">
@@ -119,8 +121,9 @@ function rigaArrivo(a) {
       <td class="cell-muted">${cell(partenza)}</td>
       <td class="cell-muted">${cell(a.oraArrivo)}</td>
       <td>${stato}</td>
-      <td class="cell-muted">${cell(a.provenienza)}</td>
       <td class="cell-muted">${cell(a.trattamento)}</td>
+      <td class="cell-muted">${cell(a.tariffa)}</td>
+      <td class="cell-num">${a.importo != null ? euro(a.importo) : dash}</td>
     </tr>${noteRow}`;
 }
 

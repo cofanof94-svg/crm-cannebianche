@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../auth/middleware');
-const { getArriviByData, getRiepilogoGiorno } = require('../pms/prenotazioni');
+const { getArriviByData, getRiepilogoGiorno, getDataLavoro } = require('../pms/prenotazioni');
 
 function oggiISO() {
   return new Date().toISOString().slice(0, 10);
@@ -17,14 +17,14 @@ function createArriviRouter(pmsDb) {
   router.use(requireAuth);
 
   router.get('/arrivi', async (req, res) => {
-    const data = req.query.data || oggiISO();
+    const data = req.query.data || (await getDataLavoro(pmsDb)) || oggiISO();
     if (!dataValida(data)) return res.status(400).json({ error: 'Data non valida' });
     const arrivi = await getArriviByData(pmsDb, data);
     res.json({ data, arrivi });
   });
 
   router.get('/dashboard', async (req, res) => {
-    const data = req.query.data || oggiISO();
+    const data = req.query.data || (await getDataLavoro(pmsDb)) || oggiISO();
     if (!dataValida(data)) return res.status(400).json({ error: 'Data non valida' });
     const riepilogo = await getRiepilogoGiorno(pmsDb, data);
     res.json({ data, ...riepilogo });

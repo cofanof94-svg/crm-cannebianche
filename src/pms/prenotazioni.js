@@ -1,7 +1,7 @@
 // Arrivi di una data. Camera = COALESCE(assegnazione roomlist in AlbergDay, pianificata in TipoPre).
 // OSPITE = codclinterm (l'ospite reale); codcli è l'intestatario del conto/pagante.
-// Trattamento: codtrat da TipoPre.CodArr, decodificato in Trattamenti.destrat (NON Arrangia).
-// Provenienza via subquery TOP 1 per evitare fan-out. Una riga per prenotazione.
+// Trattamento (codice codarr, es. BB), Tariffa (CodConvenzione, concat distinte) e Importo (SUM)
+// presi con COALESCE(Alberg, TipoPre): al check-in i dati passano da TipoPre ad Alberg. Una riga per prenotazione.
 const SQL_ARRIVI = `
 SELECT
   p.codpratica,
@@ -24,12 +24,22 @@ SELECT
   DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
   (SELECT MIN(NULLIF(LTRIM(RTRIM(tp.EstTimeArr)), '')) FROM TipoPre tp WHERE tp.codpratica = p.codpratica) AS oraArrivo,
   p.flgincasa AS inCasa,
-  (SELECT TOP 1 DesProvenienza FROM PrenotaProvenienze WHERE CodProvenienza = p.CodProvenienza) AS provenienza,
-  (SELECT TOP 1 t.destrat FROM Trattamenti t
-   WHERE t.codtrat = COALESCE(
-     (SELECT TOP 1 tp.CodArr FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.CodArr, '') <> ''),
-     NULLIF(p.codarr, ''))
-   ORDER BY t.CodStag DESC) AS trattamento,
+  COALESCE(
+    (SELECT TOP 1 al.codarr FROM Alberg al WHERE al.codpratica = p.codpratica AND ISNULL(al.codarr, '') <> ''),
+    (SELECT TOP 1 tp.CodArr FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.CodArr, '') <> ''),
+    NULLIF(p.codarr, '')) AS trattamento,
+  COALESCE(
+    (SELECT STUFF((SELECT DISTINCT ', ' + al.CodConvenzione
+       FROM Alberg al WHERE al.codpratica = p.codpratica AND ISNULL(al.CodConvenzione, '') <> ''
+       FOR XML PATH('')), 1, 2, '')),
+    (SELECT STUFF((SELECT DISTINCT ', ' + tp.CodConvenzione
+       FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.CodConvenzione, '') <> ''
+       FOR XML PATH('')), 1, 2, ''))
+  ) AS tariffa,
+  COALESCE(
+    (SELECT SUM(al.impoeur) FROM Alberg al WHERE al.codpratica = p.codpratica),
+    (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
+  ) AS importo,
   p.Note AS note
 FROM Prenota p
 LEFT JOIN Anagra a ON a.CodCli = p.codclinterm
@@ -71,8 +81,9 @@ function mapArrivo(r) {
     notti: r.notti,
     oraArrivo: normalizzaOra(r.oraArrivo),
     inCasa: r.inCasa === 'S',
-    provenienza: pulisci(r.provenienza),
     trattamento: pulisci(r.trattamento),
+    tariffa: pulisci(r.tariffa),
+    importo: r.importo == null ? null : Number(r.importo),
     note: pulisci(r.note),
   };
 }
@@ -92,4 +103,10 @@ async function getRiepilogoGiorno(pmsDb, data) {
   };
 }
 
-module.exports = { getArriviByData, getRiepilogoGiorno };
+// Data di lavoro del PMS (business date), da Persona.Dataggio. Formato 'YYYY-MM-DD'.
+async function getDataLavoro(pmsDb) {
+  const rows = await pmsDb.query('SELECT TOP 1 CONVERT(varchar(10), Dataggio, 23) AS data FROM Persona', {});
+  return rows[0] && rows[0].data ? rows[0].data : null;
+}
+
+module.exports = { getArriviByData, getRiepilogoGiorno, getDataLavoro };
