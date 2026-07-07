@@ -67,11 +67,22 @@ async function loadHome() {
   $('#kpi-presenti').textContent = body.presenti;
 }
 
+// Ricerca unica: numero camera, numero prenotazione (codpratica) o cliente.
+function matchRicerca(a, term) {
+  const t = (term || '').trim().toLowerCase();
+  if (!t) return true;
+  return String(a.codpratica).includes(t)
+    || (a.camere || '').toLowerCase().includes(t)
+    || (a.nominativo || '').toLowerCase().includes(t);
+}
+
 // --- Arrivi ---
 let arriviInit = false;
+let arriviAll = [];
 function initArrivi() {
   if (!arriviInit) {
     $('#arrivi-data').addEventListener('change', loadArrivi);
+    $('#arrivi-search').addEventListener('input', renderArrivi);
     arriviInit = true;
   }
   loadArrivi();
@@ -87,10 +98,25 @@ async function loadArrivi() {
   const { status, body } = await api(`/api/arrivi${q}`);
   if (status !== 200) { msg.textContent = 'Errore nel leggere gli arrivi dal PMS.'; return; }
   if (!input.value && body.data) input.value = body.data; // data di lavoro dal server
-  const arrivi = body.arrivi || [];
-  if (arrivi.length === 0) { msg.textContent = 'Nessun arrivo per questa data.'; stato.textContent = '0 arrivi'; return; }
-  stato.textContent = `${arrivi.length} ${arrivi.length === 1 ? 'arrivo' : 'arrivi'}`;
-  $('#arrivi-body').innerHTML = arrivi.map(rigaArrivo).join('');
+  arriviAll = body.arrivi || [];
+  renderArrivi();
+}
+
+function renderArrivi() {
+  const tab = $('#arrivi-tab');
+  const msg = $('#arrivi-msg');
+  const stato = $('#arrivi-stato');
+  const lista = arriviAll.filter((a) => matchRicerca(a, $('#arrivi-search').value));
+  if (lista.length === 0) {
+    tab.hidden = true; msg.hidden = false;
+    msg.textContent = arriviAll.length === 0 ? 'Nessun arrivo per questa data.' : 'Nessun risultato per la ricerca.';
+    stato.textContent = `${arriviAll.length} ${arriviAll.length === 1 ? 'arrivo' : 'arrivi'}`;
+    return;
+  }
+  stato.textContent = lista.length === arriviAll.length
+    ? `${arriviAll.length} ${arriviAll.length === 1 ? 'arrivo' : 'arrivi'}`
+    : `${lista.length} di ${arriviAll.length}`;
+  $('#arrivi-body').innerHTML = lista.map(rigaArrivo).join('');
   msg.hidden = true; tab.hidden = false;
 }
 
@@ -129,7 +155,16 @@ function rigaArrivo(a) {
 }
 
 // --- Clienti in casa (sempre alla data di lavoro del PMS: nessun selettore data) ---
-function initInCasa() { loadInCasa(); }
+let incasaInited = false;
+let incasaAll = [];
+let incasaData = null;
+function initInCasa() {
+  if (!incasaInited) {
+    $('#incasa-search').addEventListener('input', renderInCasa);
+    incasaInited = true;
+  }
+  loadInCasa();
+}
 
 async function loadInCasa() {
   const tab = $('#incasa-tab');
@@ -138,11 +173,27 @@ async function loadInCasa() {
   tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
   const { status, body } = await api('/api/incasa');
   if (status !== 200) { msg.textContent = 'Errore nel leggere i dati dal PMS.'; return; }
-  const clienti = body.clienti || [];
-  const quando = body.data ? dataEstesa(body.data) : '';
-  if (clienti.length === 0) { msg.textContent = 'Nessun cliente in casa.'; stato.textContent = quando; return; }
-  stato.textContent = `${clienti.length} clienti · ${quando}`;
-  $('#incasa-body').innerHTML = clienti.map(rigaInCasa).join('');
+  incasaAll = body.clienti || [];
+  incasaData = body.data || null;
+  renderInCasa();
+}
+
+function renderInCasa() {
+  const tab = $('#incasa-tab');
+  const msg = $('#incasa-msg');
+  const stato = $('#incasa-stato');
+  const quando = incasaData ? dataEstesa(incasaData) : '';
+  const lista = incasaAll.filter((a) => matchRicerca(a, $('#incasa-search').value));
+  if (lista.length === 0) {
+    tab.hidden = true; msg.hidden = false;
+    msg.textContent = incasaAll.length === 0 ? 'Nessun cliente in casa.' : 'Nessun risultato per la ricerca.';
+    stato.textContent = quando;
+    return;
+  }
+  stato.textContent = lista.length === incasaAll.length
+    ? `${incasaAll.length} clienti · ${quando}`
+    : `${lista.length} di ${incasaAll.length} · ${quando}`;
+  $('#incasa-body').innerHTML = lista.map(rigaInCasa).join('');
   msg.hidden = true; tab.hidden = false;
 }
 

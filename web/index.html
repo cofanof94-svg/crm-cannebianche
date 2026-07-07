@@ -108,9 +108,12 @@
               <h1>Arrivi del giorno</h1>
               <p class="sub" id="arrivi-stato"></p>
             </div>
-            <label class="date-field">Data
-              <input type="date" id="arrivi-data" />
-            </label>
+            <div class="toolbar">
+              <input type="search" id="arrivi-search" class="search" placeholder="Cerca camera, prenotazione o cliente…" />
+              <label class="date-field">Data
+                <input type="date" id="arrivi-data" />
+              </label>
+            </div>
           </div>
           <div class="card table-wrap">
             <table id="arrivi-tab" hidden>
@@ -130,6 +133,9 @@
             <div>
               <h1>Clienti in casa</h1>
               <p class="sub" id="incasa-stato"></p>
+            </div>
+            <div class="toolbar">
+              <input type="search" id="incasa-search" class="search" placeholder="Cerca camera, prenotazione o cliente…" />
             </div>
           </div>
           <div class="card table-wrap">
