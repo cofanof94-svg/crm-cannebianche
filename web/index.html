@@ -111,7 +111,7 @@
           <div class="card table-wrap">
             <table id="arrivi-tab" hidden>
               <thead><tr>
-                <th>Ospite</th><th>Camera</th><th>Pax</th><th>Notti</th>
+                <th>Prenota</th><th>Ospite</th><th>Camera</th><th>Pax</th><th>Notti</th>
                 <th>Partenza</th><th>Ora</th><th>Stato</th><th>Provenienza</th><th>Trattamento</th><th>Note</th>
               </tr></thead>
               <tbody id="arrivi-body"></tbody>
@@ -122,24 +122,44 @@
 
         <!-- UTENTI (admin) -->
         <section id="view-utenti" class="view" hidden>
-          <div class="page-head"><div><h1>Utenti</h1><p class="sub">Gestione accessi e ruoli</p></div></div>
-          <div class="card list-card">
-            <ul id="user-list" class="user-list"></ul>
+          <div class="page-head">
+            <div><h1>Utenti</h1><p class="sub">Gestione accessi e ruoli</p></div>
+            <button id="btn-nuovo-utente" class="btn btn-primary">+ Nuovo utente</button>
           </div>
-          <form id="new-user-form" class="new-user card">
-            <div class="new-user-title">Nuovo utente</div>
-            <div class="new-user-row">
-              <input name="username" placeholder="username" required />
-              <input name="password" type="password" placeholder="password" required />
-              <select name="role">
-                <option value="reception">reception</option>
-                <option value="marketing">marketing</option>
-                <option value="admin">admin</option>
-              </select>
-              <button type="submit" class="btn btn-primary">Crea utente</button>
-            </div>
-            <p id="new-user-error" class="error"></p>
-          </form>
+          <div class="card table-wrap">
+            <table class="users-tab">
+              <thead><tr>
+                <th>Utente</th><th>Nome</th><th>Cognome</th><th>Email</th><th>Ruolo</th><th>Stato</th><th></th>
+              </tr></thead>
+              <tbody id="user-list"></tbody>
+            </table>
+          </div>
+
+          <dialog id="user-dialog" class="modal">
+            <form id="user-form">
+              <div class="modal-title" id="user-dialog-title">Nuovo utente</div>
+              <div class="modal-grid">
+                <label class="field">Username <input name="username" required /></label>
+                <label class="field">Ruolo
+                  <select name="role">
+                    <option value="reception">reception</option>
+                    <option value="marketing">marketing</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </label>
+                <label class="field">Nome <input name="nome" /></label>
+                <label class="field">Cognome <input name="cognome" /></label>
+                <label class="field field-wide">Email <input name="email" type="email" /></label>
+                <label class="field field-wide">Password <input name="password" type="password" autocomplete="new-password" /></label>
+                <label class="check" id="attivo-wrap" hidden><input type="checkbox" name="attivo" /> Attivo</label>
+              </div>
+              <p id="user-form-error" class="error"></p>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="user-cancel">Annulla</button>
+                <button type="submit" class="btn btn-primary">Salva</button>
+              </div>
+            </form>
+          </dialog>
         </section>
       </div>
     </div>
