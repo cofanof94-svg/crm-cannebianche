@@ -1,8 +1,9 @@
 const SQL_CERCA = `
 SELECT TOP 20 CodCli, Cognome, Nome, email, Cellulare, Citta
 FROM Anagra
-WHERE Cognome LIKE @q OR Nome LIKE @q OR email LIKE @q OR Cellulare LIKE @q
-   OR (ISNULL(Cognome,'') + ' ' + ISNULL(Nome,'')) LIKE @q
+WHERE (Cognome LIKE @q OR Nome LIKE @q OR email LIKE @q OR Cellulare LIKE @q
+   OR (ISNULL(Cognome,'') + ' ' + ISNULL(Nome,'')) LIKE @q)
+  AND (ISNULL(Cognome,'') <> '' OR ISNULL(Nome,'') <> '')
 ORDER BY Cognome, Nome`;
 
 const SQL_CLIENTE = `
