@@ -106,8 +106,11 @@ function rigaArrivo(a) {
     ? '<span class="pill pill-incasa">In casa</span>'
     : '<span class="pill pill-atteso">Atteso</span>';
   const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
+  const noteRow = a.note
+    ? `<tr class="note-row"><td colspan="10"><span class="note-label">Note</span>${esc(a.note)}</td></tr>`
+    : '';
   return `
-    <tr>
+    <tr class="arr-row${a.note ? ' has-note' : ''}">
       <td class="prat">${esc(a.codpratica)}</td>
       <td class="cell-name">${a.nominativo ? esc(a.nominativo) : '<span class="dash">(senza nominativo)</span>'}</td>
       <td>${chipCamere(a.camere)}</td>
@@ -118,8 +121,7 @@ function rigaArrivo(a) {
       <td>${stato}</td>
       <td class="cell-muted">${cell(a.provenienza)}</td>
       <td class="cell-muted">${cell(a.trattamento)}</td>
-      <td class="cell-note">${a.note ? esc(a.note) : ''}</td>
-    </tr>`;
+    </tr>${noteRow}`;
 }
 
 // --- Utenti (admin) ---

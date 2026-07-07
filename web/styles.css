@@ -181,6 +181,12 @@ tbody tr:hover { background: var(--surface-2); }
 .cell-note { color: var(--muted); max-width: 260px; }
 .dash { color: var(--faint); }
 
+/* Riga note a tutta larghezza sotto ogni arrivo */
+.arr-row.has-note td { border-bottom: none; }
+.note-row td { padding: 2px 16px 15px; color: var(--muted); font-size: 12.5px; line-height: 1.5; border-bottom: 1px solid var(--border); }
+.note-row:hover { background: transparent; }
+.note-label { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); background: var(--surface-2); border-radius: 5px; padding: 1px 6px; margin-right: 8px; vertical-align: 1px; }
+
 .room {
   display: inline-block; font-family: var(--font-display); font-variant-numeric: tabular-nums;
   background: var(--brand-050); color: var(--brand); border-radius: 6px;
