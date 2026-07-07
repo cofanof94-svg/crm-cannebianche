@@ -34,11 +34,12 @@ test('getArriviByData: nominativo assente -> null', async () => {
 test('getInCasaByData mappa le righe (con dtarrivo)', async () => {
   const pms = fakePms([{ codpratica: 5, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
     paxAdulti: 2, paxBambini: 0, dtarrivo: '2026-04-20', dtpartenza: '2026-04-25', notti: 5,
-    oraArrivo: '', inCasa: 'S', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }]);
+    oraArrivo: '', inCasa: 'S', statoPartenza: 'incasa', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }]);
   const [c] = await getInCasaByData(pms, '2026-04-22');
   assert.strictEqual(c.nominativo, 'VERDI LUIGI');
   assert.strictEqual(c.dtarrivo, '2026-04-20');
   assert.strictEqual(c.inCasa, true);
+  assert.strictEqual(c.statoPartenza, 'incasa');
   assert.strictEqual(c.importo, 500);
   assert.strictEqual(pms.calls[0].params.data, '2026-04-22');
 });

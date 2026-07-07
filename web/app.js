@@ -128,31 +128,28 @@ function rigaArrivo(a) {
     </tr>${noteRow}`;
 }
 
-// --- Clienti in casa ---
-let incasaInit = false;
-function initInCasa() {
-  if (!incasaInit) {
-    $('#incasa-data').addEventListener('change', loadInCasa);
-    incasaInit = true;
-  }
-  loadInCasa();
-}
+// --- Clienti in casa (sempre alla data di lavoro del PMS: nessun selettore data) ---
+function initInCasa() { loadInCasa(); }
 
 async function loadInCasa() {
-  const input = $('#incasa-data');
   const tab = $('#incasa-tab');
   const msg = $('#incasa-msg');
   const stato = $('#incasa-stato');
   tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
-  const q = input.value ? `?data=${encodeURIComponent(input.value)}` : '';
-  const { status, body } = await api(`/api/incasa${q}`);
+  const { status, body } = await api('/api/incasa');
   if (status !== 200) { msg.textContent = 'Errore nel leggere i dati dal PMS.'; return; }
-  if (!input.value && body.data) input.value = body.data; // data di lavoro dal server
   const clienti = body.clienti || [];
-  if (clienti.length === 0) { msg.textContent = 'Nessun cliente in casa per questa data.'; stato.textContent = '0 in casa'; return; }
-  stato.textContent = `${clienti.length} in casa`;
+  const quando = body.data ? dataEstesa(body.data) : '';
+  if (clienti.length === 0) { msg.textContent = 'Nessun cliente in casa.'; stato.textContent = quando; return; }
+  stato.textContent = `${clienti.length} clienti · ${quando}`;
   $('#incasa-body').innerHTML = clienti.map(rigaInCasa).join('');
   msg.hidden = true; tab.hidden = false;
+}
+
+function statoPill(s) {
+  if (s === 'checkout') return '<span class="pill pill-checkout">Check-out effettuato</span>';
+  if (s === 'partenza') return '<span class="pill pill-partenza">In partenza</span>';
+  return '<span class="pill pill-incasa">In casa</span>';
 }
 
 function rigaInCasa(a) {
@@ -160,7 +157,7 @@ function rigaInCasa(a) {
   const arrivo = a.dtarrivo ? a.dtarrivo.split('-').reverse().join('/') : null;
   const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
   const noteRow = a.note
-    ? `<tr class="note-row"><td colspan="10"><span class="note-label">Note</span>${esc(a.note)}</td></tr>`
+    ? `<tr class="note-row"><td colspan="11"><span class="note-label">Note</span>${esc(a.note)}</td></tr>`
     : '';
   return `
     <tr class="arr-row${a.note ? ' has-note' : ''}">
@@ -171,6 +168,7 @@ function rigaInCasa(a) {
       <td class="cell-muted">${cell(arrivo)}</td>
       <td class="cell-muted">${cell(partenza)}</td>
       <td class="cell-muted">${a.notti}</td>
+      <td>${statoPill(a.statoPartenza)}</td>
       <td class="cell-muted">${cell(a.trattamento)}</td>
       <td class="cell-muted">${cell(a.tariffa)}</td>
       <td class="cell-num">${a.importo != null ? euro(a.importo) : dash}</td>

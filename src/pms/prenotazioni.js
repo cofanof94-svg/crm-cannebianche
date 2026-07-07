@@ -64,12 +64,17 @@ SELECT
   CONVERT(varchar(10), p.dtarrivo, 23) AS dtarrivo,
   CONVERT(varchar(10), p.dtpartenza, 23) AS dtpartenza,
   DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
+  CASE
+    WHEN (SELECT TOP 1 al.flgpar FROM Alberg al WHERE al.codpratica = p.codpratica) IN ('O', 'D') THEN 'checkout'
+    WHEN CAST(p.dtpartenza AS date) = CAST(@data AS date) THEN 'partenza'
+    ELSE 'incasa'
+  END AS statoPartenza,
   ${COLONNE}
 FROM Prenota p
 LEFT JOIN Anagra a ON a.CodCli = p.codclinterm
 WHERE p.DataEliminazione IS NULL AND p.flgincasa = 'S'
   AND CAST(p.dtarrivo AS date) <= CAST(@data AS date)
-  AND CAST(p.dtpartenza AS date) >  CAST(@data AS date)
+  AND CAST(p.dtpartenza AS date) >= CAST(@data AS date)
 ORDER BY a.Cognome, p.codpratica`;
 
 const SQL_RIEPILOGO = `
@@ -105,6 +110,7 @@ function mapRiga(r) {
     dtarrivo: r.dtarrivo, // presente solo in "clienti in casa"
     dtpartenza: r.dtpartenza,
     notti: r.notti,
+    statoPartenza: r.statoPartenza, // 'incasa' | 'partenza' | 'checkout' (solo "in casa")
     oraArrivo: normalizzaOra(r.oraArrivo),
     inCasa: r.inCasa === 'S',
     trattamento: pulisci(r.trattamento),

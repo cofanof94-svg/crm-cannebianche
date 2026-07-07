@@ -18,7 +18,7 @@ async function makeApp() {
       if (/AS arrivi/.test(text)) return [{ arrivi: 8, partenze: 3, presenti: 21 }];
       if (/AS dtarrivo/.test(text)) return [{ codpratica: 5, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
         paxAdulti: 2, paxBambini: 0, dtarrivo: '2026-04-20', dtpartenza: '2026-04-25', notti: 5,
-        oraArrivo: null, inCasa: 'S', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }];
+        oraArrivo: null, inCasa: 'S', statoPartenza: 'incasa', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }];
       // query arrivi
       return [{ codpratica: 1, cognome: 'ROSSI', nome: 'MARIO', camere: '101',
         paxAdulti: 2, paxBambini: 0, dtpartenza: '2026-07-10', notti: 4,

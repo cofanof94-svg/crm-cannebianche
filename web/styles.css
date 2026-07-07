@@ -199,6 +199,10 @@ tbody tr:hover { background: var(--surface-2); }
 .pill-incasa::before { background: var(--sea); }
 .pill-atteso { background: var(--accent-050); color: var(--accent-700); }
 .pill-atteso::before { background: var(--accent); }
+.pill-partenza { background: var(--accent-050); color: var(--accent-700); }
+.pill-partenza::before { background: var(--accent); }
+.pill-checkout { background: #edf0f2; color: var(--muted); }
+.pill-checkout::before { background: var(--faint); }
 
 /* ===== Stati (loading / vuoto / errore) ===== */
 .state { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
