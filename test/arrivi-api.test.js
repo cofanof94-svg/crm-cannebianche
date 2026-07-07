@@ -16,7 +16,7 @@ async function makeApp() {
     async query(text) {
       if (/FROM Persona/.test(text)) return [{ data: '2026-07-07' }];
       if (/AS arrivi/.test(text)) return [{ arrivi: 8, partenze: 3, presenti: 21 }];
-      if (/AS dtarrivo/.test(text)) return [{ codpratica: 5, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
+      if (/statoPartenza/.test(text)) return [{ codpratica: 5, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
         paxAdulti: 2, paxBambini: 0, dtarrivo: '2026-04-20', dtpartenza: '2026-04-25', notti: 5,
         oraArrivo: null, inCasa: 'S', statoPartenza: 'incasa', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }];
       // query arrivi

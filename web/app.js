@@ -90,7 +90,7 @@ function initArrivi() {
 
 async function loadArrivi() {
   const input = $('#arrivi-data');
-  const tab = $('#arrivi-tab');
+  const tab = $('#arrivi-cards');
   const msg = $('#arrivi-msg');
   const stato = $('#arrivi-stato');
   tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
@@ -103,12 +103,12 @@ async function loadArrivi() {
 }
 
 function renderArrivi() {
-  const tab = $('#arrivi-tab');
+  const cards = $('#arrivi-cards');
   const msg = $('#arrivi-msg');
   const stato = $('#arrivi-stato');
   const lista = arriviAll.filter((a) => matchRicerca(a, $('#arrivi-search').value));
   if (lista.length === 0) {
-    tab.hidden = true; msg.hidden = false;
+    cards.hidden = true; msg.hidden = false;
     msg.textContent = arriviAll.length === 0 ? 'Nessun arrivo per questa data.' : 'Nessun risultato per la ricerca.';
     stato.textContent = `${arriviAll.length} ${arriviAll.length === 1 ? 'arrivo' : 'arrivi'}`;
     return;
@@ -116,42 +116,50 @@ function renderArrivi() {
   stato.textContent = lista.length === arriviAll.length
     ? `${arriviAll.length} ${arriviAll.length === 1 ? 'arrivo' : 'arrivi'}`
     : `${lista.length} di ${arriviAll.length}`;
-  $('#arrivi-body').innerHTML = lista.map(rigaArrivo).join('');
-  msg.hidden = true; tab.hidden = false;
+  cards.innerHTML = lista.map(schedaArrivo).join('');
+  msg.hidden = true; cards.hidden = false;
 }
 
 const dash = '<span class="dash">—</span>';
 function cell(v) { return v ? esc(v) : dash; }
 const euro = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+function fmtData(d) { return d ? d.split('-').reverse().join('/') : '—'; }
 
 function chipCamere(camere) {
   if (!camere) return dash;
   return camere.split(',').map((c) => `<span class="room">${esc(c.trim())}</span>`).join('');
 }
 
-function rigaArrivo(a) {
+// Scheda prenotazione condivisa da Arrivi e Clienti in casa.
+function scheda(a, pill) {
   const pax = a.paxBambini ? `${a.paxAdulti}+${a.paxBambini}` : `${a.paxAdulti}`;
-  const stato = a.inCasa
+  const tratt = [a.trattamento, a.tariffa].filter(Boolean).map(esc).join(' / ') || '—';
+  const notti = a.notti != null ? ` · ${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}` : '';
+  const note = a.note ? `<div class="bcard-note"><b>Note</b>${esc(a.note)}</div>` : '';
+  return `
+    <article class="bcard">
+      <header class="bcard-head">
+        <div class="bcard-prat"><span>Pratica</span><strong>${esc(a.codpratica)}</strong></div>
+        <div class="bcard-name">${a.nominativo ? esc(a.nominativo) : '(senza nominativo)'}</div>
+        <div class="bcard-pills">${pill}</div>
+      </header>
+      <div class="bcard-body">
+        <div class="tile"><span class="tile-l">Arrivo → Partenza</span><span class="tile-v">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${notti}</span></div>
+        <div class="tile"><span class="tile-l">Pax</span><span class="tile-v">${pax}</span></div>
+        <div class="tile"><span class="tile-l">Camere</span><span class="tile-v">${a.camere ? chipCamere(a.camere) : dash}</span></div>
+        <div class="tile"><span class="tile-l">Data creazione</span><span class="tile-v">${fmtData(a.dtPrenota)}</span></div>
+        <div class="tile"><span class="tile-l">Trattamento / Tariffa</span><span class="tile-v"><span class="chip">${tratt}</span></span></div>
+        <div class="tile tile--tot"><span class="tile-l">Totale</span><span class="tile-v">${a.importo != null ? euro(a.importo) : dash}</span></div>
+      </div>
+      ${note}
+    </article>`;
+}
+
+function schedaArrivo(a) {
+  const pill = a.inCasa
     ? '<span class="pill pill-incasa">In casa</span>'
     : '<span class="pill pill-atteso">Atteso</span>';
-  const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
-  const noteRow = a.note
-    ? `<tr class="note-row"><td colspan="11"><span class="note-label">Note</span>${esc(a.note)}</td></tr>`
-    : '';
-  return `
-    <tr class="arr-row${a.note ? ' has-note' : ''}">
-      <td class="prat">${esc(a.codpratica)}</td>
-      <td class="cell-name">${a.nominativo ? esc(a.nominativo) : '<span class="dash">(senza nominativo)</span>'}</td>
-      <td>${chipCamere(a.camere)}</td>
-      <td class="cell-muted">${pax}</td>
-      <td class="cell-muted">${a.notti}</td>
-      <td class="cell-muted">${cell(partenza)}</td>
-      <td class="cell-muted">${cell(a.oraArrivo)}</td>
-      <td>${stato}</td>
-      <td class="cell-muted">${cell(a.trattamento)}</td>
-      <td class="cell-muted">${cell(a.tariffa)}</td>
-      <td class="cell-num">${a.importo != null ? euro(a.importo) : dash}</td>
-    </tr>${noteRow}`;
+  return scheda(a, pill);
 }
 
 // --- Clienti in casa (sempre alla data di lavoro del PMS: nessun selettore data) ---
@@ -167,7 +175,7 @@ function initInCasa() {
 }
 
 async function loadInCasa() {
-  const tab = $('#incasa-tab');
+  const tab = $('#incasa-cards');
   const msg = $('#incasa-msg');
   const stato = $('#incasa-stato');
   tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
@@ -179,13 +187,13 @@ async function loadInCasa() {
 }
 
 function renderInCasa() {
-  const tab = $('#incasa-tab');
+  const cards = $('#incasa-cards');
   const msg = $('#incasa-msg');
   const stato = $('#incasa-stato');
   const quando = incasaData ? dataEstesa(incasaData) : '';
   const lista = incasaAll.filter((a) => matchRicerca(a, $('#incasa-search').value));
   if (lista.length === 0) {
-    tab.hidden = true; msg.hidden = false;
+    cards.hidden = true; msg.hidden = false;
     msg.textContent = incasaAll.length === 0 ? 'Nessun cliente in casa.' : 'Nessun risultato per la ricerca.';
     stato.textContent = quando;
     return;
@@ -193,8 +201,8 @@ function renderInCasa() {
   stato.textContent = lista.length === incasaAll.length
     ? `${incasaAll.length} clienti · ${quando}`
     : `${lista.length} di ${incasaAll.length} · ${quando}`;
-  $('#incasa-body').innerHTML = lista.map(rigaInCasa).join('');
-  msg.hidden = true; tab.hidden = false;
+  cards.innerHTML = lista.map(schedaInCasa).join('');
+  msg.hidden = true; cards.hidden = false;
 }
 
 function statoPill(s) {
@@ -203,27 +211,8 @@ function statoPill(s) {
   return '<span class="pill pill-incasa">In casa</span>';
 }
 
-function rigaInCasa(a) {
-  const pax = a.paxBambini ? `${a.paxAdulti}+${a.paxBambini}` : `${a.paxAdulti}`;
-  const arrivo = a.dtarrivo ? a.dtarrivo.split('-').reverse().join('/') : null;
-  const partenza = a.dtpartenza ? a.dtpartenza.split('-').reverse().join('/') : null;
-  const noteRow = a.note
-    ? `<tr class="note-row"><td colspan="11"><span class="note-label">Note</span>${esc(a.note)}</td></tr>`
-    : '';
-  return `
-    <tr class="arr-row${a.note ? ' has-note' : ''}">
-      <td class="prat">${esc(a.codpratica)}</td>
-      <td class="cell-name">${a.nominativo ? esc(a.nominativo) : '<span class="dash">(senza nominativo)</span>'}</td>
-      <td>${chipCamere(a.camere)}</td>
-      <td class="cell-muted">${pax}</td>
-      <td class="cell-muted">${cell(arrivo)}</td>
-      <td class="cell-muted">${cell(partenza)}</td>
-      <td class="cell-muted">${a.notti}</td>
-      <td>${statoPill(a.statoPartenza)}</td>
-      <td class="cell-muted">${cell(a.trattamento)}</td>
-      <td class="cell-muted">${cell(a.tariffa)}</td>
-      <td class="cell-num">${a.importo != null ? euro(a.importo) : dash}</td>
-    </tr>${noteRow}`;
+function schedaInCasa(a) {
+  return scheda(a, statoPill(a.statoPartenza));
 }
 
 // --- Utenti (admin) ---

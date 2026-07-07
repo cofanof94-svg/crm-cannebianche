@@ -38,6 +38,7 @@ const COLONNE = `
     (SELECT SUM(al.impoeur) FROM Alberg al WHERE al.codpratica = p.codpratica),
     (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
   ) AS importo,
+  CONVERT(varchar(10), p.dtprenota, 23) AS dtPrenota,
   p.Note AS note`;
 
 // Arrivi della data: prenotazioni con dtarrivo = @data (esclusi i 'P' partiti).
@@ -46,6 +47,7 @@ SELECT
   p.codpratica,
   a.Cognome AS cognome,
   a.Nome AS nome,
+  CONVERT(varchar(10), p.dtarrivo, 23) AS dtarrivo,
   CONVERT(varchar(10), p.dtpartenza, 23) AS dtpartenza,
   DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
   ${COLONNE}
@@ -107,8 +109,9 @@ function mapRiga(r) {
     camere: pulisci(r.camere),
     paxAdulti: r.paxAdulti,
     paxBambini: r.paxBambini,
-    dtarrivo: r.dtarrivo, // presente solo in "clienti in casa"
+    dtarrivo: r.dtarrivo,
     dtpartenza: r.dtpartenza,
+    dtPrenota: r.dtPrenota, // data creazione prenotazione
     notti: r.notti,
     statoPartenza: r.statoPartenza, // 'incasa' | 'partenza' | 'checkout' (solo "in casa")
     oraArrivo: normalizzaOra(r.oraArrivo),
