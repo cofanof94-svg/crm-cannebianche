@@ -140,6 +140,7 @@ function scheda(a, pill) {
     <article class="bcard">
       <header class="bcard-head">
         <div class="bcard-prat"><span>Pratica</span><strong>${esc(a.codpratica)}</strong></div>
+        <div class="bcard-created"><span>Data creazione</span><strong>${fmtData(a.dtPrenota)}</strong></div>
         <div class="bcard-name">${a.nominativo ? esc(a.nominativo) : '(senza nominativo)'}</div>
         <div class="bcard-pills">${pill}</div>
       </header>
@@ -147,7 +148,6 @@ function scheda(a, pill) {
         <div class="tile"><span class="tile-l">Arrivo → Partenza</span><span class="tile-v">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${notti}</span></div>
         <div class="tile"><span class="tile-l">Pax</span><span class="tile-v">${pax}</span></div>
         <div class="tile"><span class="tile-l">Camere</span><span class="tile-v">${a.camere ? chipCamere(a.camere) : dash}</span></div>
-        <div class="tile"><span class="tile-l">Data creazione</span><span class="tile-v">${fmtData(a.dtPrenota)}</span></div>
         <div class="tile"><span class="tile-l">Trattamento / Tariffa</span><span class="tile-v"><span class="chip">${tratt}</span></span></div>
         <div class="tile tile--tot"><span class="tile-l">Totale</span><span class="tile-v">${a.importo != null ? euro(a.importo) : dash}</span></div>
       </div>

@@ -218,6 +218,9 @@ tbody tr:hover { background: var(--surface-2); }
 .bcard-prat { display: flex; flex-direction: column; line-height: 1.1; flex: none; }
 .bcard-prat span { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #a9cdd4; }
 .bcard-prat strong { font-family: var(--font-display); font-size: 17px; font-variant-numeric: tabular-nums; }
+.bcard-created { display: flex; flex-direction: column; line-height: 1.1; flex: none; padding-left: 16px; border-left: 1px solid rgba(255,255,255,.18); }
+.bcard-created span { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #a9cdd4; }
+.bcard-created strong { font-family: var(--font-display); font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .bcard-name { flex: 1; font-weight: 600; font-size: 16px; min-width: 0; }
 .bcard-pills { display: flex; gap: 8px; flex: none; }
 .bcard-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; padding: 16px 18px; }
