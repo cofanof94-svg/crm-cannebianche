@@ -31,7 +31,12 @@ function showLogin() {
 function route() {
   const view = (location.hash || '#home').slice(1);
   const known = ['home', 'arrivi', 'utenti'];
-  const v = known.includes(view) ? view : 'home';
+  let v = known.includes(view) ? view : 'home';
+  // Utenti è riservato agli admin: reindirizza gli altri alla home
+  if (v === 'utenti' && !(currentUser && currentUser.role === 'admin')) {
+    location.hash = '#home';
+    return;
+  }
   document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
   document.querySelectorAll('.sidebar a').forEach((a) => a.classList.toggle('active', a.dataset.nav === v));
   $(`#view-${v}`).hidden = false;
