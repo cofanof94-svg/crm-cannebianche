@@ -357,6 +357,7 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .ric-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .ric-txt strong { font-size: 14.5px; }
 .ric-txt span { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ric-incasa { display: flex; align-items: center; gap: 8px; flex: none; }
 .ric-go { color: var(--faint); font-size: 22px; flex: none; }
 
 @media (max-width: 900px) {

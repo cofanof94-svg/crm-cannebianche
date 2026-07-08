@@ -1,10 +1,21 @@
+// cameraInCasa: camera(e) se l'ospite è in casa alla data di lavoro (Persona.Dataggio), altrimenti NULL.
 const SQL_CERCA = `
-SELECT TOP 20 CodCli, Cognome, Nome, email, Cellulare, Citta
-FROM Anagra
-WHERE (Cognome LIKE @q OR Nome LIKE @q OR email LIKE @q OR Cellulare LIKE @q
-   OR (ISNULL(Cognome,'') + ' ' + ISNULL(Nome,'')) LIKE @q)
-  AND (ISNULL(Cognome,'') <> '' OR ISNULL(Nome,'') <> '')
-ORDER BY Cognome, Nome`;
+DECLARE @dlav date = (SELECT TOP 1 Dataggio FROM Persona);
+SELECT TOP 20 a.CodCli, a.Cognome, a.Nome, a.email, a.Cellulare, a.Telefono, a.Citta,
+  (SELECT STUFF((SELECT DISTINCT ', ' + ad.codcam
+      FROM Prenota p
+      JOIN Alberg al ON al.codpratica = p.codpratica
+      JOIN AlbergDay ad ON ad.codalb = al.codalb
+      WHERE p.codclinterm = a.CodCli AND p.DataEliminazione IS NULL AND p.flgincasa = 'S'
+        AND CAST(p.dtarrivo AS date) <= @dlav AND CAST(p.dtpartenza AS date) >= @dlav
+        AND ISNULL(ad.codcam,'') <> ''
+        AND @dlav >= CAST(ad.dtarrivo AS date) AND @dlav <= CAST(ad.dtpartenza AS date)
+      FOR XML PATH('')), 1, 2, '')) AS cameraInCasa
+FROM Anagra a
+WHERE (a.Cognome LIKE @q OR a.Nome LIKE @q OR a.email LIKE @q OR a.Cellulare LIKE @q
+   OR (ISNULL(a.Cognome,'') + ' ' + ISNULL(a.Nome,'')) LIKE @q)
+  AND (ISNULL(a.Cognome,'') <> '' OR ISNULL(a.Nome,'') <> '')
+ORDER BY a.Cognome, a.Nome`;
 
 const SQL_CLIENTE = `
 SELECT CodCli, Cognome, Nome, Telefono, Cellulare, email, Citta, CodNaz,
@@ -61,7 +72,9 @@ async function cercaClienti(pmsDb, termine) {
     nominativo: nominativo(r.Cognome, r.Nome),
     email: pulisci(r.email),
     cellulare: pulisci(r.Cellulare),
+    telefono: pulisci(r.Telefono),
     citta: pulisci(r.Citta),
+    cameraInCasa: pulisci(r.cameraInCasa),
   }));
 }
 

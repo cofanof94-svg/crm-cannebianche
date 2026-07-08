@@ -261,11 +261,15 @@ async function loadRicerca(q) {
 }
 
 function cardRicerca(c) {
-  const sub = [c.citta, c.email, c.cellulare].filter(Boolean).join(' · ');
+  const sub = [c.citta, c.telefono, c.cellulare, c.email].filter(Boolean).join(' · ');
   const iniziale = ((c.nominativo || '?')[0] || '?').toUpperCase();
+  const incasa = c.cameraInCasa
+    ? `<span class="ric-incasa"><span class="pill pill-incasa">In casa</span>${chipCamere(c.cameraInCasa)}</span>`
+    : '';
   return `<a class="ric-item" href="#cliente/${c.codCli}">
     <span class="ric-av">${esc(iniziale)}</span>
     <span class="ric-txt"><strong>${esc(c.nominativo || '(senza nominativo)')}</strong><span>${esc(sub)}</span></span>
+    ${incasa}
     <span class="ric-go">›</span>
   </a>`;
 }

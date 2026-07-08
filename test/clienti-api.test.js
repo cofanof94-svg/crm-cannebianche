@@ -18,7 +18,7 @@ async function makeApp() {
   };
   const pmsDb = {
     async query(text) {
-      if (/TOP 20 CodCli/.test(text)) return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Citta: 'TRANI' }];
+      if (/cameraInCasa/.test(text)) return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Telefono: '080123', Citta: 'TRANI', cameraInCasa: null }];
       if (/FROM Anagra WHERE CodCli/.test(text)) return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', Telefono: '', Cellulare: '', email: 'a@b.it', Citta: 'TRANI', CodNaz: 'I', dtNascita: '1964-10-17', CodFis: 'X', CodVip: '', Annotazioni: '', Privacy: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' }];
       // soggiorni
       return [{ codpratica: 1, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2, camere: '109', importo: 855, stato: 'Concluso' },
