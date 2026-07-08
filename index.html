@@ -1,0 +1,894 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root{
+    --bg:#f1ece0; --surface:#fbf9f2; --surface-2:#f6f2e7;
+    --ink:#1b271f; --ink-soft:#3a4a40; --muted:#7a786c; --line:#e2dccd;
+    --green:#2f5d4d; --green-deep:#1f3b30; --green-tint:#e7efe9;
+    --brass:#a9824a; --brass-tint:#f3ead9;
+    --terra:#a8472f; --terra-tint:#f6e4dd;
+    --shadow:0 1px 2px rgba(27,39,31,.06),0 8px 24px rgba(27,39,31,.07);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(169,130,74,.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, rgba(47,93,77,.08), transparent 55%),
+    var(--bg);
+    color:var(--ink);font-family:"Hanken Grotesk",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 80px}
+  h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;letter-spacing:-.01em;margin:0}
+  button{font-family:inherit;cursor:pointer}
+  input,textarea,select{font-family:inherit;font-size:14px;color:var(--ink)}
+
+  /* Auth bar */
+  .authbar{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:10px;font-size:12.5px;color:var(--muted)}
+  .authbar .who{font-weight:600;color:var(--ink-soft)}
+  .rolebadge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+  .rolebadge.mgr{background:var(--green-tint);color:var(--green-deep)}
+  .rolebadge.rec{background:var(--brass-tint);color:var(--brass)}
+
+  /* Header */
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .crest{width:46px;height:46px;border-radius:12px;background:linear-gradient(150deg,var(--green),var(--green-deep));
+    display:grid;place-items:center;color:#f1ece0;font-family:"Fraunces",serif;font-size:22px;box-shadow:var(--shadow)}
+  .brand h1{font-size:26px;line-height:1.05}
+  .brand .sub{font-size:12.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .hotel-name{border:none;background:transparent;font-family:"Fraunces",serif;font-size:26px;color:var(--ink);
+    font-weight:600;width:auto;min-width:120px;padding:0;border-bottom:1px dashed transparent}
+  .hotel-name:hover{border-bottom-color:var(--line)} .hotel-name:focus{outline:none;border-bottom-color:var(--brass)}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 16px;min-width:84px;box-shadow:var(--shadow)}
+  .stat b{font-family:"Fraunces",serif;font-size:22px;display:block;line-height:1.1}
+  .stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+
+  /* Tabs */
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:22px}
+  .tab{background:transparent;border:none;padding:11px 18px;font-size:14.5px;font-weight:600;color:var(--muted);
+    border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s}
+  .tab:hover{color:var(--ink)} .tab.active{color:var(--green-deep);border-bottom-color:var(--green)}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:7px;border-radius:10px;padding:10px 16px;font-size:13.5px;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:.15s;white-space:nowrap}
+  .btn:hover{border-color:var(--brass);transform:translateY(-1px)}
+  .btn.primary{background:var(--green-deep);color:#f1ece0;border-color:var(--green-deep)}
+  .btn.primary:hover{background:var(--green)}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--terra);border-color:var(--terra-tint)} .btn.danger:hover{background:var(--terra-tint);border-color:var(--terra)}
+  .btn.sm{padding:7px 12px;font-size:12.5px}
+  .btn[disabled]{opacity:.5;cursor:not-allowed;transform:none}
+
+  /* Arrivals view */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .arr-intro{padding:22px 24px}
+  .arr-intro h2{font-size:20px;margin-bottom:4px}
+  .arr-intro p{margin:0 0 16px;color:var(--ink-soft);font-size:14px;max-width:680px}
+  .arr-input{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+  textarea.arrivals{flex:1;min-width:260px;min-height:120px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface-2)}
+  textarea.arrivals:focus{outline:none;border-color:var(--brass)}
+  .arr-actions{display:flex;flex-direction:column;gap:10px;min-width:190px}
+  .hint{font-size:12px;color:var(--muted)}
+  .filedrop{display:block;border:1px dashed var(--line);border-radius:10px;padding:11px 14px;text-align:center;font-size:13px;color:var(--ink-soft);background:var(--surface-2)}
+  .filedrop:hover{border-color:var(--brass);color:var(--ink)}
+
+  .arr-results{margin-top:22px;display:grid;gap:22px}
+  .res-block h3{font-size:16px;display:flex;align-items:center;gap:9px;margin-bottom:12px}
+  .pill{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;font-family:"Hanken Grotesk",sans-serif}
+  .pill.rep{background:var(--green-tint);color:var(--green-deep)} .pill.new{background:var(--brass-tint);color:var(--brass)}
+  .arr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+
+  .acard{border:1px solid var(--line);border-radius:12px;padding:16px 17px;background:var(--surface);position:relative;transition:.15s}
+  .acard:hover{box-shadow:var(--shadow);border-color:var(--brass)}
+  .acard.repeater{border-left:3px solid var(--green)}
+  .acard.newg{border-left:3px solid var(--brass);background:linear-gradient(180deg,var(--brass-tint),var(--surface) 40%)}
+  .acard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+  .acard .nm{font-family:"Fraunces",serif;font-size:17.5px;font-weight:600}
+  .acard .meta{font-size:12.5px;color:var(--muted);margin-top:1px}
+  .vip{font-size:10.5px;font-weight:700;color:var(--brass);border:1px solid var(--brass);border-radius:6px;padding:1px 6px;letter-spacing:.04em}
+  .mini-section{margin-top:10px}
+  .mini-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:12px;padding:4px 9px;border-radius:8px;background:var(--green-tint);color:var(--green-deep)}
+  .chip.cmp{background:var(--terra-tint);color:var(--terra)}
+  .acard .none{font-size:12.5px;color:var(--muted);font-style:italic}
+
+  /* Guests view */
+  .toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+  .search{flex:1;min-width:220px;position:relative}
+  .search input{width:100%;padding:11px 14px 11px 38px;border:1px solid var(--line);border-radius:11px;background:var(--surface)}
+  .search input:focus{outline:none;border-color:var(--brass)}
+  .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5}
+  .gcount{font-size:13px;color:var(--muted);margin-bottom:10px}
+  .gtable{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  .gtable thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--line);font-weight:700}
+  .gtable tbody tr{border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+  .gtable tbody tr:last-child{border-bottom:none}
+  .gtable tbody tr:hover{background:var(--surface-2)}
+  .gtable td{padding:13px 16px;font-size:14px;vertical-align:middle}
+  .gtable .gnm{font-weight:600}
+  .tag-rep{font-size:11px;font-weight:700;color:var(--green-deep);background:var(--green-tint);padding:2px 9px;border-radius:999px}
+  .flag{font-size:13px;color:var(--muted)}
+  .empty{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty svg{opacity:.35;margin-bottom:12px}
+  .empty h3{font-size:19px;color:var(--ink);margin-bottom:6px}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(27,39,31,.34);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow:auto}
+  .overlay.show{display:flex}
+  .modal{background:var(--surface);border-radius:18px;width:100%;max-width:660px;box-shadow:0 24px 60px rgba(27,39,31,.3);border:1px solid var(--line);animation:pop .18s ease}
+  @keyframes pop{from{transform:translateY(12px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+  .modal.wide{max-width:820px}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid var(--line)}
+  .modal-head h2{font-size:20px}
+  .x{border:none;background:transparent;font-size:24px;color:var(--muted);line-height:1;padding:2px 6px;border-radius:8px}
+  .x:hover{background:var(--surface-2);color:var(--ink)}
+  .modal-body{padding:22px 24px}
+  .modal-foot{padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center}
+
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+  .field input,.field textarea,.field select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--brass)}
+  .field input:disabled,.field textarea:disabled,.field select:disabled{opacity:.6;cursor:not-allowed}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr}}
+
+  .list-edit{display:flex;flex-direction:column;gap:8px}
+  .le-row{display:flex;gap:8px}
+  .le-row input{flex:1}
+  .le-add{align-self:flex-start;font-size:12.5px;color:var(--green-deep);background:var(--green-tint);border:none;padding:6px 12px;border-radius:8px;font-weight:600}
+  .le-del{border:1px solid var(--line);background:var(--surface);border-radius:9px;width:38px;color:var(--muted)}
+  .le-del:hover{color:var(--terra);border-color:var(--terra)}
+  .check{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink-soft);cursor:pointer}
+  .check input{width:auto}
+  .ro-note{font-size:12px;color:var(--brass);background:var(--brass-tint);border-radius:8px;padding:8px 12px;margin-bottom:14px;display:none}
+
+  /* Import */
+  .map-table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
+  .map-table td{padding:7px 8px;border-bottom:1px solid var(--line)}
+  .map-table select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+  .map-col{font-weight:600;color:var(--ink-soft);width:45%}
+  .import-summary{background:var(--green-tint);border-radius:10px;padding:13px 15px;font-size:14px;color:var(--green-deep);margin-top:14px}
+  .step-note{font-size:13px;color:var(--ink-soft);background:var(--surface-2);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--green-deep);color:#f1ece0;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,.25);opacity:0;transition:.25s;z-index:99;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .detail-meta{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-soft);margin-bottom:4px}
+  .detail-meta b{font-family:"Fraunces",serif}
+
+  /* Login */
+  #loginOverlay .modal{max-width:400px}
+  #loginErr{color:var(--terra);font-size:13px;min-height:18px;margin-top:4px}
+  .login-boot{text-align:center;color:var(--muted);font-size:14px;padding:40px}
+</style>
+
+<!-- LOGIN GATE -->
+<div class="overlay show" id="loginOverlay" style="align-items:center">
+  <div class="modal">
+    <div class="modal-head"><h2>Accesso — CRM Ospiti</h2></div>
+    <div class="modal-body">
+      <div id="loginBoot" class="login-boot">Verifica sessione…</div>
+      <div id="loginForm" style="display:none">
+        <div class="field"><label>Email</label><input id="loginEmail" type="email" autocomplete="username"></div>
+        <div class="field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password"></div>
+        <div id="loginErr"></div>
+      </div>
+    </div>
+    <div class="modal-foot" id="loginFoot" style="justify-content:flex-end;display:none">
+      <button class="btn primary" id="btnLogin">Entra</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="authbar" id="authbar">
+    <span class="who" id="authWho"></span>
+    <span class="rolebadge" id="authRole"></span>
+    <button class="btn sm ghost" id="btnLogout">Esci</button>
+  </div>
+
+  <header>
+    <div class="brand">
+      <div class="crest">C</div>
+      <div>
+        <div class="hotel-name" id="hotelName">Canne Bianche Lifestyle Hotel</div>
+        <div class="sub">Anagrafiche &amp; Concierge ospiti</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="stGuests">0</b><span>Ospiti</span></div>
+      <div class="stat"><b id="stRep">0</b><span>Di ritorno</span></div>
+      <div class="stat"><b id="stNat">0</b><span>Nazionalità</span></div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-view="arrivals">Arrivi del giorno</button>
+    <button class="tab" data-view="guests">Anagrafiche</button>
+  </div>
+
+  <!-- ARRIVALS VIEW -->
+  <section id="view-arrivals">
+    <div class="panel arr-intro">
+      <h2>Chi arriva oggi?</h2>
+      <p>Incolla la lista degli arrivi (un nome per riga) oppure carica il file dal PMS. Il sistema riconosce subito gli <b>ospiti di ritorno</b> e mostra le loro preferenze e gli eventuali reclami, e segnala i <b>nuovi ospiti</b> da registrare.</p>
+      <div class="arr-input">
+        <textarea class="arrivals" id="arrInput" placeholder="Mario Rossi&#10;Anna Bianchi&#10;John Smith&#10;..."></textarea>
+        <div class="arr-actions">
+          <button class="btn primary" id="arrCheck">Controlla arrivi</button>
+          <label class="filedrop">Carica file arrivi (CSV/Excel)
+            <input type="file" id="arrFile" accept=".csv,.xlsx,.xls" hidden></label>
+          <span class="hint">I nomi possono essere scritti come "Cognome Nome" o "Nome Cognome".</span>
+        </div>
+      </div>
+      <div class="arr-results" id="arrResults"></div>
+    </div>
+  </section>
+
+  <!-- GUESTS VIEW -->
+  <section id="view-guests" style="display:none">
+    <div class="toolbar">
+      <div class="search">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="searchBox" placeholder="Cerca per nome, cognome, email o nazionalità…">
+      </div>
+      <button class="btn primary" id="btnNew">+ Nuova anagrafica</button>
+      <button class="btn" id="btnImport">Importa dal PMS</button>
+      <button class="btn ghost" id="btnExport">Esporta CSV</button>
+    </div>
+    <div class="gcount" id="gcount"></div>
+    <div id="guestList"></div>
+  </section>
+</div>
+
+<!-- EDITOR MODAL -->
+<div class="overlay" id="editorOverlay">
+  <div class="modal">
+    <div class="modal-head"><h2 id="editorTitle">Nuova anagrafica</h2><button class="x" data-close>&times;</button></div>
+    <div class="modal-body">
+      <div class="ro-note" id="roNote">Sei in modalità <b>reception</b>: puoi aggiungere solo preferenze e reclami. I dati anagrafici sono in sola lettura.</div>
+      <div class="grid2">
+        <div class="field"><label>Nome</label><input id="fFirst"></div>
+        <div class="field"><label>Cognome</label><input id="fLast"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Nazionalità</label><input id="fNat" placeholder="es. Italia"></div>
+        <div class="field"><label>Lingua</label><input id="fLang" placeholder="es. Italiano"></div>
+        <div class="field"><label>N° soggiorni</label><input id="fStays" type="number" min="0" value="0"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Email</label><input id="fEmail" type="email"></div>
+        <div class="field"><label>Telefono</label><input id="fPhone"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Tipo camera preferito</label><input id="fRoom"></div>
+        <div class="field"><label>Ultimo soggiorno</label><input id="fLastStay" placeholder="es. 2025-08-14"></div>
+        <div class="field"><label>Livello VIP</label>
+          <select id="fVipLevel">
+            <option value="">Nessuno</option>
+            <option value="VIP">VIP (non specificato)</option>
+            <option value="VIP1">VIP1</option>
+            <option value="VIP2">VIP2</option>
+            <option value="VIP3">VIP3</option>
+            <option value="VIP4">VIP4</option>
+            <option value="VIP5">VIP5</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Preferenze</label>
+        <div class="list-edit" id="prefList"></div>
+        <button class="le-add" id="addPref" type="button">+ Aggiungi preferenza</button>
+      </div>
+      <div class="field">
+        <label>Reclami / note critiche</label>
+        <div class="list-edit" id="cmpList"></div>
+        <button class="le-add" id="addCmp" type="button">+ Aggiungi reclamo</button>
+      </div>
+      <div class="field"><label>Note generali</label><textarea id="fNotes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn danger" id="btnDelete" style="display:none">Elimina</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn ghost" data-close>Annulla</button>
+        <button class="btn primary" id="btnSave">Salva anagrafica</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="overlay" id="importOverlay">
+  <div class="modal wide">
+    <div class="modal-head"><h2>Importa dal PMS</h2><button class="x" data-close>&times;</button></div>
+    <div class="modal-body" id="importBody">
+      <div class="step-note">Carica un file esportato dal tuo PMS (CSV o Excel). Tipicamente ogni riga è una prenotazione: il sistema raggruppa per ospite e conta automaticamente i soggiorni.</div>
+      <label class="filedrop" style="padding:26px">Trascina qui o seleziona il file CSV / Excel
+        <input type="file" id="impFile" accept=".csv,.xlsx,.xls" hidden></label>
+      <div id="impMapZone" style="display:none">
+        <h3 style="font-size:15px;margin:18px 0 6px">Associa le colonne</h3>
+        <p class="hint">Indica a quale informazione corrisponde ogni colonna del file. Le associazioni sono state ipotizzate automaticamente.</p>
+        <table class="map-table"><tbody id="mapRows"></tbody></table>
+        <label class="check" style="margin-top:14px"><input type="checkbox" id="impCountStays" checked> Conta ogni riga come un soggiorno</label>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="impMerge" checked> Unisci con le anagrafiche esistenti (stesso nome)</label>
+        <div class="import-summary" id="impSummary"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="hint" id="impStatus"></span>
+      <div style="display:flex;gap:10px">
+        <button class="btn ghost" data-close>Annulla</button>
+        <button class="btn primary" id="btnDoImport" disabled>Importa</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ==========================================================================
+   CONFIG SUPABASE
+   La publishable key è pensata per stare nel browser: la sicurezza è data
+   dalle policy RLS sul database, non dal tenerla segreta.
+   ========================================================================== */
+const SUPABASE_URL = "https://rbngfoxswzzwjyhxyfcu.supabase.co";
+const SUPABASE_KEY = "sb_publishable_6rFyTkBZo1xZ6Jev1xjSvA_-O3ietK9";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let GUESTS=[], filtered=[], editingId=null, importParsed=null;
+let CURRENT_ROLE="reception";   // 'manager' | 'reception'
+let IMPORT_RUNNING=false;   // blocca doppi click e chiusura modale durante l'import
+const isManager=()=>CURRENT_ROLE==="manager";
+
+/* ---------- utils ---------- */
+const uid=()=> (crypto.randomUUID?crypto.randomUUID():'g'+Date.now()+Math.random().toString(16).slice(2));
+function norm(s){return (s||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();}
+function nameKey(first,last){const t=norm((first||"")+" "+(last||"")).split(" ").filter(Boolean).sort();return t.join(" ");}
+function fullName(g){return ((g.first||"")+" "+(g.last||"")).trim();}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
+const esc=s=>(s||"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- mappatura DB <-> oggetto JS ---------- */
+function rowToGuest(r){
+  return {
+    id:r.id, first:r.first||'', last:r.last||'', nationality:r.nationality||'', language:r.language||'',
+    stays:r.stays||0, email:r.email||'', phone:r.phone||'', roomType:r.room_type||'', lastStay:r.last_stay||'',
+    notes:r.notes||'', vipLevel:r.vip_level||'',
+    preferences:Array.isArray(r.preferences)?r.preferences:[], complaints:Array.isArray(r.complaints)?r.complaints:[],
+    createdAt:r.created_at, updatedAt:r.updated_at
+  };
+}
+function guestToRow(g){
+  return {
+    id:g.id, first:g.first||'', last:g.last||'', nationality:g.nationality||'', language:g.language||'',
+    stays:g.stays||0, email:g.email||'', phone:g.phone||'', room_type:g.roomType||'', last_stay:g.lastStay||'',
+    notes:g.notes||'', vip_level:g.vipLevel||null,
+    preferences:g.preferences||[], complaints:g.complaints||[],
+    updated_at:new Date().toISOString()
+  };
+}
+
+/* ---------- DATA LAYER (Supabase) ---------- */
+async function loadGuests(){
+  const PAGE=1000; let from=0, all=[];
+  while(true){
+    const {data,error}=await db.from('guests').select('*').order('last',{ascending:true}).range(from,from+PAGE-1);
+    if(error){console.error(error);toast('Errore lettura dati: '+error.message);break;}
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)break;
+    from+=PAGE;
+  }
+  return all.map(rowToGuest);
+}
+async function upsertGuest(g){
+  const {error}=await db.from('guests').upsert(guestToRow(g));
+  if(error){console.error(error);toast('Errore salvataggio: '+error.message);return false;}
+  return true;
+}
+async function deleteGuestDB(id){
+  const {error}=await db.from('guests').delete().eq('id',id);
+  if(error){console.error(error);toast('Errore eliminazione: '+error.message);return false;}
+  return true;
+}
+async function batchUpsert(rows,onProgress){
+  const BATCH=500;
+  for(let i=0;i<rows.length;i+=BATCH){
+    const slice=rows.slice(i,i+BATCH);
+    const {error}=await db.from('guests').upsert(slice);
+    if(error){console.error(error);toast('Errore import: '+error.message);return false;}
+    if(onProgress)onProgress(Math.min(i+BATCH,rows.length),rows.length);
+  }
+  return true;
+}
+
+/* ---------- impostazioni (nome hotel) su localStorage ---------- */
+function getHotelName(){try{return localStorage.getItem('crm:hotel')||'';}catch(e){return '';}}
+function setHotelName(v){try{localStorage.setItem('crm:hotel',v);}catch(e){}}
+
+/* ==========================================================================
+   AUTENTICAZIONE
+   ========================================================================== */
+async function boot(){
+  document.getElementById('btnLogin').onclick=doLogin;
+  document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  document.getElementById('btnLogout').onclick=doLogout;
+
+  const {data:{session}}=await db.auth.getSession();
+  if(session){ await onLoggedIn(session); }
+  else{ showLoginForm(); }
+
+  db.auth.onAuthStateChange((event,session)=>{
+    if(event==='SIGNED_OUT'){ location.reload(); }
+  });
+}
+function showLoginForm(){
+  document.getElementById('loginBoot').style.display='none';
+  document.getElementById('loginForm').style.display='';
+  document.getElementById('loginFoot').style.display='';
+  document.getElementById('loginOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('loginEmail').focus(),50);
+}
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const password=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  err.textContent='';
+  if(!email||!password){err.textContent='Inserisci email e password.';return;}
+  document.getElementById('btnLogin').disabled=true;
+  const {data,error}=await db.auth.signInWithPassword({email,password});
+  document.getElementById('btnLogin').disabled=false;
+  if(error){err.textContent='Accesso fallito: '+error.message;return;}
+  await onLoggedIn(data.session);
+}
+async function doLogout(){ await db.auth.signOut(); }
+
+async function onLoggedIn(session){
+  // ruolo dal profilo
+  let role='reception';
+  try{
+    const {data:prof}=await db.from('profiles').select('role').eq('id',session.user.id).maybeSingle();
+    if(prof&&prof.role)role=prof.role;
+  }catch(e){console.error(e);}
+  CURRENT_ROLE=role;
+
+  document.getElementById('authWho').textContent=session.user.email;
+  const badge=document.getElementById('authRole');
+  badge.textContent=isManager()?'Manager':'Reception';
+  badge.className='rolebadge '+(isManager()?'mgr':'rec');
+
+  document.getElementById('loginOverlay').classList.remove('show');
+  document.getElementById('app').style.display='';
+  applyRole();
+  await init();
+}
+function applyRole(){
+  const mgr=isManager();
+  document.getElementById('btnNew').style.display=mgr?'':'none';
+  document.getElementById('btnImport').style.display=mgr?'':'none';
+  // export consentito a entrambi (è sola lettura)
+}
+
+/* ==========================================================================
+   APP
+   ========================================================================== */
+async function init(){
+  GUESTS=await loadGuests();
+  refresh();
+  bind();
+}
+function refresh(){ renderStats(); applySearch(); }
+
+function renderStats(){
+  document.getElementById('stGuests').textContent=GUESTS.length;
+  document.getElementById('stRep').textContent=GUESTS.filter(g=>(g.stays||0)>1).length;
+  const nats=new Set(GUESTS.map(g=>norm(g.nationality)).filter(Boolean));
+  document.getElementById('stNat').textContent=nats.size;
+}
+
+let _bound=false;
+function bind(){
+  if(_bound)return; _bound=true;   // evita doppi listener se init gira più volte
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const v=t.dataset.view;
+    document.getElementById('view-arrivals').style.display=v==='arrivals'?'':'none';
+    document.getElementById('view-guests').style.display=v==='guests'?'':'none';
+  });
+
+  document.getElementById('searchBox').oninput=applySearch;
+  document.getElementById('btnNew').onclick=()=>openEditor(null);
+  document.getElementById('btnImport').onclick=openImport;
+  document.getElementById('btnExport').onclick=exportCSV;
+  document.getElementById('arrCheck').onclick=checkArrivals;
+  document.getElementById('arrFile').onchange=onArrivalFile;
+
+  document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModals);
+  document.getElementById('btnSave').onclick=saveGuest;
+  document.getElementById('btnDelete').onclick=deleteGuest;
+  document.getElementById('addPref').onclick=()=>addLERow('prefList','');
+  document.getElementById('addCmp').onclick=()=>addLERow('cmpList','');
+  document.getElementById('impFile').onchange=onImportFile;
+  document.getElementById('btnDoImport').onclick=doImport;
+  document.getElementById('impCountStays').onchange=updateImportSummary;
+  document.getElementById('impMerge').onchange=updateImportSummary;
+}
+function closeModals(){
+  if(IMPORT_RUNNING){toast('Import in corso, attendi il termine');return;}
+  document.getElementById('editorOverlay').classList.remove('show');
+  document.getElementById('importOverlay').classList.remove('show');
+}
+
+/* ---------- search / guest list ---------- */
+function applySearch(){
+  const q=norm(document.getElementById('searchBox').value);
+  filtered = !q?GUESTS.slice():GUESTS.filter(g=>{
+    return [g.first,g.last,g.email,g.nationality].some(f=>norm(f).includes(q));
+  });
+  filtered.sort((a,b)=> norm(a.last+a.first) < norm(b.last+b.first)?-1:1 );
+  renderGuests();
+}
+function renderGuests(){
+  const el=document.getElementById('guestList');
+  document.getElementById('gcount').textContent = GUESTS.length? `${filtered.length} di ${GUESTS.length} anagrafiche`:'';
+  if(!GUESTS.length){
+    const actions=isManager()
+      ? `<div style="display:flex;gap:10px;justify-content:center;margin-top:14px"><button class="btn primary" onclick="openImport()">Importa dal PMS</button><button class="btn" onclick="openEditor(null)">+ Crea anagrafica</button></div>`
+      : '';
+    el.innerHTML=`<div class="empty panel"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <h3>Nessuna anagrafica ancora</h3><p>${isManager()?'Importa lo storico dal tuo PMS oppure crea la prima scheda a mano.':'Nessun dato presente.'}</p>${actions}</div>`;
+    return;
+  }
+  if(!filtered.length){el.innerHTML=`<div class="empty panel"><h3>Nessun risultato</h3><p>Prova un altro nome.</p></div>`;return;}
+  const MAXROWS=300; const shown=filtered.slice(0,MAXROWS);
+  let rows=shown.map(g=>{
+    const rep=(g.stays||0)>1;
+    return `<tr onclick="openEditor('${g.id}')">
+      <td class="gnm">${esc(fullName(g))} ${g.vipLevel?`<span class="vip">${esc(g.vipLevel)}</span>`:''}</td>
+      <td>${esc(g.nationality)||'—'}</td>
+      <td>${rep?`<span class="tag-rep">${g.stays} soggiorni</span>`:`<span class="flag">${g.stays||0} soggiorno</span>`}</td>
+      <td class="flag">${(g.preferences||[]).length} pref. · ${(g.complaints||[]).length} recl.</td>
+      <td class="flag">${esc(g.lastStay)||'—'}</td>
+    </tr>`;
+  }).join('');
+  const more=filtered.length>MAXROWS?`<div class="hint" style="padding:12px 4px">Mostrati i primi ${MAXROWS} risultati di ${filtered.length} — affina la ricerca per trovare l'ospite.</div>`:'';
+  el.innerHTML=`<table class="gtable"><thead><tr><th>Ospite</th><th>Nazionalità</th><th>Soggiorni</th><th>Note</th><th>Ultimo soggiorno</th></tr></thead><tbody>${rows}</tbody></table>${more}`;
+}
+
+/* ---------- editor ---------- */
+const CORE_FIELDS=['fFirst','fLast','fNat','fLang','fStays','fEmail','fPhone','fRoom','fLastStay','fNotes','fVipLevel'];
+function openEditor(id){
+  editingId=id;
+  const g=id?GUESTS.find(x=>x.id===id):null;
+  document.getElementById('editorTitle').textContent=id?'Scheda ospite':'Nuova anagrafica';
+  const set=(k,v)=>document.getElementById(k).value=v||'';
+  set('fFirst',g?.first); set('fLast',g?.last); set('fNat',g?.nationality); set('fLang',g?.language);
+  set('fStays',g?g.stays||0:0); set('fEmail',g?.email); set('fPhone',g?.phone); set('fRoom',g?.roomType); set('fLastStay',g?.lastStay); set('fNotes',g?.notes);
+
+  // VIP level: assicura che il valore corrente sia tra le opzioni
+  const sel=document.getElementById('fVipLevel');
+  const lvl=g?.vipLevel||'';
+  if(lvl && ![...sel.options].some(o=>o.value===lvl)){
+    const o=document.createElement('option');o.value=lvl;o.textContent=lvl;sel.appendChild(o);
+  }
+  sel.value=lvl;
+
+  renderLE('prefList',g?.preferences||[]); renderLE('cmpList',g?.complaints||[]);
+
+  // permessi per ruolo
+  const ro=!isManager();
+  CORE_FIELDS.forEach(fid=>document.getElementById(fid).disabled=ro);
+  document.getElementById('roNote').style.display=ro?'':'none';
+  document.getElementById('btnDelete').style.display=(!ro && id)?'':'none';
+
+  document.getElementById('editorOverlay').classList.add('show');
+  setTimeout(()=>{const f=document.getElementById(ro?'addPref':'fFirst');/* focus non su campo disabilitato */ if(!ro)document.getElementById('fFirst').focus();},50);
+}
+function renderLE(listId,arr){const c=document.getElementById(listId);c.innerHTML='';(arr.length?arr:[]).forEach(v=>addLERow(listId,typeof v==='string'?v:v.text));}
+function addLERow(listId,val){
+  const c=document.getElementById(listId);
+  const row=document.createElement('div');row.className='le-row';
+  row.innerHTML=`<input value="${esc(val)}" placeholder="${listId==='cmpList'?'es. lamentela rumore camera 204 (ago 2025)':'es. preferisce vino rosso corposo'}"><button class="le-del" type="button">&times;</button>`;
+  row.querySelector('.le-del').onclick=()=>row.remove();
+  c.appendChild(row);
+}
+function collectLE(listId){return [...document.querySelectorAll('#'+listId+' input')].map(i=>i.value.trim()).filter(Boolean).map(t=>({text:t}));}
+
+async function saveGuest(){
+  const g={
+    id:editingId||uid(),
+    first:val('fFirst'),last:val('fLast'),nationality:val('fNat'),language:val('fLang'),
+    stays:parseInt(val('fStays'))||0,email:val('fEmail'),phone:val('fPhone'),roomType:val('fRoom'),
+    lastStay:val('fLastStay'),notes:val('fNotes'),vipLevel:document.getElementById('fVipLevel').value,
+    preferences:collectLE('prefList'),complaints:collectLE('cmpList'),
+    updatedAt:new Date().toISOString()
+  };
+  if(!g.first&&!g.last){toast('Inserisci almeno nome o cognome');return;}
+  document.getElementById('btnSave').disabled=true;
+  let ok;
+  if(isManager()){
+    ok=await upsertGuest(g);
+  }else{
+    // reception: invia al DB SOLO preferenze e reclami (coerente col trigger lato server)
+    if(!editingId){document.getElementById('btnSave').disabled=false;toast('Solo il manager puo creare anagrafiche');return;}
+    const {error}=await db.from('guests').update({
+      preferences:g.preferences, complaints:g.complaints, updated_at:new Date().toISOString()
+    }).eq('id',editingId);
+    ok=!error;
+    if(error){console.error(error);toast('Errore salvataggio: '+error.message);}
+  }
+  document.getElementById('btnSave').disabled=false;
+  if(!ok)return;
+  // aggiorna cache locale
+  if(editingId){const i=GUESTS.findIndex(x=>x.id===editingId);if(i>=0)GUESTS[i]=Object.assign(GUESTS[i],g);}
+  else{g.createdAt=g.updatedAt;GUESTS.push(g);}
+  closeModals(); refresh(); toast(editingId?'Anagrafica aggiornata':'Anagrafica creata');
+}
+function val(id){return document.getElementById(id).value.trim();}
+async function deleteGuest(){
+  if(!editingId)return;
+  if(!isManager()){toast('Solo il manager può eliminare');return;}
+  if(!confirm('Eliminare definitivamente questa anagrafica?'))return;
+  const ok=await deleteGuestDB(editingId);
+  if(!ok)return;
+  GUESTS=GUESTS.filter(x=>x.id!==editingId); closeModals(); refresh(); toast('Anagrafica eliminata');
+}
+
+/* ---------- arrivals matching ---------- */
+function onArrivalFile(e){
+  const f=e.target.files[0]; if(!f)return;
+  parseFile(f,(rows,headers)=>{
+    const nameCols=guessNameCols(headers);
+    const names=rows.map(r=>{
+      if(nameCols.full) return r[nameCols.full];
+      return ((r[nameCols.first]||'')+' '+(r[nameCols.last]||'')).trim();
+    }).filter(Boolean);
+    document.getElementById('arrInput').value=names.join('\n');
+    checkArrivals();
+  });
+  e.target.value='';
+}
+function checkArrivals(){
+  const lines=document.getElementById('arrInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!lines.length){document.getElementById('arrResults').innerHTML='';return;}
+  const index={}; GUESTS.forEach(g=>{index[nameKey(g.first,g.last)]=g;});
+  const reps=[],news=[];
+  lines.forEach(line=>{
+    const k=nameKey(line,'');
+    const g=index[k];
+    if(g)reps.push(g); else news.push(line);
+  });
+  renderArrivals(reps,news);
+}
+function renderArrivals(reps,news){
+  const out=document.getElementById('arrResults');
+  let html='';
+  html+=`<div class="res-block"><h3>Ospiti di ritorno <span class="pill rep">${reps.length}</span></h3>`;
+  if(reps.length){
+    html+='<div class="arr-grid">'+reps.map(g=>{
+      const prefs=(g.preferences||[]);const cmps=(g.complaints||[]);
+      return `<div class="acard repeater" onclick="openEditor('${g.id}')">
+        <div class="top"><div><div class="nm">${esc(fullName(g))}</div>
+        <div class="meta">${g.stays||0} soggiorni${g.nationality?' · '+esc(g.nationality):''}${g.lastStay?' · ultimo '+esc(g.lastStay):''}</div></div>
+        ${g.vipLevel?`<span class="vip">${esc(g.vipLevel)}</span>`:''}</div>
+        <div class="mini-section"><div class="mini-label">★ Preferenze</div>
+          ${prefs.length?`<div class="chips">${prefs.map(p=>`<span class="chip">${esc(p.text)}</span>`).join('')}</div>`:'<div class="none">Nessuna registrata</div>'}</div>
+        ${cmps.length?`<div class="mini-section"><div class="mini-label">⚠ Reclami</div><div class="chips">${cmps.map(c=>`<span class="chip cmp">${esc(c.text)}</span>`).join('')}</div></div>`:''}
+      </div>`;
+    }).join('')+'</div>';
+  } else html+='<p class="hint">Nessun ospite di ritorno tra gli arrivi inseriti.</p>';
+  html+='</div>';
+
+  html+=`<div class="res-block"><h3>Nuovi ospiti <span class="pill new">${news.length}</span></h3>`;
+  if(news.length){
+    html+='<div class="arr-grid">'+news.map(n=>`<div class="acard newg">
+      <div class="top"><div class="nm">${esc(n)}</div></div>
+      <div class="meta" style="color:var(--brass)">Non in anagrafica</div>
+      ${isManager()?`<div style="margin-top:12px"><button class="btn primary sm" onclick="createFromArrival('${esc(n).replace(/'/g,"\\'")}')">+ Crea anagrafica</button></div>`:''}
+    </div>`).join('')+'</div>';
+  } else html+='<p class="hint">Tutti gli arrivi sono già in anagrafica.</p>';
+  html+='</div>';
+  out.innerHTML=html;
+}
+function createFromArrival(name){
+  if(!isManager()){toast('Solo il manager può creare anagrafiche');return;}
+  openEditor(null);
+  const parts=name.trim().split(' ');
+  if(parts.length>1){document.getElementById('fFirst').value=parts.slice(0,-1).join(' ');document.getElementById('fLast').value=parts.slice(-1)[0];}
+  else document.getElementById('fFirst').value=name;
+  document.getElementById('fStays').value=1;
+}
+
+/* ---------- file parsing (shared) ---------- */
+function parseFile(f,cb){
+  const ext=f.name.split('.').pop().toLowerCase();
+  if(ext==='csv'){
+    Papa.parse(f,{header:true,skipEmptyLines:true,complete:r=>cb(r.data,r.meta.fields||[])});
+  }else{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const json=XLSX.utils.sheet_to_json(ws,{defval:''});
+      cb(json,json.length?Object.keys(json[0]):[]);
+    };
+    reader.readAsArrayBuffer(f);
+  }
+}
+const FIELD_HINTS={
+  last:['cognome','last','lastname','last name','surname','family'],
+  first:['nome','first','firstname','first name','guest first','given'],
+  full:['nominativo','guest name','nome completo','full name','ospite','cliente','name'],
+  nationality:['nazionalit','nationality','country','paese','nazione','citizenship'],
+  language:['lingua','language','lang'],
+  email:['email','e-mail','mail','posta'],
+  phone:['telefono','phone','tel','cellulare','mobile','phone number'],
+  roomType:['camera','room','room type','tipo camera','tipologia'],
+  stays:['soggiorni','n soggiorni','numero soggiorni','stays','num stays'],
+  vip:['vip'],
+  lastStay:['arrivo','check-in','checkin','arrival','data arrivo','check in','ultimo soggiorno'],
+  preferences:['preferenz','preference','richiest','request','note speciali'],
+  complaints:['reclam','complaint','lament','problem','issue'],
+  notes:['note','notes','annotazioni','remarks']
+};
+function guessField(header){
+  const h=norm(header);
+  for(const[field,hints]of Object.entries(FIELD_HINTS)) if(hints.some(x=>h.includes(norm(x)))) return field;
+  return '';
+}
+function guessNameCols(headers){
+  const r={};headers.forEach(h=>{const f=guessField(h);if(f==='first')r.first=h;if(f==='last')r.last=h;if(f==='full')r.full=h;});
+  if(!r.first&&!r.full&&headers.length)r.full=headers[0];
+  return r;
+}
+
+/* ---------- import ---------- */
+function openImport(){
+  if(!isManager()){toast('Solo il manager può importare');return;}
+  importParsed=null;
+  document.getElementById('impMapZone').style.display='none';
+  document.getElementById('btnDoImport').disabled=true;
+  document.getElementById('impStatus').textContent='';
+  document.getElementById('importOverlay').classList.add('show');
+}
+function onImportFile(e){
+  const f=e.target.files[0]; if(!f)return;
+  document.getElementById('impStatus').textContent='Lettura file…';
+  parseFile(f,(rows,headers)=>{
+    importParsed={rows,headers};
+    buildMapUI(headers);
+    document.getElementById('impMapZone').style.display='';
+    document.getElementById('btnDoImport').disabled=false;
+    document.getElementById('impStatus').textContent=`${rows.length} righe lette`;
+    updateImportSummary();
+  });
+  e.target.value='';
+}
+const TARGETS=[['','— ignora —'],['first','Nome'],['last','Cognome'],['full','Nome completo'],['stays','N° soggiorni'],['vip','VIP'],['nationality','Nazionalità'],['language','Lingua'],['email','Email'],['phone','Telefono'],['roomType','Tipo camera'],['lastStay','Data soggiorno/arrivo'],['preferences','Preferenze'],['complaints','Reclami'],['notes','Note']];
+function buildMapUI(headers){
+  const tb=document.getElementById('mapRows');tb.innerHTML='';
+  headers.forEach(h=>{
+    const guess=guessField(h);
+    const opts=TARGETS.map(([v,l])=>`<option value="${v}" ${v===guess?'selected':''}>${l}</option>`).join('');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="map-col">${esc(h)}</td><td><select data-h="${esc(h)}">${opts}</select></td>`;
+    tr.querySelector('select').onchange=updateImportSummary;
+    tb.appendChild(tr);
+  });
+}
+function getMapping(){const m={};document.querySelectorAll('#mapRows select').forEach(s=>{if(s.value)m[s.value]=s.dataset.h;});return m;}
+function aggregate(){
+  const m=getMapping();const countStays=document.getElementById('impCountStays').checked;
+  const groups={};
+  importParsed.rows.forEach(row=>{
+    let first=m.first?row[m.first]:'',last=m.last?row[m.last]:'';
+    if(m.full&&!first&&!last){const fn=(row[m.full]||'').trim().split(' ');if(fn.length>1){first=fn.slice(0,-1).join(' ');last=fn.slice(-1)[0];}else first=fn[0]||'';}
+    const key=nameKey(first,last); if(!key)return;
+    if(!groups[key])groups[key]={first,last,stays:0,staysCol:0,vip:false,prefs:new Set(),cmps:new Set(),data:{}};
+    const g=groups[key];g.stays++;
+    if(m.stays){const sv=parseInt((row[m.stays]||'').toString());if(!isNaN(sv))g.staysCol=Math.max(g.staysCol,sv);}
+    if(m.vip){const vv=norm(row[m.vip]);if(['si','sì','x','vip','true','1','yes'].includes(vv)||vv.startsWith('v'))g.vip=true;}
+    const pick=f=>{const v=m[f]?(row[m[f]]||'').toString().trim():'';if(v)g.data[f]=v;return v;};
+    pick('nationality');pick('language');pick('email');pick('phone');pick('roomType');pick('notes');
+    const ls=m.lastStay?(row[m.lastStay]||'').toString().trim():''; if(ls&&(!g.data.lastStay||ls>g.data.lastStay))g.data.lastStay=ls;
+    const pr=m.preferences?(row[m.preferences]||'').toString().trim():''; if(pr)g.prefs.add(pr);
+    const cm=m.complaints?(row[m.complaints]||'').toString().trim():''; if(cm)g.cmps.add(cm);
+  });
+  return Object.entries(groups).map(([key,g])=>({key,first:g.first,last:g.last,
+    stays:g.staysCol>0?g.staysCol:(countStays?g.stays:1),fromCol:g.staysCol>0,vip:g.vip,
+    data:g.data,prefs:[...g.prefs],cmps:[...g.cmps]}));
+}
+function updateImportSummary(){
+  if(!importParsed)return;
+  const agg=aggregate();const merge=document.getElementById('impMerge').checked;
+  const existing=new Set(GUESTS.map(g=>nameKey(g.first,g.last)));
+  let nuovi=0,uniti=0;
+  agg.forEach(a=>{ if(merge&&existing.has(a.key))uniti++; else nuovi++; });
+  document.getElementById('impSummary').innerHTML=
+    `${importParsed.rows.length} righe → <b>${agg.length}</b> ospiti distinti.<br>${nuovi} nuove anagrafiche${merge?` · ${uniti} aggiornate`:''}.`;
+}
+async function doImport(){
+  if(!importParsed||!isManager())return;
+  if(IMPORT_RUNNING){toast('Import gia in corso, attendi');return;}
+  IMPORT_RUNNING=true;
+  document.getElementById('btnDoImport').disabled=true;
+
+  // Ricarica GUESTS dal DB PRIMA di deduplicare: evita duplicati se qualcuno
+  // ha appena importato/modificato, o se l'utente clicca Importa due volte.
+  document.getElementById('impStatus').textContent='Sincronizzo lo stato dal database...';
+  GUESTS=await loadGuests();
+
+  const agg=aggregate();const merge=document.getElementById('impMerge').checked;
+  const map={};GUESTS.forEach(g=>map[nameKey(g.first,g.last)]=g);
+  const toWrite=[];   // oggetti guest (nuovi + aggiornati) da scrivere sul DB
+
+  agg.forEach(a=>{
+    if(merge&&map[a.key]){
+      const g=map[a.key];
+      g.stays=a.fromCol?Math.max(g.stays||0,a.stays):(g.stays||0)+a.stays;
+      if(a.vip && !g.vipLevel)g.vipLevel='VIP';   // marcatore generico, il livello preciso lo assegna lo staff
+      ['nationality','language','email','phone','roomType','notes'].forEach(f=>{if(a.data[f]&&!g[f])g[f]=a.data[f];});
+      if(a.data.lastStay&&(!g.lastStay||a.data.lastStay>g.lastStay))g.lastStay=a.data.lastStay;
+      const ptxt=new Set((g.preferences||[]).map(p=>p.text)); a.prefs.forEach(t=>{if(!ptxt.has(t)){g.preferences=g.preferences||[];g.preferences.push({text:t});}});
+      const ctxt=new Set((g.complaints||[]).map(c=>c.text)); a.cmps.forEach(t=>{if(!ctxt.has(t)){g.complaints=g.complaints||[];g.complaints.push({text:t});}});
+      g.updatedAt=new Date().toISOString();
+      toWrite.push(g);
+    }else{
+      const g={id:uid(),first:a.first,last:a.last,stays:a.stays,
+        nationality:a.data.nationality||'',language:a.data.language||'',email:a.data.email||'',phone:a.data.phone||'',
+        roomType:a.data.roomType||'',lastStay:a.data.lastStay||'',notes:a.data.notes||'',vipLevel:a.vip?'VIP':'',
+        preferences:a.prefs.map(t=>({text:t})),complaints:a.cmps.map(t=>({text:t})),
+        createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+      toWrite.push(g);
+    }
+  });
+
+  const rows=toWrite.map(guestToRow);
+  const ok=await batchUpsert(rows,(done,tot)=>{
+    document.getElementById('impStatus').textContent=`Scrittura sul database… ${done} / ${tot}`;
+  });
+  if(!ok){
+    IMPORT_RUNNING=false;
+    document.getElementById('btnDoImport').disabled=false;
+    return;
+  }
+  document.getElementById('impStatus').textContent='Ricarico i dati…';
+  GUESTS=await loadGuests();
+  IMPORT_RUNNING=false;
+  document.getElementById('btnDoImport').disabled=false;
+  closeModals(); refresh();
+  toast(`Import completato: ${toWrite.length} anagrafiche scritte`);
+}
+
+/* ---------- export ---------- */
+function exportCSV(){
+  if(!GUESTS.length){toast('Nessuna anagrafica da esportare');return;}
+  const rows=GUESTS.map(g=>({
+    Nome:g.first,Cognome:g.last,Nazionalita:g.nationality,Lingua:g.language,Soggiorni:g.stays,
+    Email:g.email,Telefono:g.phone,TipoCamera:g.roomType,UltimoSoggiorno:g.lastStay,VIP:g.vipLevel||'',
+    Preferenze:(g.preferences||[]).map(p=>p.text).join(' | '),
+    Reclami:(g.complaints||[]).map(c=>c.text).join(' | '),Note:g.notes
+  }));
+  const csv=Papa.unparse(rows);
+  const blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='anagrafiche-ospiti.csv';a.click();
+  toast('CSV esportato');
+}
+
+window.openEditor=openEditor;window.openImport=openImport;window.createFromArrival=createFromArrival;
+boot();
+</script>
