@@ -296,7 +296,7 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .cli-contatti { color: var(--muted); font-size: 13.5px; margin: 5px 0 0; }
 .pill-vip { background: #f6ead2; color: #97700f; font-size: 13px; padding: 5px 13px; align-self: center; }
 
-.cli-stats { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; max-width: 720px; margin-bottom: 22px; }
+.cli-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; max-width: 965px; margin-bottom: 22px; }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow-sm); }
 .stat-n { display: block; font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1; color: var(--brand); font-variant-numeric: tabular-nums; }
 .stat-n.stat-sm { font-size: 17px; }
@@ -307,6 +307,13 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 
 .sez { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 26px 0 12px; }
 .cli-sogg-tab .cell-num { font-variant-numeric: tabular-nums; }
+.sogg-cam + .sogg-cam { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
+.sogg-cam-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sogg-ae { font-size: 12px; color: var(--muted); }
+.sogg-extra { color: var(--accent-700); }
+.sogg-cam-osp { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; }
+.sogg-ae-col { text-align: right; white-space: nowrap; font-size: 13px; font-variant-numeric: tabular-nums; }
+.sogg-ae-col .sogg-extra { font-weight: 600; }
 .cell-num { text-align: right; }
 .cli-sogg-tab td:first-child, .cli-sogg-tab th:first-child { text-align: left; }
 
@@ -349,7 +356,7 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .ric-go { color: var(--faint); font-size: 22px; flex: none; }
 
 @media (max-width: 900px) {
-  .cli-stats { grid-template-columns: 1fr; }
+  .cli-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .consensi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 

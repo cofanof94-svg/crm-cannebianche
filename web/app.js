@@ -402,7 +402,8 @@ async function loadCliente(codCli) {
   $('#cli-contatti').textContent = [a.telefono, a.cellulare, a.email, luogo].filter(Boolean).join('   ·   ') || '—';
   $('#cli-vip').hidden = !a.vip;
   $('#cli-nsogg').textContent = s.nSoggiorni;
-  $('#cli-speso').textContent = euro(s.totaleSpeso || 0);
+  $('#cli-arr').textContent = euro(s.totArrangiamenti || 0);
+  $('#cli-extra').textContent = euro(s.totExtra || 0);
   $('#cli-visite').textContent = `${fmtData(s.primaVisita)} → ${fmtData(s.ultimaVisita)}`;
   const an = $('#cli-anagnote');
   if (a.note) { an.hidden = false; an.innerHTML = `<b>Note anagrafica (PMS)</b>${esc(a.note)}`; } else an.hidden = true;
@@ -422,14 +423,31 @@ function statoSoggPill(stato) {
   return 'pill-atteso';
 }
 
+// Storico: per ogni camera → arrangiamento/extra + occupanti di quella camera.
+function renderCamereStorico(x) {
+  if (x.camereDett && x.camereDett.length) {
+    return x.camereDett.map((c) => {
+      const nomi = (x.ospiti || []).filter((o) => o.camera === c.camera).map((o) => (o.codCli
+        ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
+        : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`)).join('');
+      return `<div class="sogg-cam">
+        <div class="sogg-cam-top"><span class="room">${esc(c.camera)}</span><span class="sogg-ae">Arr. ${euro(c.arrangiamento)} · <span class="sogg-extra">Extra ${euro(c.extra)}</span></span></div>
+        <div class="sogg-cam-osp">${nomi}</div>
+      </div>`;
+    }).join('');
+  }
+  return renderOspiti(x.ospiti) || (x.camere ? chipCamere(x.camere) : dash);
+}
+
 function rigaSoggiorno(x) {
+  const ae = `<div>Arr. ${euro(x.arrangiamento || 0)}</div><div class="sogg-extra">Extra ${euro(x.extra || 0)}</div>`;
   return `<tr>
     <td class="cell-num">${esc(x.codpratica)}</td>
     <td class="cell-muted">${fmtData(x.dtarrivo)}</td>
     <td class="cell-muted">${fmtData(x.dtpartenza)}</td>
     <td class="cell-muted">${x.notti != null ? esc(x.notti) : '—'}</td>
-    <td>${renderOspiti(x.ospiti) || (x.camere ? chipCamere(x.camere) : dash)}</td>
-    <td class="cell-num">${x.importo != null ? euro(x.importo) : dash}</td>
+    <td>${renderCamereStorico(x)}</td>
+    <td class="cell-num sogg-ae-col">${x.importo != null ? ae : dash}</td>
     <td><span class="pill ${statoSoggPill(x.stato)}">${esc(x.stato)}</span></td>
   </tr>`;
 }

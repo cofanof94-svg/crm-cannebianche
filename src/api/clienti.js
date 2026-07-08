@@ -5,11 +5,14 @@ const { listNote, createNota, updateNota, deleteNota } = require('../crm/note');
 
 function calcolaStatistiche(soggiorni) {
   const nSoggiorni = soggiorni.length;
-  const totaleSpeso = soggiorni.reduce((s, x) => s + (x.importo || 0), 0);
+  const totArrangiamenti = soggiorni.reduce((s, x) => s + (x.arrangiamento || 0), 0);
+  const totExtra = soggiorni.reduce((s, x) => s + (x.extra || 0), 0);
   const date = soggiorni.map((x) => x.dtarrivo).filter(Boolean).sort();
   return {
     nSoggiorni,
-    totaleSpeso,
+    totArrangiamenti,
+    totExtra,
+    totaleSpeso: totArrangiamenti + totExtra,
     primaVisita: date[0] || null,
     ultimaVisita: date[date.length - 1] || null,
   };
