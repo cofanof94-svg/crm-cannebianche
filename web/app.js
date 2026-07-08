@@ -469,27 +469,4 @@ $('#cli-note').addEventListener('click', async (e) => {
   }
 });
 
-// --- Ricerca ospite nella topbar ---
-let cliSearchTimer = null;
-$('#cli-search-input').addEventListener('input', (e) => {
-  const q = e.target.value.trim();
-  clearTimeout(cliSearchTimer);
-  const box = $('#cli-search-results');
-  if (q.length < 2) { box.hidden = true; box.innerHTML = ''; return; }
-  cliSearchTimer = setTimeout(async () => {
-    const { body } = await api(`/api/clienti?q=${encodeURIComponent(q)}`);
-    const r = body.risultati || [];
-    box.innerHTML = r.length
-      ? r.map((c) => `<a href="#cliente/${c.codCli}" data-cli>${esc(c.nominativo || '(senza nome)')}<span>${esc([c.citta, c.email].filter(Boolean).join(' · '))}</span></a>`).join('')
-      : '<div class="cli-vuoto">Nessun ospite trovato</div>';
-    box.hidden = false;
-  }, 250);
-});
-$('#cli-search-results').addEventListener('click', (e) => {
-  if (e.target.closest('[data-cli]')) { $('#cli-search-results').hidden = true; $('#cli-search-input').value = ''; }
-});
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.cli-search')) $('#cli-search-results').hidden = true;
-});
-
 refresh();
