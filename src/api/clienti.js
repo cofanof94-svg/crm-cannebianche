@@ -55,14 +55,16 @@ function createClientiRouter(pmsDb, crmDb) {
     const testo = (req.body && req.body.testo ? String(req.body.testo) : '').trim();
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
     if (!testo) return res.status(400).json({ error: 'Testo mancante' });
-    await updateNota(crmDb, id, testo);
+    const ok = await updateNota(crmDb, id, testo);
+    if (!ok) return res.status(404).json({ error: 'Nota non trovata' });
     res.json({ ok: true });
   });
 
   router.delete('/note/:id', async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
-    await deleteNota(crmDb, id);
+    const ok = await deleteNota(crmDb, id);
+    if (!ok) return res.status(404).json({ error: 'Nota non trovata' });
     res.json({ ok: true });
   });
 

@@ -18,12 +18,16 @@ async function createNota(db, { pmsCustomerId, autoreUserId, testo }) {
   return rows[0];
 }
 
+// Restituiscono true se una riga è stata effettivamente aggiornata/eliminata
+// (OUTPUT riporta le righe interessate) → l'API può dare 404 su id inesistente.
 async function updateNota(db, id, testo) {
-  await db.query('UPDATE customer_notes SET testo = @testo WHERE id = @id', { id, testo });
+  const rows = await db.query('UPDATE customer_notes SET testo = @testo OUTPUT INSERTED.id WHERE id = @id', { id, testo });
+  return rows.length > 0;
 }
 
 async function deleteNota(db, id) {
-  await db.query('DELETE FROM customer_notes WHERE id = @id', { id });
+  const rows = await db.query('DELETE FROM customer_notes OUTPUT DELETED.id WHERE id = @id', { id });
+  return rows.length > 0;
 }
 
 module.exports = { listNote, createNota, updateNota, deleteNota };

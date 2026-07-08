@@ -25,13 +25,13 @@ test('createNota passa cliente, autore e testo', async () => {
 test('updateNota aggiorna il testo per id', async () => {
   const db = fakeDb([]);
   await note.updateNota(db, 9, 'nuovo');
-  assert.match(db.calls[0].text, /UPDATE customer_notes SET testo = @testo WHERE id = @id/);
+  assert.match(db.calls[0].text, /UPDATE customer_notes SET testo = @testo OUTPUT INSERTED.id WHERE id = @id/);
   assert.strictEqual(db.calls[0].params.testo, 'nuovo');
 });
 
 test('deleteNota elimina per id', async () => {
   const db = fakeDb([]);
   await note.deleteNota(db, 9);
-  assert.match(db.calls[0].text, /DELETE FROM customer_notes WHERE id = @id/);
+  assert.match(db.calls[0].text, /DELETE FROM customer_notes OUTPUT DELETED.id WHERE id = @id/);
   assert.strictEqual(db.calls[0].params.id, 9);
 });

@@ -37,7 +37,7 @@ function route() {
     $('#topbar-title').textContent = 'Scheda ospite';
     document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
     document.querySelectorAll('.sidebar a').forEach((a) => a.classList.remove('active'));
-    const backLabel = { arrivi: 'Torna agli arrivi', incasa: 'Torna ai clienti in casa', ricerca: 'Torna alla ricerca', home: 'Torna alla home' };
+    const backLabel = { arrivi: 'Torna agli arrivi', incasa: 'Torna ai clienti in casa', ricerca: 'Torna alla ricerca', utenti: 'Torna agli utenti', home: 'Torna alla home' };
     const dest = backLabel[vistaPrecedente] ? vistaPrecedente : 'arrivi';
     const back = $('#cli-back');
     back.setAttribute('href', `#${dest}`);
@@ -388,7 +388,7 @@ async function loadCliente(codCli) {
   const msg = $('#cliente-msg');
   body.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…';
   const { status, body: d } = await api(`/api/clienti/${encodeURIComponent(codCli)}`);
-  if (status === 404) { msg.textContent = 'Ospite non trovato.'; return; }
+  if (status === 404 || status === 400) { msg.textContent = 'Ospite non trovato.'; return; }
   if (status !== 200) { msg.textContent = 'Errore nel leggere l\'ospite dal PMS.'; return; }
   clienteCorrente = codCli;
   const a = d.anagrafica;
