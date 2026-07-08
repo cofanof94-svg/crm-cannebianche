@@ -148,18 +148,21 @@ function chipCamere(camere) {
   return camere.split(',').map((c) => `<span class="room">${esc(c.trim())}</span>`).join('');
 }
 
+// Lista occupanti camera (camera a sinistra del nome, nome cliccabile → scheda ospite).
+function renderOspiti(ospiti) {
+  if (!ospiti || !ospiti.length) return '';
+  return `<div class="ospiti">${ospiti.map((o) => `<div class="ospite-row">${o.camera ? `<span class="room">${esc(o.camera)}</span>` : ''}${o.codCli
+    ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
+    : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`}</div>`).join('')}</div>`;
+}
+
 // Scheda prenotazione condivisa da Arrivi e Clienti in casa.
 function scheda(a, pill) {
   const tratt = [a.trattamento, a.tariffa].filter(Boolean).map(esc).join(' / ') || '—';
   const nottiLine = a.notti != null ? `<br><span class="tile-sub">${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}</span>` : '';
   const tot = a.importo != null ? euro(a.importo) : dash;
   const note = a.note ? `<div class="bcard-note"><b>Note</b>${esc(a.note)}</div>` : '';
-  const nomeOsp = (o) => (o.codCli
-    ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
-    : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`);
-  const ospitiHtml = (a.ospiti && a.ospiti.length)
-    ? `<div class="ospiti">${a.ospiti.map((o) => `<div class="ospite-row">${o.camera ? `<span class="room">${esc(o.camera)}</span>` : ''}${nomeOsp(o)}</div>`).join('')}</div>`
-    : `<span class="tile-v">${dash}</span>`;
+  const ospitiHtml = renderOspiti(a.ospiti) || `<span class="tile-v">${dash}</span>`;
   return `
     <article class="bcard">
       <header class="bcard-head">
@@ -425,7 +428,7 @@ function rigaSoggiorno(x) {
     <td class="cell-muted">${fmtData(x.dtarrivo)}</td>
     <td class="cell-muted">${fmtData(x.dtpartenza)}</td>
     <td class="cell-muted">${x.notti != null ? esc(x.notti) : '—'}</td>
-    <td>${x.camere ? chipCamere(x.camere) : dash}</td>
+    <td>${renderOspiti(x.ospiti) || (x.camere ? chipCamere(x.camere) : dash)}</td>
     <td class="cell-num">${x.importo != null ? euro(x.importo) : dash}</td>
     <td><span class="pill ${statoSoggPill(x.stato)}">${esc(x.stato)}</span></td>
   </tr>`;

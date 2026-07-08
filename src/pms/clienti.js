@@ -29,7 +29,7 @@ SELECT t.codpratica,
   CONVERT(varchar(10), t.dtarrivo, 23) AS dtarrivo,
   CONVERT(varchar(10), t.dtpartenza, 23) AS dtpartenza,
   DATEDIFF(day, t.dtarrivo, t.dtpartenza) AS notti,
-  t.camere, t.importo, t.stato
+  t.camere, t.importo, t.stato, t.ospitiJson
 FROM (
   SELECT p.codpratica, p.dtarrivo, p.dtpartenza,
     COALESCE(
@@ -44,7 +44,11 @@ FROM (
          WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc),
       (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
     ) AS importo,
-    CASE WHEN p.flgincasa = 'S' THEN 'In casa' WHEN p.flgincasa = 'P' THEN 'Partito' ELSE 'Confermato' END AS stato
+    CASE WHEN p.flgincasa = 'S' THEN 'In casa' WHEN p.flgincasa = 'P' THEN 'Partito' ELSE 'Confermato' END AS stato,
+    (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
+     FROM Alberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN AlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
+     WHERE al.codpratica = p.codpratica AND al.codcli IS NOT NULL
+     GROUP BY al.codcli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) FOR JSON PATH) AS ospitiJson
   FROM Prenota p
   WHERE p.codclinterm = @codCli AND p.DataEliminazione IS NULL
   UNION ALL
@@ -54,7 +58,11 @@ FROM (
     (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp
        FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = sp.codpratica GROUP BY ad.codcam) tc) AS importo,
-    'Concluso' AS stato
+    'Concluso' AS stato,
+    (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
+     FROM StorAlberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN StorAlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
+     WHERE al.codpratica = sp.codpratica AND al.codcli IS NOT NULL
+     GROUP BY al.codcli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) FOR JSON PATH) AS ospitiJson
   FROM StorPrenota sp
   WHERE sp.codclinterm = @codCli
 ) t
@@ -113,15 +121,20 @@ async function getCliente(pmsDb, codCli) {
 
 async function getSoggiorniCliente(pmsDb, codCli) {
   const rows = await pmsDb.query(SQL_SOGGIORNI, { codCli });
-  return rows.map((r) => ({
-    codpratica: r.codpratica,
-    dtarrivo: r.dtarrivo,
-    dtpartenza: r.dtpartenza,
-    notti: r.notti,
-    camere: pulisci(r.camere),
-    importo: r.importo == null ? null : Number(r.importo),
-    stato: r.stato,
-  }));
+  return rows.map((r) => {
+    let ospiti = [];
+    try { ospiti = r.ospitiJson ? JSON.parse(r.ospitiJson) : []; } catch (e) { ospiti = []; }
+    return {
+      codpratica: r.codpratica,
+      dtarrivo: r.dtarrivo,
+      dtpartenza: r.dtpartenza,
+      notti: r.notti,
+      camere: pulisci(r.camere),
+      importo: r.importo == null ? null : Number(r.importo),
+      stato: r.stato,
+      ospiti,
+    };
+  });
 }
 
 module.exports = { cercaClienti, getCliente, getSoggiorniCliente };
