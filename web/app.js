@@ -37,7 +37,7 @@ function route() {
     $('#topbar-title').textContent = 'Scheda ospite';
     document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
     document.querySelectorAll('.sidebar a').forEach((a) => a.classList.remove('active'));
-    const backLabel = { arrivi: 'Torna agli arrivi', incasa: 'Torna ai clienti in casa', home: 'Torna alla home' };
+    const backLabel = { arrivi: 'Torna agli arrivi', incasa: 'Torna ai clienti in casa', ricerca: 'Torna alla ricerca', home: 'Torna alla home' };
     const dest = backLabel[vistaPrecedente] ? vistaPrecedente : 'arrivi';
     const back = $('#cli-back');
     back.setAttribute('href', `#${dest}`);
@@ -47,14 +47,14 @@ function route() {
     return;
   }
   const view = hash;
-  const known = ['home', 'arrivi', 'incasa', 'utenti'];
+  const known = ['home', 'arrivi', 'incasa', 'ricerca', 'utenti'];
   let v = known.includes(view) ? view : 'home';
   // Utenti è riservato agli admin: reindirizza gli altri alla home
   if (v === 'utenti' && !(currentUser && currentUser.role === 'admin')) {
     location.hash = '#home';
     return;
   }
-  const titoli = { home: 'Home', arrivi: 'Arrivi', incasa: 'In casa', utenti: 'Utenti' };
+  const titoli = { home: 'Home', arrivi: 'Arrivi', incasa: 'In casa', ricerca: 'Ricerca', utenti: 'Utenti' };
   $('#topbar-title').textContent = titoli[v] || 'Home';
   document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
   document.querySelectorAll('.sidebar a').forEach((a) => a.classList.toggle('active', a.dataset.nav === v));
@@ -63,6 +63,7 @@ function route() {
   if (v === 'home') loadHome();
   else if (v === 'arrivi') initArrivi();
   else if (v === 'incasa') initInCasa();
+  else if (v === 'ricerca') initRicerca();
   else if (v === 'utenti') { if (currentUser && currentUser.role === 'admin') loadUsers(); }
 }
 window.addEventListener('hashchange', route);
@@ -229,6 +230,44 @@ function statoPill(s) {
 
 function schedaInCasa(a) {
   return scheda(a, statoPill(a.statoPartenza));
+}
+
+// --- Ricerca ospiti (pagina) ---
+let ricercaInit = false;
+let ricercaTimer = null;
+function initRicerca() {
+  if (!ricercaInit) {
+    $('#ricerca-input').addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      clearTimeout(ricercaTimer);
+      ricercaTimer = setTimeout(() => loadRicerca(q), 250);
+    });
+    ricercaInit = true;
+  }
+  $('#ricerca-input').focus();
+}
+
+async function loadRicerca(q) {
+  const list = $('#ricerca-list');
+  const msg = $('#ricerca-msg');
+  if (q.length < 2) { list.hidden = true; msg.hidden = false; msg.textContent = 'Digita almeno 2 caratteri per cercare.'; return; }
+  msg.hidden = false; msg.textContent = 'Ricerca…'; list.hidden = true;
+  const { status, body } = await api(`/api/clienti?q=${encodeURIComponent(q)}`);
+  if (status !== 200) { msg.textContent = 'Errore nella ricerca.'; return; }
+  const r = body.risultati || [];
+  if (!r.length) { list.hidden = true; msg.hidden = false; msg.textContent = 'Nessun ospite trovato.'; return; }
+  list.innerHTML = r.map(cardRicerca).join('');
+  msg.hidden = true; list.hidden = false;
+}
+
+function cardRicerca(c) {
+  const sub = [c.citta, c.email, c.cellulare].filter(Boolean).join(' · ');
+  const iniziale = ((c.nominativo || '?')[0] || '?').toUpperCase();
+  return `<a class="ric-item" href="#cliente/${c.codCli}">
+    <span class="ric-av">${esc(iniziale)}</span>
+    <span class="ric-txt"><strong>${esc(c.nominativo || '(senza nominativo)')}</strong><span>${esc(sub)}</span></span>
+    <span class="ric-go">›</span>
+  </a>`;
 }
 
 // --- Utenti (admin) ---

@@ -54,6 +54,10 @@
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-5a2 2 0 0 1 2-2h11a3 3 0 0 1 3 3v4"/><path d="M3 18h18"/><path d="M7 11V8a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v3"/></svg>
           <span>In casa</span>
         </a>
+        <a href="#ricerca" data-nav="ricerca">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <span>Ricerca</span>
+        </a>
         <a href="#utenti" data-nav="utenti" id="nav-utenti" hidden>
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M18 13.5a5.5 5.5 0 0 1 3.5 5.5"/></svg>
           <span>Utenti</span>
@@ -136,6 +140,21 @@
           </div>
           <div class="card-list" id="incasa-cards" hidden></div>
           <div id="incasa-msg" class="state" hidden></div>
+        </section>
+
+        <!-- RICERCA OSPITI -->
+        <section id="view-ricerca" class="view" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Ricerca ospiti</h1>
+              <p class="sub">Cerca in anagrafica per nome, email o cellulare</p>
+            </div>
+          </div>
+          <div class="ric-search">
+            <input type="search" id="ricerca-input" class="search" placeholder="Nome, email o cellulare…" autocomplete="off" />
+          </div>
+          <div id="ricerca-msg" class="state" hidden></div>
+          <div class="card-list ric-list" id="ricerca-list" hidden></div>
         </section>
 
         <!-- UTENTI (admin) -->
