@@ -83,11 +83,13 @@ async function getCliente(pmsDb, codCli) {
     codiceFiscale: pulisci(r.CodFis),
     vip: pulisci(r.CodVip) != null,
     note: pulisci(r.Annotazioni),
+    // Nel PMS la logica è invertita: 'S' = NON autorizzato. Quindi il consenso
+    // è concesso quando il valore è diverso da 'S' (es. 'N' o vuoto).
     consensi: {
-      marketing: r.Privacy === 'S',
-      telefonate: r.Privacy2 === 'S',
-      conservazione: r.PrivacyConservaDati === 'S',
-      cessione: r.PrivacyCessioneDati === 'S',
+      marketing: r.Privacy !== 'S',
+      telefonate: r.Privacy2 !== 'S',
+      conservazione: r.PrivacyConservaDati !== 'S',
+      cessione: r.PrivacyCessioneDati !== 'S',
     },
   };
 }

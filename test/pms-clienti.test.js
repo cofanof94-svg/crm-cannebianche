@@ -23,7 +23,8 @@ test('getCliente mappa anagrafica e consensi', async () => {
   assert.strictEqual(a.nominativo, 'DI BARI ANTONELLA');
   assert.strictEqual(a.nazione, 'I');
   assert.strictEqual(a.vip, false);
-  assert.deepStrictEqual(a.consensi, { marketing: true, telefonate: true, conservazione: false, cessione: false });
+  // 'S' = NON autorizzato → consenso false; 'N'/vuoto = consenso true
+  assert.deepStrictEqual(a.consensi, { marketing: false, telefonate: false, conservazione: true, cessione: true });
 });
 
 test('getCliente restituisce null se non trovato', async () => {
