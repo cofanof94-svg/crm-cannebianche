@@ -140,7 +140,7 @@ function renderArrivi() {
 
 const dash = '<span class="dash">—</span>';
 function cell(v) { return v ? esc(v) : dash; }
-const euro = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+const euro = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 function fmtData(d) { return d ? d.split('-').reverse().join('/') : '—'; }
 
 function chipCamere(camere) {
@@ -440,7 +440,7 @@ function renderCamereStorico(x) {
 }
 
 function rigaSoggiorno(x) {
-  const ae = `<div>Arr. ${euro(x.arrangiamento || 0)}</div><div class="sogg-extra">Extra ${euro(x.extra || 0)}</div>`;
+  const ae = `<div>Arrangiamenti ${euro(x.arrangiamento || 0)}</div><div class="sogg-extra">Extra ${euro(x.extra || 0)}</div>`;
   return `<tr>
     <td class="cell-num">${esc(x.codpratica)}</td>
     <td class="cell-muted">${fmtData(x.dtarrivo)}</td>
