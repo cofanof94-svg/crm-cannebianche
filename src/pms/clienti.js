@@ -6,7 +6,7 @@ SELECT TOP 20 a.CodCli, a.Cognome, a.Nome, a.email, a.Cellulare, a.Telefono, a.C
       FROM Prenota p
       JOIN Alberg al ON al.codpratica = p.codpratica
       JOIN AlbergDay ad ON ad.codalb = al.codalb
-      WHERE p.codclinterm = a.CodCli AND p.DataEliminazione IS NULL AND p.flgincasa = 'S'
+      WHERE al.codcli = a.CodCli AND p.DataEliminazione IS NULL AND p.flgincasa = 'S'
         AND CAST(p.dtarrivo AS date) <= @dlav AND CAST(p.dtpartenza AS date) >= @dlav
         AND ISNULL(ad.codcam,'') <> ''
         AND @dlav >= CAST(ad.dtarrivo AS date) AND @dlav <= CAST(ad.dtpartenza AS date)
