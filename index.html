@@ -479,7 +479,7 @@ function applyRole(){
   const mgr=isManager();
   document.getElementById('btnNew').style.display=mgr?'':'none';
   document.getElementById('btnImport').style.display=mgr?'':'none';
-  // export consentito a entrambi (è sola lettura)
+  document.getElementById('btnExport').style.display=mgr?'':'none';   // export = solo manager (GDPR)
 }
 
 /* ==========================================================================
@@ -875,7 +875,8 @@ async function doImport(){
 }
 
 /* ---------- export ---------- */
-function exportCSV(){
+async function exportCSV(){
+  if(!isManager()){toast('Solo il manager puo esportare');return;}
   if(!GUESTS.length){toast('Nessuna anagrafica da esportare');return;}
   const rows=GUESTS.map(g=>({
     Nome:g.first,Cognome:g.last,Nazionalita:g.nationality,Lingua:g.language,Soggiorni:g.stays,
@@ -886,6 +887,7 @@ function exportCSV(){
   const csv=Papa.unparse(rows);
   const blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='anagrafiche-ospiti.csv';a.click();
+  try{ await db.rpc('log_export',{rows_count:GUESTS.length}); }catch(e){console.error(e);}
   toast('CSV esportato');
 }
 
