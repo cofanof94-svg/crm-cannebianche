@@ -221,7 +221,9 @@ tbody tr:hover { background: var(--surface-2); }
 .bcard-created { display: flex; flex-direction: column; line-height: 1.1; flex: none; padding-left: 16px; border-left: 1px solid rgba(255,255,255,.18); }
 .bcard-created span { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #a9cdd4; }
 .bcard-created strong { font-family: var(--font-display); font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.bcard-name { flex: 1; font-weight: 600; font-size: 16px; min-width: 0; }
+.bcard-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.bcard-name-l { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #a9cdd4; }
+.bcard-name-v { font-weight: 600; font-size: 16px; }
 .bcard-pills { display: flex; gap: 8px; flex: none; }
 .bcard-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; padding: 16px 18px; }
 .tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }

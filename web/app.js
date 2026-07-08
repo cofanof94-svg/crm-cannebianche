@@ -168,7 +168,7 @@ function scheda(a, pill) {
       <header class="bcard-head">
         <div class="bcard-prat"><span>Pratica</span><strong>${esc(a.codpratica)}</strong></div>
         <div class="bcard-created"><span>Data creazione</span><strong>${fmtData(a.dtPrenota)}</strong></div>
-        <div class="bcard-name">${a.nominativo ? (a.codCliente ? `<a class="cli-link" href="#cliente/${a.codCliente}">${esc(a.nominativo)}</a>` : esc(a.nominativo)) : '(senza nominativo)'}</div>
+        <div class="bcard-name"><span class="bcard-name-l">Referente</span><span class="bcard-name-v">${a.nominativo ? (a.codCliente ? `<a class="cli-link" href="#cliente/${a.codCliente}">${esc(a.nominativo)}</a>` : esc(a.nominativo)) : '(senza nominativo)'}</span></div>
         <div class="bcard-pills">${pill}</div>
       </header>
       <div class="bcard-body">
