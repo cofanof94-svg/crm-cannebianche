@@ -59,7 +59,8 @@ FROM (
      GROUP BY camMap.camera
      FOR JSON PATH) AS camereJson
   FROM Prenota p
-  WHERE p.codclinterm = @codCli AND p.DataEliminazione IS NULL
+  WHERE p.DataEliminazione IS NULL AND (p.codclinterm = @codCli
+    OR EXISTS (SELECT 1 FROM Alberg alo WHERE alo.codpratica = p.codpratica AND alo.codcli = @codCli))
   UNION ALL
   SELECT sp.codpratica, sp.dtarrivo, sp.dtpartenza,
     (SELECT STUFF((SELECT DISTINCT ', ' + ad.codcam FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
@@ -83,6 +84,7 @@ FROM (
      FOR JSON PATH) AS camereJson
   FROM StorPrenota sp
   WHERE sp.codclinterm = @codCli
+    OR EXISTS (SELECT 1 FROM StorAlberg alo WHERE alo.codpratica = sp.codpratica AND alo.codcli = @codCli)
 ) t
 ORDER BY t.dtarrivo DESC`;
 
