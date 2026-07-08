@@ -9,7 +9,7 @@ ORDER BY Cognome, Nome`;
 const SQL_CLIENTE = `
 SELECT CodCli, Cognome, Nome, Telefono, Cellulare, email, Citta, CodNaz,
        CONVERT(varchar(10), dtNascita, 23) AS dtNascita, CodFis, CodVip, Annotazioni,
-       Privacy, PrivacyConservaDati, PrivacyCessioneDati
+       Privacy, Privacy2, PrivacyConservaDati, PrivacyCessioneDati
 FROM Anagra WHERE CodCli = @codCli`;
 
 // Storico soggiorni: correnti (Prenota + Alberg/TipoPre) UNION storici (StorPrenota + StorAlberg).
@@ -84,7 +84,8 @@ async function getCliente(pmsDb, codCli) {
     vip: pulisci(r.CodVip) != null,
     note: pulisci(r.Annotazioni),
     consensi: {
-      generale: r.Privacy === 'S',
+      marketing: r.Privacy === 'S',
+      telefonate: r.Privacy2 === 'S',
       conservazione: r.PrivacyConservaDati === 'S',
       cessione: r.PrivacyCessioneDati === 'S',
     },

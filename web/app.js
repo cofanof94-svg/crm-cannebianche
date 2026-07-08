@@ -352,7 +352,7 @@ async function loadCliente(codCli) {
     || '<tr><td colspan="7" class="cell-muted">Nessun soggiorno registrato.</td></tr>';
   const c = a.consensi;
   const cons = (ok, label) => `<span class="cons ${ok ? 'si' : 'no'}">${label}: ${ok ? 'Sì' : 'No'}</span>`;
-  $('#cli-consensi').innerHTML = cons(c.generale, 'Trattamento') + cons(c.conservazione, 'Conservazione') + cons(c.cessione, 'Cessione');
+  $('#cli-consensi').innerHTML = cons(c.marketing, 'Marketing') + cons(c.telefonate, 'Telefonate in camera') + cons(c.conservazione, 'Conservazione') + cons(c.cessione, 'Cessione');
   await caricaNote(codCli);
   msg.hidden = true; body.hidden = false;
 }
