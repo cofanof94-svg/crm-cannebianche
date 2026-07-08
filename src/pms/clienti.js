@@ -39,7 +39,9 @@ FROM (
          WHERE tp.codpratica = p.codpratica AND ISNULL(tp.codcam,'') <> '' FOR XML PATH('')), 1, 2, ''))
     ) AS camere,
     COALESCE(
-      (SELECT SUM(al.impoeur) FROM Alberg al WHERE al.codpratica = p.codpratica),
+      (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp
+         FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
+         WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc),
       (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
     ) AS importo,
     CASE WHEN p.flgincasa = 'S' THEN 'In casa' WHEN p.flgincasa = 'P' THEN 'Partito' ELSE 'Confermato' END AS stato
@@ -49,7 +51,9 @@ FROM (
   SELECT sp.codpratica, sp.dtarrivo, sp.dtpartenza,
     (SELECT STUFF((SELECT DISTINCT ', ' + ad.codcam FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = sp.codpratica AND ISNULL(ad.codcam,'') <> '' FOR XML PATH('')), 1, 2, '')) AS camere,
-    (SELECT SUM(al.impoeur) FROM StorAlberg al WHERE al.codpratica = sp.codpratica) AS importo,
+    (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp
+       FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
+       WHERE al.codpratica = sp.codpratica GROUP BY ad.codcam) tc) AS importo,
     'Concluso' AS stato
   FROM StorPrenota sp
   WHERE sp.codclinterm = @codCli

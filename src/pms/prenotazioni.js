@@ -35,7 +35,9 @@ const COLONNE = `
        FOR XML PATH('')), 1, 2, ''))
   ) AS tariffa,
   COALESCE(
-    (SELECT SUM(al.impoeur) FROM Alberg al WHERE al.codpratica = p.codpratica),
+    (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp
+       FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
+       WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc),
     (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
   ) AS importo,
   CONVERT(varchar(10), p.dtprenota, 23) AS dtPrenota,
