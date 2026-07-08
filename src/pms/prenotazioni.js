@@ -39,6 +39,11 @@ const COLONNE = `
     (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
   ) AS importo,
   CONVERT(varchar(10), p.dtprenota, 23) AS dtPrenota,
+  (SELECT DISTINCT al.codcli AS codCli,
+     LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo
+   FROM Alberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli
+   WHERE al.codpratica = p.codpratica AND al.codcli IS NOT NULL
+   FOR JSON PATH) AS ospitiJson,
   p.Note AS note`;
 
 // Arrivi della data: prenotazioni con dtarrivo = @data (esclusi i 'P' partiti).
@@ -105,10 +110,18 @@ function mapRiga(r) {
     .map((s) => (s == null ? '' : String(s)).trim())
     .filter(Boolean)
     .join(' ') || null;
+  // Occupanti della camera (righe Alberg con codcli distinti). Pre-arrivo: nessuno
+  // in Alberg → ripiega sull'intestatario (codclinterm).
+  let ospiti = [];
+  try { ospiti = r.ospitiJson ? JSON.parse(r.ospitiJson) : []; } catch (e) { ospiti = []; }
+  if (!ospiti.length && (nominativo || r.codCliente != null)) {
+    ospiti = [{ codCli: r.codCliente, nominativo }];
+  }
   return {
     codpratica: r.codpratica,
     codCliente: r.codCliente,
     nominativo,
+    ospiti,
     camere: pulisci(r.camere),
     paxAdulti: r.paxAdulti,
     paxBambini: r.paxBambini,
