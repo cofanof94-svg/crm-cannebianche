@@ -116,13 +116,11 @@ function mapRiga(r) {
     .map((s) => (s == null ? '' : String(s)).trim())
     .filter(Boolean)
     .join(' ') || null;
-  // Occupanti della camera (righe Alberg con codcli distinti). Pre-arrivo: nessuno
-  // in Alberg → ripiega sull'intestatario (codclinterm).
+  // Occupanti della camera (righe Alberg con codcli distinti) = solo i clienti
+  // effettivamente in camera. Il referente (codclinterm) NON va qui: sta in
+  // intestazione. Se nessuno è assegnato, la camera resta senza occupanti.
   let ospiti = [];
   try { ospiti = r.ospitiJson ? JSON.parse(r.ospitiJson) : []; } catch (e) { ospiti = []; }
-  if (!ospiti.length && (nominativo || r.codCliente != null)) {
-    ospiti = [{ codCli: r.codCliente, nominativo, camera: pulisci(r.camere) }];
-  }
   return {
     codpratica: r.codpratica,
     codCliente: r.codCliente,
