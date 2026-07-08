@@ -297,7 +297,7 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 /* ===== Scheda ospite 360° ===== */
 .cli-back { display: inline-block; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
 .cli-back:hover { color: var(--brand); }
-.cli-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.cli-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 6px; flex-wrap: wrap; }
 .cli-ident { display: flex; align-items: center; gap: 16px; }
 .cli-avatar {
   width: 56px; height: 56px; border-radius: 50%; flex: none; display: grid; place-items: center;
@@ -317,10 +317,7 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .cli-anagnote { background: var(--accent-050); border: 1px solid #f0dcc0; border-radius: var(--radius); padding: 12px 16px; font-size: 13.5px; color: #6b5124; margin-bottom: 22px; }
 .cli-anagnote b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
 
-.cli-grid { display: grid; grid-template-columns: 1.9fr 1fr; gap: 22px; align-items: start; }
-.cli-col { min-width: 0; }
-.sez { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 0 0 12px; }
-.cli-col .sez:not(:first-child) { margin-top: 24px; }
+.sez { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 26px 0 12px; }
 .cli-sogg-tab .cell-num { font-variant-numeric: tabular-nums; }
 .cell-num { text-align: right; }
 .cli-sogg-tab td:first-child, .cli-sogg-tab th:first-child { text-align: left; }
@@ -342,7 +339,6 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .cons.no { background: #f3e6e4; color: var(--danger); }
 
 @media (max-width: 900px) {
-  .cli-grid { grid-template-columns: 1fr; }
   .cli-stats { grid-template-columns: 1fr; }
   .cli-search { max-width: 200px; margin: 0 12px; }
 }
