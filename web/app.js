@@ -193,8 +193,9 @@ function scheda(a, pill) {
       </header>
       <div class="bcard-body">
         <div class="tile"><span class="tile-l">Arrivo → Partenza</span><span class="tile-v">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${nottiLine}</span></div>
-        <div class="tile"><span class="tile-l">Ospiti in camera</span>${ospitiHtml}</div>
-        <div class="tile"><span class="tile-l">Trattamento / Tariffa</span><div class="tratt-row"><span class="chip">${tratt}</span><span class="tratt-tot">${tot}</span></div></div>
+        <div class="tile"><span class="tile-l">Ospiti in camera</span>${ospitiHtml}
+          <div class="tratt-blocco"><span class="tile-l">Trattamento / Tariffa</span><div class="tratt-row"><span class="chip">${tratt}</span><span class="tratt-tot">${tot}</span></div></div>
+        </div>
       </div>
       ${note}
     </article>`;
