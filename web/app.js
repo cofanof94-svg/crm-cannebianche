@@ -7,6 +7,7 @@ async function api(path, opts = {}) {
 }
 
 let currentUser = null;
+let vistaPrecedente = 'arrivi'; // per il link "Torna a…" nella scheda ospite
 
 // --- sessione / bootstrap ---
 async function refresh() {
@@ -36,6 +37,11 @@ function route() {
     $('#topbar-title').textContent = 'Scheda ospite';
     document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
     document.querySelectorAll('.sidebar a').forEach((a) => a.classList.remove('active'));
+    const backLabel = { arrivi: 'Torna agli arrivi', incasa: 'Torna ai clienti in casa', home: 'Torna alla home' };
+    const dest = backLabel[vistaPrecedente] ? vistaPrecedente : 'arrivi';
+    const back = $('#cli-back');
+    back.setAttribute('href', `#${dest}`);
+    back.textContent = `‹ ${backLabel[dest]}`;
     $('#view-cliente').hidden = false;
     loadCliente(hash.split('/')[1]);
     return;
@@ -53,6 +59,7 @@ function route() {
   document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
   document.querySelectorAll('.sidebar a').forEach((a) => a.classList.toggle('active', a.dataset.nav === v));
   $(`#view-${v}`).hidden = false;
+  vistaPrecedente = v;
   if (v === 'home') loadHome();
   else if (v === 'arrivi') initArrivi();
   else if (v === 'incasa') initInCasa();
