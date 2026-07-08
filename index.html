@@ -9,18 +9,19 @@
 
 <style>
   :root{
-    --bg:#f1ece0; --surface:#fbf9f2; --surface-2:#f6f2e7;
-    --ink:#1b271f; --ink-soft:#3a4a40; --muted:#7a786c; --line:#e2dccd;
-    --green:#2f5d4d; --green-deep:#1f3b30; --green-tint:#e7efe9;
-    --brass:#a9824a; --brass-tint:#f3ead9;
-    --terra:#a8472f; --terra-tint:#f6e4dd;
-    --shadow:0 1px 2px rgba(27,39,31,.06),0 8px 24px rgba(27,39,31,.07);
-    --radius:14px;
+    --bg:#f1ede3; --surface:#faf7f0; --surface-2:#f4efe4;
+    --ink:#443b32; --ink-soft:#6a5d4e; --muted:#9b8f7d; --line:#e5ded0;
+    /* "green" mantiene il nome variabile ma ora è il MARRONE primario del brand */
+    --green:#63533f; --green-deep:#493d30; --green-tint:#ece3d1;
+    --brass:#a2855d; --brass-tint:#f0e7d7;
+    --terra:#a15a38; --terra-tint:#f2e3d9;
+    --shadow:0 1px 2px rgba(68,59,50,.06),0 8px 24px rgba(68,59,50,.08);
+    --radius:12px;
   }
   *{box-sizing:border-box}
   body{margin:0;background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(169,130,74,.10), transparent 60%),
-    radial-gradient(900px 500px at -10% 10%, rgba(47,93,77,.08), transparent 55%),
+    radial-gradient(1200px 600px at 80% -10%, rgba(162,133,93,.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, rgba(120,98,66,.06), transparent 55%),
     var(--bg);
     color:var(--ink);font-family:"Hanken Grotesk",system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;line-height:1.5;}
@@ -198,6 +199,15 @@
   .detail-meta{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-soft);margin-bottom:4px}
   .detail-meta b{font-family:"Fraunces",serif}
 
+  /* Loader globale */
+  .loader-overlay{position:fixed;inset:0;background:rgba(241,236,224,.72);backdrop-filter:blur(3px);
+    display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:200}
+  .loader-overlay.show{display:flex}
+  .spinner{width:44px;height:44px;border-radius:50%;border:4px solid var(--green-tint);
+    border-top-color:var(--green);animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loader-text{font-family:"Fraunces",serif;font-size:16px;color:var(--green-deep)}
+
   /* Login */
   #loginOverlay .modal{max-width:400px}
   #loginErr{color:var(--terra);font-size:13px;min-height:18px;margin-top:4px}
@@ -258,6 +268,7 @@
         <textarea class="arrivals" id="arrInput" placeholder="Mario Rossi&#10;Anna Bianchi&#10;John Smith&#10;..."></textarea>
         <div class="arr-actions">
           <button class="btn primary" id="arrCheck">Controlla arrivi</button>
+          <button class="btn ghost" id="arrClear">Svuota</button>
           <label class="filedrop">Carica file arrivi (CSV/Excel)
             <input type="file" id="arrFile" accept=".csv,.xlsx,.xls" hidden></label>
           <span class="hint">I nomi possono essere scritti come "Cognome Nome" o "Nome Cognome".</span>
@@ -369,6 +380,11 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="loader-overlay" id="loaderOverlay">
+  <div class="spinner"></div>
+  <div class="loader-text" id="loaderText">Caricamento…</div>
+</div>
+
 <script>
 "use strict";
 
@@ -384,6 +400,33 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let GUESTS=[], filtered=[], editingId=null, importParsed=null;
 let CURRENT_ROLE="reception";   // 'manager' | 'reception'
 let IMPORT_RUNNING=false;   // blocca doppi click e chiusura modale durante l'import
+
+/* Durata sessione: logout automatico dopo N minuti di inattività (configurabile) */
+const IDLE_LOGOUT_MIN = 30;
+let _idleTimer=null;
+
+/* ---------- loader globale ---------- */
+function showLoader(text){
+  document.getElementById('loaderText').textContent=text||'Caricamento…';
+  document.getElementById('loaderOverlay').classList.add('show');
+}
+function hideLoader(){ document.getElementById('loaderOverlay').classList.remove('show'); }
+
+/* ---------- auto-logout per inattività ---------- */
+function resetIdle(){
+  if(_idleTimer)clearTimeout(_idleTimer);
+  _idleTimer=setTimeout(idleLogout, IDLE_LOGOUT_MIN*60*1000);
+}
+function startIdleWatch(){
+  ['mousemove','keydown','click','touchstart','scroll'].forEach(ev=>
+    document.addEventListener(ev,resetIdle,{passive:true}));
+  resetIdle();
+}
+async function idleLogout(){
+  try{sessionStorage.setItem('idleLogout','1');}catch(e){}
+  showLoader('Sessione scaduta per inattività…');
+  await db.auth.signOut();
+}
 const isManager=()=>CURRENT_ROLE==="manager";
 
 /* ---------- utils ---------- */
@@ -472,6 +515,12 @@ function showLoginForm(){
   document.getElementById('loginForm').style.display='';
   document.getElementById('loginFoot').style.display='';
   document.getElementById('loginOverlay').classList.add('show');
+  try{
+    if(sessionStorage.getItem('idleLogout')==='1'){
+      document.getElementById('loginErr').textContent='Sessione chiusa per inattività. Rifai il login.';
+      sessionStorage.removeItem('idleLogout');
+    }
+  }catch(e){}
   setTimeout(()=>document.getElementById('loginEmail').focus(),50);
 }
 async function doLogin(){
@@ -486,7 +535,7 @@ async function doLogin(){
   if(error){err.textContent='Accesso fallito: '+error.message;return;}
   await onLoggedIn(data.session);
 }
-async function doLogout(){ await db.auth.signOut(); }
+async function doLogout(){ showLoader('Cambio profilo…'); await db.auth.signOut(); }
 
 async function onLoggedIn(session){
   // ruolo dal profilo
@@ -505,11 +554,15 @@ async function onLoggedIn(session){
   document.getElementById('loginOverlay').classList.remove('show');
   document.getElementById('app').style.display='';
   applyRole();
+  showLoader('Carico le anagrafiche…');
   await init();
+  hideLoader();
+  startIdleWatch();
 }
 function applyRole(){
   const mgr=isManager();
-  document.getElementById('btnNew').style.display=mgr?'':'none';
+  // La reception PUÒ creare nuovi clienti (check-in); non importa né esporta.
+  document.getElementById('btnNew').style.display='';
   document.getElementById('btnImport').style.display=mgr?'':'none';
   document.getElementById('btnExport').style.display=mgr?'':'none';   // export = solo manager (GDPR)
 }
@@ -522,7 +575,12 @@ async function init(){
   refresh();
   bind();
 }
-function refresh(){ renderStats(); applySearch(); }
+function refresh(){
+  renderStats(); applySearch();
+  // se gli arrivi sono già visualizzati, riclassificali con i dati aggiornati
+  const arr=document.getElementById('arrResults');
+  if(arr && arr.innerHTML.trim()) checkArrivals();
+}
 
 function renderStats(){
   document.getElementById('stGuests').textContent=GUESTS.length;
@@ -547,6 +605,11 @@ function bind(){
   document.getElementById('btnImport').onclick=openImport;
   document.getElementById('btnExport').onclick=exportCSV;
   document.getElementById('arrCheck').onclick=checkArrivals;
+  document.getElementById('arrClear').onclick=()=>{
+    document.getElementById('arrInput').value='';
+    document.getElementById('arrResults').innerHTML='';
+    document.getElementById('arrInput').focus();
+  };
   document.getElementById('arrFile').onchange=onArrivalFile;
 
   document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModals);
@@ -567,9 +630,10 @@ function closeModals(){
 
 /* ---------- search / guest list ---------- */
 function applySearch(){
-  const q=norm(document.getElementById('searchBox').value);
-  filtered = !q?GUESTS.slice():GUESTS.filter(g=>{
-    return [g.first,g.last,g.email,g.nationality].some(f=>norm(f).includes(q));
+  const terms=norm(document.getElementById('searchBox').value).split(' ').filter(Boolean);
+  filtered = !terms.length?GUESTS.slice():GUESTS.filter(g=>{
+    const hay=norm([g.first,g.last,g.email,g.nationality].join(' '));
+    return terms.every(t=>hay.includes(t));   // tutte le parole devono comparire (in qualsiasi ordine)
   });
   filtered.sort((a,b)=> norm(a.last+a.first) < norm(b.last+b.first)?-1:1 );
   renderGuests();
@@ -578,11 +642,9 @@ function renderGuests(){
   const el=document.getElementById('guestList');
   document.getElementById('gcount').textContent = GUESTS.length? `${filtered.length} di ${GUESTS.length} anagrafiche`:'';
   if(!GUESTS.length){
-    const actions=isManager()
-      ? `<div style="display:flex;gap:10px;justify-content:center;margin-top:14px"><button class="btn primary" onclick="openImport()">Importa dal PMS</button><button class="btn" onclick="openEditor(null)">+ Crea anagrafica</button></div>`
-      : '';
+    const actions=`<div style="display:flex;gap:10px;justify-content:center;margin-top:14px">${isManager()?'<button class="btn primary" onclick="openImport()">Importa dal PMS</button>':''}<button class="btn${isManager()?'':' primary'}" onclick="openEditor(null)">+ Crea anagrafica</button></div>`;
     el.innerHTML=`<div class="empty panel"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <h3>Nessuna anagrafica ancora</h3><p>${isManager()?'Importa lo storico dal tuo PMS oppure crea la prima scheda a mano.':'Nessun dato presente.'}</p>${actions}</div>`;
+      <h3>Nessuna anagrafica ancora</h3><p>${isManager()?'Importa lo storico dal tuo PMS oppure crea la prima scheda a mano.':'Crea la prima scheda a mano.'}</p>${actions}</div>`;
     return;
   }
   if(!filtered.length){el.innerHTML=`<div class="empty panel"><h3>Nessun risultato</h3><p>Prova un altro nome.</p></div>`;return;}
@@ -621,14 +683,16 @@ function openEditor(id){
 
   renderLE('prefList',g?.preferences||[]); renderLE('cmpList',g?.complaints||[]);
 
-  // permessi per ruolo
-  const ro=!isManager();
+  // permessi per ruolo:
+  // - manager: sempre modificabile
+  // - reception: modificabile SOLO su nuovo cliente; su cliente esistente solo pref/reclami
+  const ro = !isManager() && !!id;
   CORE_FIELDS.forEach(fid=>document.getElementById(fid).disabled=ro);
   document.getElementById('roNote').style.display=ro?'':'none';
-  document.getElementById('btnDelete').style.display=(!ro && id)?'':'none';
+  document.getElementById('btnDelete').style.display=(isManager() && id)?'':'none';
 
   document.getElementById('editorOverlay').classList.add('show');
-  setTimeout(()=>{const f=document.getElementById(ro?'addPref':'fFirst');/* focus non su campo disabilitato */ if(!ro)document.getElementById('fFirst').focus();},50);
+  setTimeout(()=>{ if(!ro)document.getElementById('fFirst').focus(); },50);
 }
 function renderLE(listId,arr){const c=document.getElementById(listId);c.innerHTML='';(arr.length?arr:[]).forEach(v=>addLERow(listId,typeof v==='string'?v:v.text));}
 function addLERow(listId,val){
@@ -652,11 +716,11 @@ async function saveGuest(){
   if(!g.first&&!g.last){toast('Inserisci almeno nome o cognome');return;}
   document.getElementById('btnSave').disabled=true;
   let ok;
-  if(isManager()){
+  if(isManager() || !editingId){
+    // manager (sempre) oppure reception che CREA un nuovo cliente: scrittura completa
     ok=await upsertGuest(g);
   }else{
-    // reception: invia al DB SOLO preferenze e reclami (coerente col trigger lato server)
-    if(!editingId){document.getElementById('btnSave').disabled=false;toast('Solo il manager puo creare anagrafiche');return;}
+    // reception su cliente ESISTENTE: solo preferenze e reclami (coerente col trigger lato server)
     const {error}=await db.from('guests').update({
       preferences:g.preferences, complaints:g.complaints, updated_at:new Date().toISOString()
     }).eq('id',editingId);
@@ -730,14 +794,13 @@ function renderArrivals(reps,news){
     html+='<div class="arr-grid">'+news.map(n=>`<div class="acard newg">
       <div class="top"><div class="nm">${esc(n)}</div></div>
       <div class="meta" style="color:var(--brass)">Non in anagrafica</div>
-      ${isManager()?`<div style="margin-top:12px"><button class="btn primary sm" onclick="createFromArrival('${esc(n).replace(/'/g,"\\'")}')">+ Crea anagrafica</button></div>`:''}
+      <div style="margin-top:12px"><button class="btn primary sm" onclick="createFromArrival('${esc(n).replace(/'/g,"\\'")}')">+ Crea anagrafica</button></div>
     </div>`).join('')+'</div>';
   } else html+='<p class="hint">Tutti gli arrivi sono già in anagrafica.</p>';
   html+='</div>';
   out.innerHTML=html;
 }
 function createFromArrival(name){
-  if(!isManager()){toast('Solo il manager può creare anagrafiche');return;}
   openEditor(null);
   const parts=name.trim().split(' ');
   if(parts.length>1){document.getElementById('fFirst').value=parts.slice(0,-1).join(' ');document.getElementById('fLast').value=parts.slice(-1)[0];}
