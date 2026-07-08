@@ -431,7 +431,7 @@ function renderCamereStorico(x) {
         ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
         : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`)).join('');
       return `<div class="sogg-cam">
-        <div class="sogg-cam-top"><span class="room">${esc(c.camera)}</span><span class="sogg-ae">Arr. ${euro(c.arrangiamento)} · <span class="sogg-extra">Extra ${euro(c.extra)}</span></span></div>
+        <div class="sogg-cam-top"><span class="room">${esc(c.camera)}</span><span class="sogg-ae">${euro((c.arrangiamento || 0) + (c.extra || 0))}</span></div>
         <div class="sogg-cam-osp">${nomi}</div>
       </div>`;
     }).join('');
