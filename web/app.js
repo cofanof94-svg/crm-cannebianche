@@ -434,6 +434,7 @@ async function loadCliente(codCli) {
   const cons = (ok, label) => `<div class="cons-box ${ok ? 'si' : 'no'}"><span class="cons-l">${label}</span><span class="cons-v">${ok ? 'Sì' : 'No'}</span></div>`;
   $('#cli-consensi').innerHTML = cons(c.marketing, 'Marketing') + cons(c.telefonate, 'Telefonate in camera') + cons(c.conservazione, 'Conservazione') + cons(c.cessione, 'Cessione');
   await caricaNote(codCli);
+  await caricaComplaints(codCli);
   msg.hidden = true; body.hidden = false;
 }
 
@@ -512,6 +513,62 @@ $('#cli-note').addEventListener('click', async (e) => {
     if (nuovo != null && nuovo.trim()) {
       await api(`/api/note/${edit.dataset.editNota}`, { method: 'PATCH', body: JSON.stringify({ testo: nuovo.trim() }) });
       caricaNote(clienteCorrente);
+    }
+  }
+});
+
+// --- Complaints ---
+async function caricaComplaints(codCli) {
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/complaints`);
+  const compl = body.complaints || [];
+  $('#cli-complaints').innerHTML = compl.map((c) => {
+    const risolto = c.stato === 'risolto';
+    return `
+    <li data-compl="${c.id}" class="${risolto ? 'compl-risolto' : ''}">
+      <div class="compl-top">
+        <span class="pill ${risolto ? 'pill-checkout' : 'pill-atteso'}">${risolto ? 'Risolto' : 'Aperto'}</span>
+        <span class="compl-testo nota-testo">${esc(c.testo)}</span>
+      </div>
+      <div class="nota-meta">
+        <span>${esc(c.autore || '?')} · ${new Date(c.created_at).toLocaleString('it-IT')}${risolto && c.resolved_at ? ' · risolto ' + new Date(c.resolved_at).toLocaleString('it-IT') : ''}</span>
+        <span class="nota-az">
+          <button class="btn-icon" data-toggle-compl="${c.id}" data-stato="${c.stato}">${risolto ? 'Riapri' : 'Risolvi'}</button>
+          <button class="btn-icon" data-edit-compl="${c.id}">Modifica</button>
+          <button class="btn-icon danger" data-del-compl="${c.id}">Elimina</button>
+        </span>
+      </div>
+    </li>`;
+  }).join('') || '<li class="nota-vuota">Nessun complaint.</li>';
+}
+
+$('#compl-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const testo = f.testo.value.trim();
+  if (!testo || !clienteCorrente) return;
+  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints`, {
+    method: 'POST', body: JSON.stringify({ testo }),
+  });
+  if (status === 201) { f.reset(); caricaComplaints(clienteCorrente); }
+});
+
+$('#cli-complaints').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-del-compl]');
+  const edit = e.target.closest('[data-edit-compl]');
+  const toggle = e.target.closest('[data-toggle-compl]');
+  if (del) {
+    await api(`/api/complaints/${del.dataset.delCompl}`, { method: 'DELETE' });
+    caricaComplaints(clienteCorrente);
+  } else if (toggle) {
+    const nuovoStato = toggle.dataset.stato === 'risolto' ? 'aperto' : 'risolto';
+    await api(`/api/complaints/${toggle.dataset.toggleCompl}`, { method: 'PATCH', body: JSON.stringify({ stato: nuovoStato }) });
+    caricaComplaints(clienteCorrente);
+  } else if (edit) {
+    const li = edit.closest('[data-compl]');
+    const nuovo = prompt('Modifica complaint:', li.querySelector('.compl-testo').textContent);
+    if (nuovo != null && nuovo.trim()) {
+      await api(`/api/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify({ testo: nuovo.trim() }) });
+      caricaComplaints(clienteCorrente);
     }
   }
 });

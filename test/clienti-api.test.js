@@ -7,6 +7,7 @@ const { hashPassword } = require('../src/auth/password');
 async function makeApp() {
   const admin = { id: 1, username: 'admin', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
   const note = [];
+  const complaints = [];
   const crmDb = {
     async query(text, params) {
       if (/FROM users WHERE username/.test(text)) return params.username === 'admin' ? [admin] : [];
@@ -14,6 +15,10 @@ async function makeApp() {
       if (/UPDATE customer_notes/.test(text)) { const n = note.find((x) => x.id === params.id); if (n) { n.testo = params.testo; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_notes/.test(text)) { const i = note.findIndex((x) => x.id === params.id); if (i >= 0) { const id = note[i].id; note.splice(i, 1); return [{ id }]; } return []; }
       if (/FROM customer_notes/.test(text)) return note.filter((n) => n.pmsCustomerId === params.pmsCustomerId).map((n) => ({ id: n.id, testo: n.testo, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
+      if (/INSERT INTO customer_complaints/.test(text)) { const n = { id: complaints.length + 1, stato: 'aperto', ...params }; complaints.push(n); return [{ id: n.id }]; }
+      if (/UPDATE customer_complaints/.test(text)) { const n = complaints.find((x) => x.id === params.id); if (n) { if (params.testo != null) n.testo = params.testo; if (params.stato != null) n.stato = params.stato; return [{ id: n.id }]; } return []; }
+      if (/DELETE FROM customer_complaints/.test(text)) { const i = complaints.findIndex((x) => x.id === params.id); if (i >= 0) { const id = complaints[i].id; complaints.splice(i, 1); return [{ id }]; } return []; }
+      if (/FROM customer_complaints/.test(text)) return complaints.filter((n) => n.pmsCustomerId === params.pmsCustomerId).map((n) => ({ id: n.id, testo: n.testo, stato: n.stato, autore: 'admin', created_at: 'x', resolved_at: null, autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       return [];
     },
   };
@@ -111,4 +116,31 @@ test('note: PATCH modifica (200) e 404 su id inesistente', async () => {
   assert.strictEqual(patch404.status, 404);
   const del404 = await ag.delete('/api/note/9999');
   assert.strictEqual(del404.status, 404);
+});
+
+test('complaints: crea/elenca/risolvi (PATCH stato)/404/elimina', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'reclamo camera' });
+  assert.strictEqual(c.status, 201);
+  const id = c.body.complaint.id;
+  const l = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l.body.complaints[0].testo, 'reclamo camera');
+  assert.strictEqual(l.body.complaints[0].stato, 'aperto');
+  const risolvi = await ag.patch(`/api/complaints/${id}`).send({ stato: 'risolto' });
+  assert.strictEqual(risolvi.status, 200);
+  const l2 = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l2.body.complaints[0].stato, 'risolto');
+  const patch404 = await ag.patch('/api/complaints/9999').send({ stato: 'risolto' });
+  assert.strictEqual(patch404.status, 404);
+  const del = await ag.delete(`/api/complaints/${id}`);
+  assert.strictEqual(del.status, 200);
+});
+
+test('complaint: stato non valido → 400', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'x' });
+  const res = await ag.patch(`/api/complaints/${c.body.complaint.id}`).send({ stato: 'boh' });
+  assert.strictEqual(res.status, 400);
 });

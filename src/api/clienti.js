@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth } = require('../auth/middleware');
 const { cercaClienti, getCliente, getSoggiorniCliente } = require('../pms/clienti');
 const { listNote, createNota, updateNota, deleteNota } = require('../crm/note');
+const { listComplaints, createComplaint, updateComplaintTesto, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 
 function calcolaStatistiche(soggiorni) {
   const nSoggiorni = soggiorni.length;
@@ -68,6 +69,46 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
     const ok = await deleteNota(crmDb, id);
     if (!ok) return res.status(404).json({ error: 'Nota non trovata' });
+    res.json({ ok: true });
+  });
+
+  // --- Complaints (reclami) ---
+  router.get('/clienti/:codCli/complaints', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    res.json({ complaints: await listComplaints(crmDb, codCli) });
+  });
+
+  router.post('/clienti/:codCli/complaints', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    const testo = (req.body && req.body.testo ? String(req.body.testo) : '').trim();
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    if (!testo) return res.status(400).json({ error: 'Testo mancante' });
+    const complaint = await createComplaint(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo });
+    res.status(201).json({ complaint });
+  });
+
+  router.patch('/complaints/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
+    const body = req.body || {};
+    const testo = body.testo != null ? String(body.testo).trim() : null;
+    const stato = body.stato != null ? String(body.stato).trim() : null;
+    if (stato != null && stato !== 'aperto' && stato !== 'risolto') return res.status(400).json({ error: 'Stato non valido' });
+    if (testo === '') return res.status(400).json({ error: 'Testo mancante' });
+    if (testo == null && stato == null) return res.status(400).json({ error: 'Niente da aggiornare' });
+    let ok = true;
+    if (testo != null) ok = await updateComplaintTesto(crmDb, id, testo);
+    if (ok && stato != null) ok = await setComplaintStato(crmDb, id, stato);
+    if (!ok) return res.status(404).json({ error: 'Complaint non trovato' });
+    res.json({ ok: true });
+  });
+
+  router.delete('/complaints/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
+    const ok = await deleteComplaint(crmDb, id);
+    if (!ok) return res.status(404).json({ error: 'Complaint non trovato' });
     res.json({ ok: true });
   });
 
