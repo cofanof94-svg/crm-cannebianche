@@ -156,13 +156,33 @@ function renderOspiti(ospiti) {
     : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`}</div>`).join('')}</div>`;
 }
 
+// Come renderOspiti ma mostra TUTTE le camere della prenotazione (a.camere),
+// incluse quelle senza occupanti ancora assegnati.
+function renderOspitiConCamere(a) {
+  const ospiti = a.ospiti || [];
+  const rooms = [];
+  (a.camere ? a.camere.split(',').map((c) => c.trim()).filter(Boolean) : []).forEach((c) => { if (!rooms.includes(c)) rooms.push(c); });
+  ospiti.forEach((o) => { const c = o.camera ? String(o.camera) : ''; if (c && !rooms.includes(c)) rooms.push(c); });
+  if (!rooms.length) return renderOspiti(ospiti) || `<span class="tile-v">${dash}</span>`;
+  const rows = rooms.map((cam) => {
+    const occ = ospiti.filter((o) => String(o.camera || '') === cam);
+    if (occ.length) {
+      return occ.map((o) => `<div class="ospite-row"><span class="room">${esc(cam)}</span>${o.codCli
+        ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
+        : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`}</div>`).join('');
+    }
+    return `<div class="ospite-row"><span class="room">${esc(cam)}</span><span class="ospite-x">nessun ospite assegnato</span></div>`;
+  }).join('');
+  return `<div class="ospiti">${rows}</div>`;
+}
+
 // Scheda prenotazione condivisa da Arrivi e Clienti in casa.
 function scheda(a, pill) {
   const tratt = [a.trattamento, a.tariffa].filter(Boolean).map(esc).join(' / ') || '—';
   const nottiLine = a.notti != null ? `<br><span class="tile-sub">${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}</span>` : '';
   const tot = a.importo != null ? euro(a.importo) : dash;
   const note = a.note ? `<div class="bcard-note"><b>Note</b>${esc(a.note)}</div>` : '';
-  const ospitiHtml = renderOspiti(a.ospiti) || `<span class="tile-v">${dash}</span>`;
+  const ospitiHtml = renderOspitiConCamere(a);
   return `
     <article class="bcard">
       <header class="bcard-head">
