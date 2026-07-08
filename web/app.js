@@ -358,7 +358,7 @@ async function loadCliente(codCli) {
   $('#cli-soggiorni').innerHTML = (d.soggiorni || []).map(rigaSoggiorno).join('')
     || '<tr><td colspan="7" class="cell-muted">Nessun soggiorno registrato.</td></tr>';
   const c = a.consensi;
-  const cons = (ok, label) => `<span class="cons ${ok ? 'si' : 'no'}">${label}: ${ok ? 'Sì' : 'No'}</span>`;
+  const cons = (ok, label) => `<div class="cons-box ${ok ? 'si' : 'no'}"><span class="cons-l">${label}</span><span class="cons-v">${ok ? 'Sì' : 'No'}</span></div>`;
   $('#cli-consensi').innerHTML = cons(c.marketing, 'Marketing') + cons(c.telefonate, 'Telefonate in camera') + cons(c.conservazione, 'Conservazione') + cons(c.cessione, 'Cessione');
   await caricaNote(codCli);
   msg.hidden = true; body.hidden = false;
