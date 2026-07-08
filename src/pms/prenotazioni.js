@@ -41,10 +41,14 @@ const COLONNE = `
     (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
   ) AS importo,
   CONVERT(varchar(10), p.dtprenota, 23) AS dtPrenota,
-  (SELECT DISTINCT al.codcli AS codCli,
-     LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo
-   FROM Alberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli
+  (SELECT al.codcli AS codCli,
+     LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo,
+     MAX(ad.codcam) AS camera
+   FROM Alberg al
+   LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli
+   LEFT JOIN AlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
    WHERE al.codpratica = p.codpratica AND al.codcli IS NOT NULL
+   GROUP BY al.codcli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, '')))
    FOR JSON PATH) AS ospitiJson,
   p.Note AS note`;
 
@@ -117,7 +121,7 @@ function mapRiga(r) {
   let ospiti = [];
   try { ospiti = r.ospitiJson ? JSON.parse(r.ospitiJson) : []; } catch (e) { ospiti = []; }
   if (!ospiti.length && (nominativo || r.codCliente != null)) {
-    ospiti = [{ codCli: r.codCliente, nominativo }];
+    ospiti = [{ codCli: r.codCliente, nominativo, camera: pulisci(r.camere) }];
   }
   return {
     codpratica: r.codpratica,

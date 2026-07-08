@@ -150,16 +150,16 @@ function chipCamere(camere) {
 
 // Scheda prenotazione condivisa da Arrivi e Clienti in casa.
 function scheda(a, pill) {
-  const pax = a.paxBambini ? `${a.paxAdulti}+${a.paxBambini}` : `${a.paxAdulti}`;
   const tratt = [a.trattamento, a.tariffa].filter(Boolean).map(esc).join(' / ') || '—';
   const nottiLine = a.notti != null ? `<br><span class="tile-sub">${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}</span>` : '';
   const tot = a.importo != null ? euro(a.importo) : dash;
   const note = a.note ? `<div class="bcard-note"><b>Note</b>${esc(a.note)}</div>` : '';
+  const nomeOsp = (o) => (o.codCli
+    ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
+    : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`);
   const ospitiHtml = (a.ospiti && a.ospiti.length)
-    ? `<div class="ospiti">${a.ospiti.map((o) => (o.codCli
-        ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
-        : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`)).join('')}</div>`
-    : '';
+    ? `<div class="ospiti">${a.ospiti.map((o) => `<div class="ospite-row">${o.camera ? `<span class="room">${esc(o.camera)}</span>` : ''}${nomeOsp(o)}</div>`).join('')}</div>`
+    : `<span class="tile-v">${dash}</span>`;
   return `
     <article class="bcard">
       <header class="bcard-head">
@@ -170,7 +170,7 @@ function scheda(a, pill) {
       </header>
       <div class="bcard-body">
         <div class="tile"><span class="tile-l">Arrivo → Partenza</span><span class="tile-v">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${nottiLine}</span></div>
-        <div class="tile"><span class="tile-l">Pax / Camere</span><span class="tile-v">${pax} pax · ${a.camere ? chipCamere(a.camere) : dash}</span>${ospitiHtml}</div>
+        <div class="tile"><span class="tile-l">Ospiti in camera</span>${ospitiHtml}</div>
         <div class="tile"><span class="tile-l">Trattamento / Tariffa</span><div class="tratt-row"><span class="chip">${tratt}</span><span class="tratt-tot">${tot}</span></div></div>
       </div>
       ${note}
