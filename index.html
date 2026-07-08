@@ -144,10 +144,42 @@
   .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
   @media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr}}
 
+  /* Tabella scrollabile su schermi stretti */
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius)}
+  .table-scroll .gtable{min-width:600px}
+
+  /* --- Responsive tablet / mobile --- */
+  @media(max-width:820px){
+    .wrap{padding:20px 16px 60px}
+    header{gap:14px}
+    .brand h1,.hotel-name{font-size:22px}
+    .arr-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+  }
+  @media(max-width:560px){
+    .wrap{padding:16px 12px 56px}
+    .authbar{flex-wrap:wrap;justify-content:flex-start}
+    header{flex-direction:column;align-items:stretch}
+    .stats{width:100%}
+    .stat{flex:1;min-width:0}
+    .tabs{overflow-x:auto}
+    .toolbar{gap:8px}
+    .search{min-width:100%}
+    .toolbar .btn{flex:1;justify-content:center}
+    .arr-input{flex-direction:column}
+    .arr-actions{min-width:100%}
+    textarea.arrivals{min-width:100%}
+    .arr-grid{grid-template-columns:1fr}
+    .overlay{padding:12px 8px;align-items:flex-start}
+    .modal-head,.modal-foot{padding:14px 16px}
+    .modal-body{padding:16px 16px}
+    .modal-foot{flex-wrap:wrap}
+  }
+
   .list-edit{display:flex;flex-direction:column;gap:8px}
   .le-row{display:flex;gap:8px}
   .le-row input{flex:1}
-  .le-add{align-self:flex-start;font-size:12.5px;color:var(--green-deep);background:var(--green-tint);border:none;padding:6px 12px;border-radius:8px;font-weight:600}
+  .le-add{align-self:flex-start;margin-top:10px;font-size:12.5px;color:var(--green-deep);background:var(--green-tint);border:none;padding:7px 13px;border-radius:8px;font-weight:600}
+  .le-add:hover{background:var(--green);color:#f1ece0}
   .le-del{border:1px solid var(--line);background:var(--surface);border-radius:9px;width:38px;color:var(--muted)}
   .le-del:hover{color:var(--terra);border-color:var(--terra)}
   .check{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink-soft);cursor:pointer}
@@ -566,7 +598,7 @@ function renderGuests(){
     </tr>`;
   }).join('');
   const more=filtered.length>MAXROWS?`<div class="hint" style="padding:12px 4px">Mostrati i primi ${MAXROWS} risultati di ${filtered.length} — affina la ricerca per trovare l'ospite.</div>`:'';
-  el.innerHTML=`<table class="gtable"><thead><tr><th>Ospite</th><th>Nazionalità</th><th>Soggiorni</th><th>Note</th><th>Ultimo soggiorno</th></tr></thead><tbody>${rows}</tbody></table>${more}`;
+  el.innerHTML=`<div class="table-scroll"><table class="gtable"><thead><tr><th>Ospite</th><th>Nazionalità</th><th>Soggiorni</th><th>Note</th><th>Ultimo soggiorno</th></tr></thead><tbody>${rows}</tbody></table></div>${more}`;
 }
 
 /* ---------- editor ---------- */
