@@ -34,11 +34,14 @@ test('getCliente restituisce null se non trovato', async () => {
 
 test('getSoggiorniCliente mappa le righe', async () => {
   const pms = fakePms([{ codpratica: 60397, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2,
-    camere: '109', importo: 855, stato: 'Concluso' }]);
+    camere: '109', stato: 'Concluso', camereJson: '[{"camera":"109","arrangiamento":855,"extra":40}]' }]);
   const [s] = await getSoggiorniCliente(pms, 47186);
   assert.strictEqual(s.codpratica, 60397);
   assert.strictEqual(s.camere, '109');
-  assert.strictEqual(s.importo, 855);
+  assert.strictEqual(s.arrangiamento, 855);       // somma arrangiamenti per camera (Matura codarr non nullo)
+  assert.strictEqual(s.extra, 40);                // somma extra per camera
+  assert.strictEqual(s.importo, 855);             // = arrangiamento (compat)
+  assert.deepStrictEqual(s.camereDett, [{ camera: '109', arrangiamento: 855, extra: 40 }]);
   assert.strictEqual(s.stato, 'Concluso');
   assert.strictEqual(pms.calls[0].params.codCli, 47186);
 });
