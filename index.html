@@ -381,9 +381,15 @@
           </select>
         </div>
       </div>
-      <div class="field" id="fVipCodeWrap" style="display:none;max-width:240px">
-        <label>Codice VIP <span style="font-weight:400;text-transform:none;color:var(--muted)">(es. V1, FR, EX…)</span></label>
-        <input id="fVipCode" placeholder="Codice dal PMS">
+      <div id="fVipExtra" style="display:none;gap:16px;flex-wrap:wrap">
+        <div class="field" style="max-width:240px">
+          <label>Codice VIP <span style="font-weight:400;text-transform:none;color:var(--muted)">(es. V1, FR, EX…)</span></label>
+          <input id="fVipCode" placeholder="Codice dal PMS">
+        </div>
+        <div class="field" style="flex:1;min-width:240px">
+          <label>Amenities ultimo soggiorno <span style="font-weight:400;text-transform:none;color:var(--muted)">(sola lettura)</span></label>
+          <input id="fLastAmenities" readonly placeholder="—" style="background:var(--surface-2);color:var(--ink-soft)">
+        </div>
       </div>
 
       <div class="field">
@@ -525,10 +531,11 @@ function splitPhone(full){
 
 /* ---------- mappatura DB <-> oggetto JS ---------- */
 function rowToGuest(r){
+  const lvl=(r.vip_level||'').trim();
   return {
     id:r.id, first:r.first||'', last:r.last||'', nationality:r.nationality||'', language:r.language||'',
     stays:r.stays||0, email:r.email||'', phone:r.phone||'', roomType:r.room_type||'', lastStay:r.last_stay||'',
-    notes:r.notes||'', vip:!!r.vip, vipCode:r.vip_code||'',
+    notes:r.notes||'', vip:!!lvl, vipCode:(lvl==='SI'?'':lvl),
     preferences:Array.isArray(r.preferences)?r.preferences:[], complaints:Array.isArray(r.complaints)?r.complaints:[],
     createdAt:r.created_at, updatedAt:r.updated_at
   };
@@ -537,7 +544,10 @@ function guestToRow(g){
   return {
     id:g.id, first:g.first||'', last:g.last||'', nationality:g.nationality||'', language:g.language||'',
     stays:g.stays||0, email:g.email||'', phone:g.phone||'', room_type:g.roomType||'', last_stay:g.lastStay||'',
-    notes:g.notes||'', vip:!!g.vip, vip_code:g.vipCode||null,
+    notes:g.notes||'',
+    // La tabella ha una sola colonna VIP: vip_level (testo).
+    // Contiene il codice (V1, FR...) se VIP; 'SI' se VIP senza codice; null se non VIP.
+    vip_level: g.vip ? ((g.vipCode||'').trim() || 'SI') : null,
     preferences:g.preferences||[], complaints:g.complaints||[],
     updated_at:new Date().toISOString()
   };
@@ -773,7 +783,9 @@ function openEditor(id){
   // VIP: SI/NO + codice (visibile solo se SI)
   document.getElementById('fVip').value=g?.vip?'si':'no';
   set('fVipCode',g?.vipCode);
+  set('fLastAmenities','');
   toggleVipCode();
+  if(id)caricaUltimeAmenities(id);
 
   renderLE('prefList',g?.preferences||[]); renderLE('cmpList',g?.complaints||[]);
 
@@ -789,7 +801,7 @@ function openEditor(id){
   setTimeout(()=>{ if(!ro)document.getElementById('fFirst').focus(); },50);
 }
 function toggleVipCode(){
-  document.getElementById('fVipCodeWrap').style.display=document.getElementById('fVip').value==='si'?'':'none';
+  document.getElementById('fVipExtra').style.display=document.getElementById('fVip').value==='si'?'flex':'none';
 }
 // ---- Preferenze categorizzate ----
 const PREF_CATS=['F&B','Camera','Persona','Occasioni','Generale'];
@@ -1341,8 +1353,22 @@ function renderPresenze(){
 
 function openFromPresenza(ospiteId){
   const g=GUESTS.find(x=>x.id===ospiteId);
-  if(g)openEditor(g);
+  if(g)openEditor(ospiteId);
   else toast('Scheda ospite non trovata tra le anagrafiche caricate');
+}
+
+// Amenities dell'ultimo soggiorno dell'ospite (sola lettura, riempie fLastAmenities)
+async function caricaUltimeAmenities(ospiteId){
+  const el=document.getElementById('fLastAmenities');
+  if(!el)return;
+  const {data,error}=await db.from('soggiorni')
+    .select('amenities,arrivo')
+    .eq('ospite_id',ospiteId)
+    .order('arrivo',{ascending:false})
+    .limit(1);
+  if(error||!data||!data.length){ el.value=''; el.placeholder='—'; return; }
+  el.value=data[0].amenities||'';
+  el.placeholder = data[0].amenities ? '' : 'Nessuna amenity registrata';
 }
 window.setPresFilter=setPresFilter;window.loadPresenze=loadPresenze;window.openFromPresenza=openFromPresenza;
 
