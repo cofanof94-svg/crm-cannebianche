@@ -208,6 +208,28 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   .loader-text{font-family:"Fraunces",serif;font-size:16px;color:var(--green-deep)}
 
+  /* Statistiche / cruscotto */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+  .scard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow)}
+  .scard h3{font-size:17px;margin-bottom:4px}
+  .scard .sub{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px}
+  .scard.span2{grid-column:span 2}
+  @media(max-width:760px){.scard.span2{grid-column:span 1}}
+  .kpi-row{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:6px}
+  .kpi b{font-family:"Fraunces",serif;font-size:30px;display:block;line-height:1;color:var(--green-deep)}
+  .kpi span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .bar-row{display:grid;grid-template-columns:130px 1fr 48px;align-items:center;gap:10px;margin:7px 0;font-size:13.5px}
+  .bar-row .lbl{color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-track{background:var(--surface-2);border-radius:6px;height:16px;overflow:hidden}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--brass),var(--green));border-radius:6px;min-width:2px}
+  .bar-fill.cmp{background:linear-gradient(90deg,#c98a6a,var(--terra))}
+  .bar-row .val{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+  .rank-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer}
+  .rank-row:last-child{border-bottom:none}
+  .rank-row:hover{color:var(--brass)}
+  .rank-row .cnt{font-family:"Fraunces",serif;color:var(--green-deep);font-weight:600}
+  .scard .none{font-size:13px;color:var(--muted);font-style:italic}
+
   /* Login */
   #loginOverlay .modal{max-width:400px}
   #loginErr{color:var(--terra);font-size:13px;min-height:18px;margin-top:4px}
@@ -256,7 +278,9 @@
 
   <div class="tabs">
     <button class="tab active" data-view="arrivals">Arrivi del giorno</button>
+    <button class="tab" data-view="presenze">In hotel ora</button>
     <button class="tab" data-view="guests">Anagrafiche</button>
+    <button class="tab" data-view="stats">Statistiche</button>
   </div>
 
   <!-- ARRIVALS VIEW -->
@@ -278,6 +302,30 @@
     </div>
   </section>
 
+  <!-- PRESENZE VIEW -->
+  <style>
+    .subtabs{display:flex;gap:6px;margin-bottom:18px}
+    .subtab{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 15px;font-size:13.5px;font-weight:600;color:var(--muted);transition:.15s}
+    .subtab:hover{border-color:var(--brass);color:var(--ink)}
+    .subtab.on{background:var(--green-deep);color:#f1ece0;border-color:var(--green-deep)}
+    .subtab .n{font-size:11px;background:rgba(255,255,255,.22);padding:1px 7px;border-radius:999px;margin-left:6px}
+    .subtab:not(.on) .n{background:var(--green-tint);color:var(--green-deep)}
+    .pcard-name{font-family:"Fraunces",serif;font-weight:600}
+    .pbadge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+    .pbadge.arr{background:var(--green-tint);color:var(--green-deep)}
+    .pbadge.part{background:var(--terra-tint);color:var(--terra)}
+    .pempty{padding:40px 20px;text-align:center;color:var(--muted)}
+  </style>
+  <section id="view-presenze" style="display:none">
+    <div class="subtabs">
+      <button class="subtab on" id="st-arrivo"  onclick="setPresFilter('arrivo',this)">Arrivi oggi<span class="n" id="n-arrivo">·</span></button>
+      <button class="subtab"    id="st-inhouse" onclick="setPresFilter('inhouse',this)">Presenti ora<span class="n" id="n-inhouse">·</span></button>
+      <button class="subtab"    id="st-partenza"onclick="setPresFilter('partenza',this)">Partenze oggi<span class="n" id="n-partenza">·</span></button>
+      <button class="btn ghost sm" style="margin-left:auto" onclick="loadPresenze()">Aggiorna</button>
+    </div>
+    <div id="presList"></div>
+  </section>
+
   <!-- GUESTS VIEW -->
   <section id="view-guests" style="display:none">
     <div class="toolbar">
@@ -291,6 +339,11 @@
     </div>
     <div class="gcount" id="gcount"></div>
     <div id="guestList"></div>
+  </section>
+
+  <!-- STATS VIEW -->
+  <section id="view-stats" style="display:none">
+    <div id="statsBoard"></div>
   </section>
 </div>
 
@@ -310,23 +363,27 @@
         <div class="field"><label>N° soggiorni</label><input id="fStays" type="number" min="0" value="0"></div>
       </div>
       <div class="grid2">
-        <div class="field"><label>Email</label><input id="fEmail" type="email"></div>
-        <div class="field"><label>Telefono</label><input id="fPhone"></div>
+        <div class="field"><label>Email</label><input id="fEmail" type="email" placeholder="mario.rossi@email.com"></div>
+        <div class="field"><label>Telefono</label>
+          <div style="display:flex;gap:8px">
+            <select id="fPhonePrefix" style="max-width:150px"></select>
+            <input id="fPhoneNum" inputmode="numeric" placeholder="333 1234567" style="flex:1">
+          </div>
+        </div>
       </div>
       <div class="grid3">
         <div class="field"><label>Tipo camera preferito</label><input id="fRoom"></div>
         <div class="field"><label>Ultimo soggiorno</label><input id="fLastStay" placeholder="es. 2025-08-14"></div>
-        <div class="field"><label>Livello VIP</label>
-          <select id="fVipLevel">
-            <option value="">Nessuno</option>
-            <option value="VIP">VIP (non specificato)</option>
-            <option value="VIP1">VIP1</option>
-            <option value="VIP2">VIP2</option>
-            <option value="VIP3">VIP3</option>
-            <option value="VIP4">VIP4</option>
-            <option value="VIP5">VIP5</option>
+        <div class="field"><label>VIP</label>
+          <select id="fVip">
+            <option value="no">NO</option>
+            <option value="si">SI</option>
           </select>
         </div>
+      </div>
+      <div class="field" id="fVipCodeWrap" style="display:none;max-width:240px">
+        <label>Codice VIP <span style="font-weight:400;text-transform:none;color:var(--muted)">(es. V1, FR, EX…)</span></label>
+        <input id="fVipCode" placeholder="Codice dal PMS">
       </div>
 
       <div class="field">
@@ -437,12 +494,41 @@ function fullName(g){return ((g.first||"")+" "+(g.last||"")).trim();}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
 const esc=s=>(s||"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
+/* ---------- validazioni & telefono ---------- */
+const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_MIN_DIGITS=6;   // lunghezza minima configurabile
+const PHONE_PREFIXES=[
+  ['+39','🇮🇹 Italia'],['+44','🇬🇧 UK'],['+33','🇫🇷 Francia'],['+49','🇩🇪 Germania'],
+  ['+34','🇪🇸 Spagna'],['+1','🇺🇸 USA/Canada'],['+41','🇨🇭 Svizzera'],['+31','🇳🇱 Paesi Bassi'],
+  ['+32','🇧🇪 Belgio'],['+43','🇦🇹 Austria'],['+351','🇵🇹 Portogallo'],['+30','🇬🇷 Grecia'],
+  ['+353','🇮🇪 Irlanda'],['+45','🇩🇰 Danimarca'],['+46','🇸🇪 Svezia'],['+47','🇳🇴 Norvegia'],
+  ['+358','🇫🇮 Finlandia'],['+48','🇵🇱 Polonia'],['+420','🇨🇿 Rep. Ceca'],['+36','🇭🇺 Ungheria'],
+  ['+7','🇷🇺 Russia'],['+380','🇺🇦 Ucraina'],['+90','🇹🇷 Turchia'],['+972','🇮🇱 Israele'],
+  ['+971','🇦🇪 Emirati'],['+966','🇸🇦 Arabia S.'],['+86','🇨🇳 Cina'],['+81','🇯🇵 Giappone'],
+  ['+82','🇰🇷 Corea Sud'],['+91','🇮🇳 India'],['+61','🇦🇺 Australia'],['+55','🇧🇷 Brasile'],
+  ['+52','🇲🇽 Messico'],['+27','🇿🇦 Sudafrica'],['+20','🇪🇬 Egitto']
+];
+function fillPhonePrefixes(){
+  const sel=document.getElementById('fPhonePrefix');
+  if(sel.options.length)return;
+  sel.innerHTML=PHONE_PREFIXES.map(([code,name])=>`<option value="${code}">${name} ${code}</option>`).join('');
+}
+// separa un telefono salvato in prefisso + numero (best effort)
+function splitPhone(full){
+  full=(full||'').trim();
+  if(full.startsWith('+')){
+    const codes=PHONE_PREFIXES.map(p=>p[0]).sort((a,b)=>b.length-a.length);
+    for(const c of codes){ if(full.startsWith(c)) return {prefix:c, num:full.slice(c.length).replace(/\D/g,'')}; }
+  }
+  return {prefix:'+39', num:full.replace(/\D/g,'')};
+}
+
 /* ---------- mappatura DB <-> oggetto JS ---------- */
 function rowToGuest(r){
   return {
     id:r.id, first:r.first||'', last:r.last||'', nationality:r.nationality||'', language:r.language||'',
     stays:r.stays||0, email:r.email||'', phone:r.phone||'', roomType:r.room_type||'', lastStay:r.last_stay||'',
-    notes:r.notes||'', vipLevel:r.vip_level||'',
+    notes:r.notes||'', vip:!!r.vip, vipCode:r.vip_code||'',
     preferences:Array.isArray(r.preferences)?r.preferences:[], complaints:Array.isArray(r.complaints)?r.complaints:[],
     createdAt:r.created_at, updatedAt:r.updated_at
   };
@@ -451,7 +537,7 @@ function guestToRow(g){
   return {
     id:g.id, first:g.first||'', last:g.last||'', nationality:g.nationality||'', language:g.language||'',
     stays:g.stays||0, email:g.email||'', phone:g.phone||'', room_type:g.roomType||'', last_stay:g.lastStay||'',
-    notes:g.notes||'', vip_level:g.vipLevel||null,
+    notes:g.notes||'', vip:!!g.vip, vip_code:g.vipCode||null,
     preferences:g.preferences||[], complaints:g.complaints||[],
     updated_at:new Date().toISOString()
   };
@@ -597,7 +683,11 @@ function bind(){
     t.classList.add('active');
     const v=t.dataset.view;
     document.getElementById('view-arrivals').style.display=v==='arrivals'?'':'none';
+    document.getElementById('view-presenze').style.display=v==='presenze'?'':'none';
     document.getElementById('view-guests').style.display=v==='guests'?'':'none';
+    document.getElementById('view-stats').style.display=v==='stats'?'':'none';
+    if(v==='stats')renderAnalytics();
+    if(v==='presenze')loadPresenze();
   });
 
   document.getElementById('searchBox').oninput=applySearch;
@@ -616,6 +706,7 @@ function bind(){
   document.getElementById('btnSave').onclick=saveGuest;
   document.getElementById('btnDelete').onclick=deleteGuest;
   document.getElementById('addPref').onclick=()=>addLERow('prefList','');
+  document.getElementById('fVip').onchange=toggleVipCode;
   document.getElementById('addCmp').onclick=()=>addLERow('cmpList','');
   document.getElementById('impFile').onchange=onImportFile;
   document.getElementById('btnDoImport').onclick=doImport;
@@ -652,7 +743,7 @@ function renderGuests(){
   let rows=shown.map(g=>{
     const rep=(g.stays||0)>1;
     return `<tr onclick="openEditor('${g.id}')">
-      <td class="gnm">${esc(fullName(g))} ${g.vipLevel?`<span class="vip">${esc(g.vipLevel)}</span>`:''}</td>
+      <td class="gnm">${esc(fullName(g))} ${g.vip?`<span class="vip">VIP${g.vipCode?' '+esc(g.vipCode):''}</span>`:''}</td>
       <td>${esc(g.nationality)||'—'}</td>
       <td>${rep?`<span class="tag-rep">${g.stays} soggiorni</span>`:`<span class="flag">${g.stays||0} soggiorno</span>`}</td>
       <td class="flag">${(g.preferences||[]).length} pref. · ${(g.complaints||[]).length} recl.</td>
@@ -664,22 +755,25 @@ function renderGuests(){
 }
 
 /* ---------- editor ---------- */
-const CORE_FIELDS=['fFirst','fLast','fNat','fLang','fStays','fEmail','fPhone','fRoom','fLastStay','fNotes','fVipLevel'];
+const CORE_FIELDS=['fFirst','fLast','fNat','fLang','fStays','fEmail','fPhonePrefix','fPhoneNum','fRoom','fLastStay','fNotes','fVip','fVipCode'];
 function openEditor(id){
   editingId=id;
   const g=id?GUESTS.find(x=>x.id===id):null;
   document.getElementById('editorTitle').textContent=id?'Scheda ospite':'Nuova anagrafica';
   const set=(k,v)=>document.getElementById(k).value=v||'';
   set('fFirst',g?.first); set('fLast',g?.last); set('fNat',g?.nationality); set('fLang',g?.language);
-  set('fStays',g?g.stays||0:0); set('fEmail',g?.email); set('fPhone',g?.phone); set('fRoom',g?.roomType); set('fLastStay',g?.lastStay); set('fNotes',g?.notes);
+  set('fStays',g?g.stays||0:0); set('fEmail',g?.email); set('fRoom',g?.roomType); set('fLastStay',g?.lastStay); set('fNotes',g?.notes);
 
-  // VIP level: assicura che il valore corrente sia tra le opzioni
-  const sel=document.getElementById('fVipLevel');
-  const lvl=g?.vipLevel||'';
-  if(lvl && ![...sel.options].some(o=>o.value===lvl)){
-    const o=document.createElement('option');o.value=lvl;o.textContent=lvl;sel.appendChild(o);
-  }
-  sel.value=lvl;
+  // telefono: separa prefisso + numero
+  fillPhonePrefixes();
+  const ph=splitPhone(g?.phone);
+  document.getElementById('fPhonePrefix').value=ph.prefix;
+  document.getElementById('fPhoneNum').value=ph.num;
+
+  // VIP: SI/NO + codice (visibile solo se SI)
+  document.getElementById('fVip').value=g?.vip?'si':'no';
+  set('fVipCode',g?.vipCode);
+  toggleVipCode();
 
   renderLE('prefList',g?.preferences||[]); renderLE('cmpList',g?.complaints||[]);
 
@@ -694,30 +788,93 @@ function openEditor(id){
   document.getElementById('editorOverlay').classList.add('show');
   setTimeout(()=>{ if(!ro)document.getElementById('fFirst').focus(); },50);
 }
-function renderLE(listId,arr){const c=document.getElementById(listId);c.innerHTML='';(arr.length?arr:[]).forEach(v=>addLERow(listId,typeof v==='string'?v:v.text));}
-function addLERow(listId,val){
+function toggleVipCode(){
+  document.getElementById('fVipCodeWrap').style.display=document.getElementById('fVip').value==='si'?'':'none';
+}
+// ---- Preferenze categorizzate ----
+const PREF_CATS=['F&B','Camera','Persona','Occasioni','Generale'];
+const PREF_RULES=[
+  {cat:'F&B',       kw:['vino','amarone','prosecco','bevand','allerg','intolleran','colazione','cena','vegetarian','vegan','celiac','tavolo','ristorante','caffè','birra','glutine','champagne','spumante']},
+  {cat:'Camera',    kw:['cuscino','piano','ascensore','rumore','temperatura','vista','letto','culla','bagno','doccia','materasso']},
+  {cat:'Occasioni', kw:['compleanno','anniversario','luna di miele','proposta','matrimonio','festeggia']},
+  {cat:'Persona',   kw:['lingua','chiama','bambini','animale','cane','gatto','disabil','abituale']},
+];
+function suggestCat(t){t=(t||'').toLowerCase();for(const r of PREF_RULES){if(r.kw.some(k=>t.includes(k)))return r.cat;}return 'Generale';}
+
+function renderLE(listId,arr){const c=document.getElementById(listId);c.innerHTML='';(arr.length?arr:[]).forEach(v=>{
+  if(typeof v==='string')addLERow(listId,v);
+  else addLERow(listId,v.text,v.cat);
+});}
+function addLERow(listId,val,cat){
   const c=document.getElementById(listId);
   const row=document.createElement('div');row.className='le-row';
-  row.innerHTML=`<input value="${esc(val)}" placeholder="${listId==='cmpList'?'es. lamentela rumore camera 204 (ago 2025)':'es. preferisce vino rosso corposo'}"><button class="le-del" type="button">&times;</button>`;
+  const withCat=listId==='prefList';
+  let catSel='';
+  if(withCat){
+    const chosen=cat||suggestCat(val);
+    catSel=`<select class="le-cat" style="max-width:120px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)">`
+      +PREF_CATS.map(x=>`<option value="${x}" ${x===chosen?'selected':''}>${x}</option>`).join('')+`</select>`;
+  }
+  row.innerHTML=`${catSel}<input value="${esc(val||'')}" placeholder="${listId==='cmpList'?'es. lamentela rumore camera 204 (ago 2025)':'es. preferisce Amarone'}"><button class="le-del" type="button">&times;</button>`;
   row.querySelector('.le-del').onclick=()=>row.remove();
+  if(withCat){
+    const sel=row.querySelector('.le-cat'), inp=row.querySelector('input');
+    sel.dataset.touched=(cat?'1':'0');
+    sel.addEventListener('change',()=>sel.dataset.touched='1');
+    inp.addEventListener('input',()=>{ if(sel.dataset.touched!=='1') sel.value=suggestCat(inp.value); });
+  }
   c.appendChild(row);
 }
-function collectLE(listId){return [...document.querySelectorAll('#'+listId+' input')].map(i=>i.value.trim()).filter(Boolean).map(t=>({text:t}));}
+function collectLE(listId){
+  const withCat=listId==='prefList';
+  return [...document.querySelectorAll('#'+listId+' .le-row')].map(row=>{
+    const t=row.querySelector('input').value.trim();
+    if(!t)return null;
+    if(withCat){const s=row.querySelector('.le-cat');return {text:t,cat:s?s.value:'Generale'};}
+    return {text:t};
+  }).filter(Boolean);
+}
 
 async function saveGuest(){
+  const fullWrite = isManager() || !editingId;   // manager, o reception che crea un nuovo cliente
+  let phone='', email='', vipOn=false, vipCode='';
+
+  if(fullWrite){
+    // --- telefono: prefisso + numero ---
+    const pfx=document.getElementById('fPhonePrefix').value;
+    const pnum=document.getElementById('fPhoneNum').value.replace(/\D/g,'');
+    if(pnum){
+      if(pnum.length<PHONE_MIN_DIGITS){toast('Numero di telefono troppo corto (min '+PHONE_MIN_DIGITS+' cifre)');return;}
+      if(!pfx){toast('Seleziona il prefisso internazionale');return;}
+      phone=pfx+pnum;
+    }
+    // --- email ---
+    email=val('fEmail');
+    if(email && !EMAIL_RE.test(email)){toast('Email non valida: manca @ o dominio');return;}
+    vipOn=document.getElementById('fVip').value==='si';
+    vipCode=vipOn?val('fVipCode'):'';
+  }
+
   const g={
     id:editingId||uid(),
     first:val('fFirst'),last:val('fLast'),nationality:val('fNat'),language:val('fLang'),
-    stays:parseInt(val('fStays'))||0,email:val('fEmail'),phone:val('fPhone'),roomType:val('fRoom'),
-    lastStay:val('fLastStay'),notes:val('fNotes'),vipLevel:document.getElementById('fVipLevel').value,
+    stays:parseInt(val('fStays'))||0,email:email,phone:phone,roomType:val('fRoom'),
+    lastStay:val('fLastStay'),notes:val('fNotes'),vip:vipOn,vipCode:vipCode,
     preferences:collectLE('prefList'),complaints:collectLE('cmpList'),
     updatedAt:new Date().toISOString()
   };
   if(!g.first&&!g.last){toast('Inserisci almeno nome o cognome');return;}
+
+  // --- avviso duplicati alla CREAZIONE ---
+  if(!editingId){
+    const k=nameKey(g.first,g.last);
+    const dup=GUESTS.find(x=>nameKey(x.first,x.last)===k);
+    if(dup && !confirm('Esiste già un ospite con questo nome: "'+fullName(dup)+'".\nVuoi crearlo comunque come scheda separata?')) return;
+  }
+
   document.getElementById('btnSave').disabled=true;
   let ok;
-  if(isManager() || !editingId){
-    // manager (sempre) oppure reception che CREA un nuovo cliente: scrittura completa
+  if(fullWrite){
     ok=await upsertGuest(g);
   }else{
     // reception su cliente ESISTENTE: solo preferenze e reclami (coerente col trigger lato server)
@@ -780,7 +937,7 @@ function renderArrivals(reps,news){
       return `<div class="acard repeater" onclick="openEditor('${g.id}')">
         <div class="top"><div><div class="nm">${esc(fullName(g))}</div>
         <div class="meta">${g.stays||0} soggiorni${g.nationality?' · '+esc(g.nationality):''}${g.lastStay?' · ultimo '+esc(g.lastStay):''}</div></div>
-        ${g.vipLevel?`<span class="vip">${esc(g.vipLevel)}</span>`:''}</div>
+        ${g.vip?`<span class="vip">VIP${g.vipCode?' '+esc(g.vipCode):''}</span>`:''}</div>
         <div class="mini-section"><div class="mini-label">★ Preferenze</div>
           ${prefs.length?`<div class="chips">${prefs.map(p=>`<span class="chip">${esc(p.text)}</span>`).join('')}</div>`:'<div class="none">Nessuna registrata</div>'}</div>
         ${cmps.length?`<div class="mini-section"><div class="mini-label">⚠ Reclami</div><div class="chips">${cmps.map(c=>`<span class="chip cmp">${esc(c.text)}</span>`).join('')}</div></div>`:''}
@@ -935,7 +1092,7 @@ async function doImport(){
     if(merge&&map[a.key]){
       const g=map[a.key];
       g.stays=a.fromCol?Math.max(g.stays||0,a.stays):(g.stays||0)+a.stays;
-      if(a.vip && !g.vipLevel)g.vipLevel='VIP';   // marcatore generico, il livello preciso lo assegna lo staff
+      if(a.vip && !g.vip)g.vip=true;   // marca come VIP (SI/NO); il codice si assegna a mano o dai dati prenotazioni
       ['nationality','language','email','phone','roomType','notes'].forEach(f=>{if(a.data[f]&&!g[f])g[f]=a.data[f];});
       if(a.data.lastStay&&(!g.lastStay||a.data.lastStay>g.lastStay))g.lastStay=a.data.lastStay;
       const ptxt=new Set((g.preferences||[]).map(p=>p.text)); a.prefs.forEach(t=>{if(!ptxt.has(t)){g.preferences=g.preferences||[];g.preferences.push({text:t});}});
@@ -945,7 +1102,7 @@ async function doImport(){
     }else{
       const g={id:uid(),first:a.first,last:a.last,stays:a.stays,
         nationality:a.data.nationality||'',language:a.data.language||'',email:a.data.email||'',phone:a.data.phone||'',
-        roomType:a.data.roomType||'',lastStay:a.data.lastStay||'',notes:a.data.notes||'',vipLevel:a.vip?'VIP':'',
+        roomType:a.data.roomType||'',lastStay:a.data.lastStay||'',notes:a.data.notes||'',vip:!!a.vip,vipCode:'',
         preferences:a.prefs.map(t=>({text:t})),complaints:a.cmps.map(t=>({text:t})),
         createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
       toWrite.push(g);
@@ -970,12 +1127,136 @@ async function doImport(){
 }
 
 /* ---------- export ---------- */
+/* ==========================================================================
+   STATISTICHE / CRUSCOTTO
+   ========================================================================== */
+const IT_STOPWORDS=new Set(('il lo la i gli le un uno una di a da in con su per tra fra e o ed od ma che non del della dei delle dello al alla ai alle allo dal dalla dai dalle nel nella nei nelle sul sulla sui sulle si come piu molto poco ha ho hai hanno abbiamo essere sono stato stata anche se ci vi mi ti lo li ne quel quella questo questa questi queste il suo sua loro nostro vostro perche quando dove chi cosa cui piu meno gia ancora sempre mai poi cosi tutto tutta tutti tutte ogni qualche solo senza sotto sopra dopo prima durante verso circa presso il di del').split(' '));
+
+function topCounts(map,n){ return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n); }
+function bar(label,count,max,cls){
+  const pct=max>0?Math.round(count/max*100):0;
+  return `<div class="bar-row"><span class="lbl" title="${esc(label)}">${esc(label)}</span>
+    <div class="bar-track"><div class="bar-fill ${cls||''}" style="width:${pct}%"></div></div>
+    <span class="val">${count}</span></div>`;
+}
+function keywordThemes(texts){
+  const kw=new Map();
+  texts.forEach(txt=>{
+    new Set(norm(txt).split(' ').filter(w=>w.length>=3 && !IT_STOPWORDS.has(w))).forEach(w=>{
+      kw.set(w,(kw.get(w)||0)+1);
+    });
+  });
+  return kw;
+}
+
+function renderAnalytics(){
+  const G=GUESTS, tot=G.length, board=document.getElementById('statsBoard');
+  if(!tot){board.innerHTML='<div class="scard"><p class="none">Nessun dato da analizzare.</p></div>';return;}
+
+  // --- Fedelta ---
+  const rep=G.filter(g=>(g.stays||0)>1).length;
+  const repRate=Math.round(rep/tot*100);
+  const buckets={'1':0,'2':0,'3-5':0,'6-10':0,'10+':0};
+  G.forEach(g=>{const s=g.stays||0; if(s<=1)buckets['1']++; else if(s===2)buckets['2']++; else if(s<=5)buckets['3-5']++; else if(s<=10)buckets['6-10']++; else buckets['10+']++;});
+  const bMax=Math.max(...Object.values(buckets));
+  const topLoyal=[...G].sort((a,b)=>(b.stays||0)-(a.stays||0)).slice(0,10);
+
+  // --- Reclami / preferenze ---
+  let cmpTotal=0, prefTotal=0; const cmpTexts=[], prefTexts=[]; let gWithCmp=0, gWithPref=0;
+  G.forEach(g=>{
+    const c=(g.complaints||[]), p=(g.preferences||[]);
+    cmpTotal+=c.length; prefTotal+=p.length;
+    if(c.length)gWithCmp++; if(p.length)gWithPref++;
+    c.forEach(x=>cmpTexts.push(x.text||'')); p.forEach(x=>prefTexts.push(x.text||''));
+  });
+  const cmpKw=topCounts(keywordThemes(cmpTexts),8);
+  const prefKw=topCounts(keywordThemes(prefTexts),8);
+  const cmpKwMax=cmpKw.length?cmpKw[0][1]:0, prefKwMax=prefKw.length?prefKw[0][1]:0;
+
+  // --- Provenienza ---
+  const natMap=new Map();
+  G.forEach(g=>{const n=(g.nationality||'').trim(); if(n)natMap.set(n,(natMap.get(n)||0)+1);});
+  const topNat=topCounts(natMap,8); const natMax=topNat.length?topNat[0][1]:0;
+
+  // --- VIP ---
+  const vipYes=G.filter(g=>g.vip).length;
+  const codeMap=new Map();
+  G.forEach(g=>{if(g.vip&&g.vipCode)codeMap.set(g.vipCode,(codeMap.get(g.vipCode)||0)+1);});
+  const vipRows=[...codeMap.entries()].sort((a,b)=>b[1]-a[1]); const vipMax=vipRows.length?vipRows[0][1]:0;
+
+  // --- Contattabilita ---
+  const withEmail=G.filter(g=>(g.email||'').includes('@')).length;
+  const withPhone=G.filter(g=>(g.phone||'').replace(/\D/g,'').length>=6).length;
+
+  board.innerHTML=`
+  <div class="stats-grid">
+
+    <div class="scard span2">
+      <h3>Fedeltà</h3><div class="sub">Ospiti che tornano</div>
+      <div class="kpi-row">
+        <div class="kpi"><b>${repRate}%</b><span>Repeat rate</span></div>
+        <div class="kpi"><b>${rep.toLocaleString('it')}</b><span>Ospiti di ritorno</span></div>
+        <div class="kpi"><b>${tot.toLocaleString('it')}</b><span>Ospiti totali</span></div>
+      </div>
+      <div style="margin-top:14px">
+        ${Object.entries(buckets).map(([k,v])=>bar(k+' soggiorni',v,bMax)).join('')}
+      </div>
+    </div>
+
+    <div class="scard">
+      <h3>Top ospiti fedeli</h3><div class="sub">Per numero di soggiorni</div>
+      ${topLoyal.map(g=>`<div class="rank-row" onclick="openEditor('${g.id}')"><span>${esc(fullName(g))||'—'}</span><span class="cnt">${g.stays||0}</span></div>`).join('')}
+    </div>
+
+    <div class="scard">
+      <h3>Reclami</h3><div class="sub">Temi ricorrenti</div>
+      <div class="kpi-row" style="margin-bottom:14px">
+        <div class="kpi"><b>${cmpTotal}</b><span>Reclami totali</span></div>
+        <div class="kpi"><b>${gWithCmp}</b><span>Ospiti coinvolti</span></div>
+      </div>
+      ${cmpKw.length?cmpKw.map(([w,c])=>bar(w,c,cmpKwMax,'cmp')).join(''):'<p class="none">Nessun reclamo registrato ancora.</p>'}
+    </div>
+
+    <div class="scard">
+      <h3>Preferenze</h3><div class="sub">Temi ricorrenti</div>
+      <div class="kpi-row" style="margin-bottom:14px">
+        <div class="kpi"><b>${prefTotal}</b><span>Preferenze totali</span></div>
+        <div class="kpi"><b>${gWithPref}</b><span>Ospiti con preferenze</span></div>
+      </div>
+      ${prefKw.length?prefKw.map(([w,c])=>bar(w,c,prefKwMax)).join(''):'<p class="none">Nessuna preferenza registrata ancora.</p>'}
+    </div>
+
+    <div class="scard">
+      <h3>Provenienza</h3><div class="sub">Top nazionalità</div>
+      ${topNat.length?topNat.map(([n,c])=>bar(n,c,natMax)).join(''):'<p class="none">Nessun dato.</p>'}
+    </div>
+
+    <div class="scard">
+      <h3>VIP</h3><div class="sub">SI/NO e codici</div>
+      <div class="kpi-row" style="margin-bottom:14px">
+        <div class="kpi"><b>${vipYes.toLocaleString('it')}</b><span>Ospiti VIP (SI)</span></div>
+        <div class="kpi"><b>${Math.round(vipYes/tot*100)}%</b><span>Sul totale</span></div>
+      </div>
+      ${vipRows.length?vipRows.map(([n,c])=>bar(n,c,vipMax)).join(''):'<p class="none">Nessun codice VIP assegnato ancora.</p>'}
+    </div>
+
+    <div class="scard">
+      <h3>Contattabilità</h3><div class="sub">Raggiungibilità per campagne dirette</div>
+      <div class="kpi-row">
+        <div class="kpi"><b>${Math.round(withEmail/tot*100)}%</b><span>Con email (${withEmail.toLocaleString('it')})</span></div>
+        <div class="kpi"><b>${Math.round(withPhone/tot*100)}%</b><span>Con telefono (${withPhone.toLocaleString('it')})</span></div>
+      </div>
+    </div>
+
+  </div>`;
+}
+
 async function exportCSV(){
   if(!isManager()){toast('Solo il manager puo esportare');return;}
   if(!GUESTS.length){toast('Nessuna anagrafica da esportare');return;}
   const rows=GUESTS.map(g=>({
     Nome:g.first,Cognome:g.last,Nazionalita:g.nationality,Lingua:g.language,Soggiorni:g.stays,
-    Email:g.email,Telefono:g.phone,TipoCamera:g.roomType,UltimoSoggiorno:g.lastStay,VIP:g.vipLevel||'',
+    Email:g.email,Telefono:g.phone,TipoCamera:g.roomType,UltimoSoggiorno:g.lastStay,VIP:g.vip?'SI':'NO',CodiceVIP:g.vipCode||'',
     Preferenze:(g.preferences||[]).map(p=>p.text).join(' | '),
     Reclami:(g.complaints||[]).map(c=>c.text).join(' | '),Note:g.notes
   }));
@@ -985,6 +1266,85 @@ async function exportCSV(){
   try{ await db.rpc('log_export',{rows_count:GUESTS.length}); }catch(e){console.error(e);}
   toast('CSV esportato');
 }
+
+// ============================================================
+//  PRESENZE — Arrivi / In hotel ora / Partenze (vista v_presenze)
+// ============================================================
+let PRESENZE=[], presFilter='arrivo';
+
+async function loadPresenze(){
+  const box=document.getElementById('presList');
+  box.innerHTML='<div class="pempty">Caricamento…</div>';
+  const {data,error}=await db.from('v_presenze').select('*');
+  if(error){
+    box.innerHTML=`<div class="pempty">Impossibile caricare le presenze.<br>
+      Verifica di aver eseguito gli script SQL <b>01</b> e <b>02</b> su Supabase.<br>
+      <small style="color:var(--terra)">${esc(error.message)}</small></div>`;
+    return;
+  }
+  PRESENZE=data||[];
+  const n=f=>PRESENZE.filter(f).length;
+  document.getElementById('n-arrivo').textContent   = n(r=>r.badge==='arrivo');
+  document.getElementById('n-inhouse').textContent  = PRESENZE.length;
+  document.getElementById('n-partenza').textContent = n(r=>r.badge==='partenza');
+  renderPresenze();
+}
+
+function setPresFilter(f,btn){
+  presFilter=f;
+  document.querySelectorAll('.subtab').forEach(x=>x.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  renderPresenze();
+}
+
+function prefSummary(ospiteId){
+  const g=GUESTS.find(x=>x.id===ospiteId);
+  if(!g||!(g.preferences||[]).length)return '<span class="none">—</span>';
+  return (g.preferences||[]).slice(0,4).map(p=>{
+    const t=typeof p==='string'?p:p.text;
+    return `<span class="chip">${esc(t)}</span>`;
+  }).join(' ');
+}
+
+function renderPresenze(){
+  const box=document.getElementById('presList');
+  let rows=PRESENZE;
+  if(presFilter==='arrivo')  rows=PRESENZE.filter(r=>r.badge==='arrivo');
+  if(presFilter==='partenza')rows=PRESENZE.filter(r=>r.badge==='partenza');
+  if(!rows.length){
+    box.innerHTML='<div class="pempty">Nessun ospite in questa vista oggi.<br><small>Se hai appena creato le tabelle, importa o inserisci qualche soggiorno.</small></div>';
+    return;
+  }
+  const tr=rows.map(r=>{
+    let stato='';
+    if(r.badge==='arrivo')  stato='<span class="pbadge arr">Arrivato oggi</span>';
+    if(r.badge==='partenza')stato='<span class="pbadge part">Parte oggi</span>';
+    const vip=r.ospite_vip?`<span class="vip">VIP${r.ospite_vip_code?' '+esc(r.ospite_vip_code):''}</span>`:'';
+    let sog;
+    if(r.badge==='partenza')sog='in partenza';
+    else if(r.notti_rimanenti===0)sog='ultima notte';
+    else sog=`${r.notti_rimanenti} notti`;
+    return `<tr onclick="openFromPresenza('${r.ospite_id}')">
+      <td class="gnm">${esc((r.ospite_cognome||'')+' '+(r.ospite_nome||''))} ${vip}</td>
+      <td>${esc(r.camera)||'—'}</td>
+      <td>${sog}</td>
+      <td>${esc(r.trattamento)||''}</td>
+      <td>${prefSummary(r.ospite_id)}</td>
+      <td>${esc(r.amenities)||'<span class="none">—</span>'}</td>
+      <td style="text-align:right">${stato}</td>
+    </tr>`;
+  }).join('');
+  box.innerHTML=`<div class="table-scroll"><table class="gtable"><thead><tr>
+    <th>Ospite</th><th>Camera</th><th>Soggiorno</th><th>Tratt.</th><th>Preferenze</th><th>Amenities</th><th style="text-align:right">Stato</th>
+  </tr></thead><tbody>${tr}</tbody></table></div>`;
+}
+
+function openFromPresenza(ospiteId){
+  const g=GUESTS.find(x=>x.id===ospiteId);
+  if(g)openEditor(g);
+  else toast('Scheda ospite non trovata tra le anagrafiche caricate');
+}
+window.setPresFilter=setPresFilter;window.loadPresenze=loadPresenze;window.openFromPresenza=openFromPresenza;
 
 window.openEditor=openEditor;window.openImport=openImport;window.createFromArrival=createFromArrival;
 boot();
