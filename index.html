@@ -1287,6 +1287,9 @@ let PRESENZE=[], presFilter='arrivo';
 async function loadPresenze(){
   const box=document.getElementById('presList');
   box.innerHTML='<div class="pempty">Caricamento…</div>';
+  // aspetta che la sessione di login sia agganciata (evita richieste anonime al primo caricamento)
+  const {data:{session}}=await db.auth.getSession();
+  if(!session){ setTimeout(loadPresenze,600); return; }
   const {data,error}=await db.from('v_presenze').select('*');
   if(error){
     box.innerHTML=`<div class="pempty">Impossibile caricare le presenze.<br>
