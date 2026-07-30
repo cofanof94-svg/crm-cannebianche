@@ -231,6 +231,46 @@
               </table>
             </div>
 
+            <h2 class="sez">Lingua preferita</h2>
+            <div class="card note-box">
+              <form id="lingua-form" class="nota-form">
+                <input id="cli-lingua" name="lingua" placeholder="Es. IT, EN, DE…" autocomplete="off" maxlength="40" />
+                <button type="submit" class="btn btn-primary">Salva</button>
+              </form>
+            </div>
+
+            <h2 class="sez">Intolleranze / allergie <span class="sez-safety">sicurezza</span></h2>
+            <div class="card note-box note-box-safety">
+              <form id="intol-form" class="nota-form">
+                <input name="testo" placeholder="Aggiungi un'intolleranza o allergia…" required autocomplete="off" />
+                <button type="submit" class="btn btn-primary">Aggiungi</button>
+              </form>
+              <ul id="cli-intolleranze" class="note-list"></ul>
+            </div>
+
+            <h2 class="sez">Preferenze</h2>
+            <div class="card note-box">
+              <form id="pref-form" class="pref-form">
+                <select name="reparto" required></select>
+                <select name="categoria" required></select>
+                <input name="testo" placeholder="Preferenza (es. Predilige Amarone)…" required autocomplete="off" />
+                <button type="submit" class="btn btn-primary">Aggiungi</button>
+              </form>
+              <ul id="cli-preferenze" class="note-list"></ul>
+            </div>
+
+            <h2 class="sez">Nucleo di viaggio</h2>
+            <div class="card note-box">
+              <form id="nucleo-form" class="pref-form">
+                <select name="tipoRelazione" required></select>
+                <input name="nome" placeholder="Nome" autocomplete="off" />
+                <input name="cognome" placeholder="Cognome" autocomplete="off" />
+                <input name="nota" placeholder="Nota (es. celiaca)" autocomplete="off" />
+                <button type="submit" class="btn btn-primary">Aggiungi</button>
+              </form>
+              <ul id="cli-nucleo" class="note-list"></ul>
+            </div>
+
             <h2 class="sez">Note CRM</h2>
             <div class="card note-box">
               <form id="nota-form" class="nota-form">

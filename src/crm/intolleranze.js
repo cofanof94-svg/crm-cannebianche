@@ -1,0 +1,31 @@
+// Intolleranze / allergie del cliente nel DB CRM. Dato di SICUREZZA, una riga per
+// intolleranza. Solo lista/aggiungi/elimina (nessuna modifica in place). Le funzioni
+// di eliminazione restituiscono true se una riga è stata effettivamente toccata
+// (per il 404 dell'API).
+
+async function listIntolleranze(db, pmsCustomerId) {
+  return db.query(
+    `SELECT i.id, i.pms_customer_id, i.testo, i.created_at, i.autore_user_id, u.username AS autore
+     FROM customer_intolerances i LEFT JOIN users u ON u.id = i.autore_user_id
+     WHERE i.pms_customer_id = @pmsCustomerId
+     ORDER BY i.created_at DESC`,
+    { pmsCustomerId }
+  );
+}
+
+async function createIntolleranza(db, { pmsCustomerId, autoreUserId, testo }) {
+  const rows = await db.query(
+    `INSERT INTO customer_intolerances (pms_customer_id, autore_user_id, testo, created_at)
+     OUTPUT INSERTED.id
+     VALUES (@pmsCustomerId, @autoreUserId, @testo, SYSUTCDATETIME())`,
+    { pmsCustomerId, autoreUserId, testo }
+  );
+  return rows[0];
+}
+
+async function deleteIntolleranza(db, id) {
+  const rows = await db.query('DELETE FROM customer_intolerances OUTPUT DELETED.id WHERE id = @id', { id });
+  return rows.length > 0;
+}
+
+module.exports = { listIntolleranze, createIntolleranza, deleteIntolleranza };

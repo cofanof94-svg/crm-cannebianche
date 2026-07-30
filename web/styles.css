@@ -323,8 +323,15 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .cli-sogg-tab td:first-child, .cli-sogg-tab th:first-child { text-align: left; }
 
 .note-box { padding: 16px; }
+.sez-safety { font-family: var(--font-sans, inherit); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #b23b3b; background: #fbeaea; border-radius: 5px; padding: 2px 7px; vertical-align: 2px; margin-left: 6px; }
+.note-box-safety { border-left: 3px solid #cf5a5a; }
 .nota-form { display: flex; gap: 10px; margin-bottom: 14px; }
 .nota-form input { flex: 1; }
+.pref-form { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.pref-form select { flex: 0 0 auto; min-width: 130px; }
+.pref-form input { flex: 1 1 160px; }
+.pref-form input[name="nota"] { flex: 1 1 200px; }
+.pref-tag { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--brand); background: var(--brand-050); border-radius: 5px; padding: 1px 7px; margin-right: 8px; vertical-align: 1px; }
 .note-list { list-style: none; margin: 0; padding: 0; }
 .note-list li { padding: 11px 0; border-bottom: 1px solid var(--border); }
 .note-list li:last-child { border-bottom: none; }

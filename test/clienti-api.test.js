@@ -21,9 +21,24 @@ async function makeApp() {
   const admin = { id: 1, username: 'admin', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
   const note = [];
   const complaints = [];
+  const intolleranze = [];
+  const preferenze = [];
+  const nucleo = [];
+  let profilo = null;
   const crmDb = {
     async query(text, params) {
       if (/FROM users WHERE username/.test(text)) return params.username === 'admin' ? [admin] : [];
+      if (/INSERT INTO customer_intolerances/.test(text)) { const n = { id: intolleranze.length + 1, ...params }; intolleranze.push(n); return [{ id: n.id }]; }
+      if (/DELETE FROM customer_intolerances/.test(text)) { const i = intolleranze.findIndex((x) => x.id === params.id); if (i >= 0) { const id = intolleranze[i].id; intolleranze.splice(i, 1); return [{ id }]; } return []; }
+      if (/FROM customer_intolerances/.test(text)) return intolleranze.filter((n) => n.pmsCustomerId === params.pmsCustomerId).map((n) => ({ id: n.id, testo: n.testo, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
+      if (/MERGE customer_profile/.test(text)) { profilo = { pms_customer_id: params.pmsCustomerId, lingua: params.lingua }; return []; }
+      if (/FROM customer_profile/.test(text)) return profilo && profilo.pms_customer_id === params.pmsCustomerId ? [profilo] : [];
+      if (/INSERT INTO customer_preferences/.test(text)) { const n = { id: preferenze.length + 1, ...params }; preferenze.push(n); return [{ id: n.id }]; }
+      if (/DELETE FROM customer_preferences/.test(text)) { const i = preferenze.findIndex((x) => x.id === params.id); if (i >= 0) { const id = preferenze[i].id; preferenze.splice(i, 1); return [{ id }]; } return []; }
+      if (/FROM customer_preferences/.test(text)) return preferenze.filter((n) => n.pmsCustomerId === params.pmsCustomerId).map((n) => ({ id: n.id, reparto: n.reparto, categoria: n.categoria, testo: n.testo, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
+      if (/INSERT INTO customer_travel_party/.test(text)) { const n = { id: nucleo.length + 1, ...params }; nucleo.push(n); return [{ id: n.id }]; }
+      if (/DELETE FROM customer_travel_party/.test(text)) { const i = nucleo.findIndex((x) => x.id === params.id); if (i >= 0) { const id = nucleo[i].id; nucleo.splice(i, 1); return [{ id }]; } return []; }
+      if (/FROM customer_travel_party/.test(text)) return nucleo.filter((n) => n.pmsCustomerId === params.pmsCustomerId).map((n) => ({ id: n.id, tipo_relazione: n.tipoRelazione, nome: n.nome, cognome: n.cognome, nota: n.nota, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_notes/.test(text)) { const n = { id: note.length + 1, ...params }; note.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_notes/.test(text)) { const n = note.find((x) => x.id === params.id); if (n) { n.testo = params.testo; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_notes/.test(text)) { const i = note.findIndex((x) => x.id === params.id); if (i >= 0) { const id = note[i].id; note.splice(i, 1); return [{ id }]; } return []; }
@@ -156,4 +171,67 @@ test('complaint: stato non valido → 400', async () => {
   const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'x' });
   const res = await ag.patch(`/api/complaints/${c.body.complaint.id}`).send({ stato: 'boh' });
   assert.strictEqual(res.status, 400);
+});
+
+test('intolleranze: crea, elenca, elimina', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/intolleranze').send({ testo: 'Celiachia' });
+  assert.strictEqual(c.status, 201);
+  const id = c.body.intolleranza.id;
+  const l = await ag.get('/api/clienti/47186/intolleranze');
+  assert.strictEqual(l.body.intolleranze[0].testo, 'Celiachia');
+  const del = await ag.delete(`/api/intolleranze/${id}`);
+  assert.strictEqual(del.status, 200);
+  const del404 = await ag.delete('/api/intolleranze/9999');
+  assert.strictEqual(del404.status, 404);
+});
+
+test('intolleranze: testo mancante → 400, senza login → 401', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const vuoto = await ag.post('/api/clienti/47186/intolleranze').send({ testo: '  ' });
+  assert.strictEqual(vuoto.status, 400);
+  const noauth = await request(app).get('/api/clienti/47186/intolleranze');
+  assert.strictEqual(noauth.status, 401);
+});
+
+test('profilo/lingua: PUT salva e GET rilegge (upsert)', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const vuoto = await ag.get('/api/clienti/47186/profilo');
+  assert.strictEqual(vuoto.body.profilo, null);
+  const put = await ag.put('/api/clienti/47186/profilo').send({ lingua: 'EN' });
+  assert.strictEqual(put.status, 200);
+  const get = await ag.get('/api/clienti/47186/profilo');
+  assert.strictEqual(get.body.profilo.lingua, 'EN');
+});
+
+test('preferenze: crea/elenca/elimina + validazione liste chiuse', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const bad = await ag.post('/api/clienti/47186/preferenze').send({ reparto: 'Cucina', categoria: 'F&B', testo: 'x' });
+  assert.strictEqual(bad.status, 400); // reparto non valido
+  const c = await ag.post('/api/clienti/47186/preferenze').send({ reparto: 'F&B', categoria: 'F&B', testo: 'Amarone' });
+  assert.strictEqual(c.status, 201);
+  const l = await ag.get('/api/clienti/47186/preferenze');
+  assert.strictEqual(l.body.preferenze[0].testo, 'Amarone');
+  const del = await ag.delete(`/api/preferenze/${c.body.preferenza.id}`);
+  assert.strictEqual(del.status, 200);
+});
+
+test('nucleo: crea/elenca/elimina + validazioni', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const badRel = await ag.post('/api/clienti/47186/nucleo').send({ tipoRelazione: 'Cugino', nome: 'X' });
+  assert.strictEqual(badRel.status, 400); // relazione non valida
+  const noName = await ag.post('/api/clienti/47186/nucleo').send({ tipoRelazione: 'Coniuge' });
+  assert.strictEqual(noName.status, 400); // né nome né cognome
+  const c = await ag.post('/api/clienti/47186/nucleo').send({ tipoRelazione: 'Coniuge', nome: 'Maria', nota: 'Celiaca' });
+  assert.strictEqual(c.status, 201);
+  const l = await ag.get('/api/clienti/47186/nucleo');
+  assert.strictEqual(l.body.nucleo[0].nome, 'Maria');
+  assert.strictEqual(l.body.nucleo[0].tipo_relazione, 'Coniuge');
+  const del = await ag.delete(`/api/nucleo/${c.body.membro.id}`);
+  assert.strictEqual(del.status, 200);
 });

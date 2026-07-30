@@ -433,6 +433,13 @@ async function loadCliente(codCli) {
   const c = a.consensi;
   const cons = (ok, label) => `<div class="cons-box ${ok ? 'si' : 'no'}"><span class="cons-l">${label}</span><span class="cons-v">${ok ? 'Sì' : 'No'}</span></div>`;
   $('#cli-consensi').innerHTML = cons(c.marketing, 'Marketing') + cons(c.telefonate, 'Telefonate in camera') + cons(c.conservazione, 'Conservazione') + cons(c.cessione, 'Cessione');
+  popolaSelect($('#pref-form').reparto, REPARTI, 'Reparto');
+  popolaSelect($('#pref-form').categoria, CATEGORIE, 'Categoria');
+  popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
+  await caricaLingua(codCli);
+  await caricaIntolleranze(codCli);
+  await caricaPreferenze(codCli);
+  await caricaNucleo(codCli);
   await caricaNote(codCli);
   await caricaComplaints(codCli);
   msg.hidden = true; body.hidden = false;
@@ -515,6 +522,132 @@ $('#cli-note').addEventListener('click', async (e) => {
       await api(`/api/note/${edit.dataset.editNota}`, { method: 'PATCH', body: JSON.stringify({ testo: nuovo.trim() }) });
       caricaNote(clienteCorrente);
     }
+  }
+});
+
+// Liste chiuse (allineate ai CHECK del DB e alla validazione API)
+const REPARTI = ['Rooms', 'F&B', 'SPA', 'Front office'];
+const CATEGORIE = ['F&B', 'Camera', 'Persona', 'Occasioni', 'Generale'];
+const RELAZIONI = ['Coniuge', 'Figlio-a', 'Genitore', 'Amico-a', 'Assistente', 'Altro'];
+function popolaSelect(sel, valori, placeholder) {
+  sel.innerHTML = `<option value="" disabled selected>${placeholder}</option>` +
+    valori.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+}
+
+// --- Lingua preferita (profilo 1:1) ---
+async function caricaLingua(codCli) {
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/profilo`);
+  $('#cli-lingua').value = (body.profilo && body.profilo.lingua) || '';
+}
+
+$('#lingua-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!clienteCorrente) return;
+  const lingua = $('#cli-lingua').value.trim();
+  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/profilo`, {
+    method: 'PUT', body: JSON.stringify({ lingua }),
+  });
+  if (status === 200) { const b = $('#lingua-form').querySelector('button'); const t = b.textContent; b.textContent = 'Salvato ✓'; setTimeout(() => { b.textContent = t; }, 1200); }
+});
+
+// --- Preferenze (reparto + categoria + testo) ---
+async function caricaPreferenze(codCli) {
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/preferenze`);
+  const pref = body.preferenze || [];
+  $('#cli-preferenze').innerHTML = pref.map((p) => `
+    <li data-pref="${p.id}">
+      <div class="nota-testo"><span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>${esc(p.testo)}</div>
+      <div class="nota-meta">
+        <span>${esc(p.autore || '?')} · ${new Date(p.created_at).toLocaleString('it-IT')}</span>
+        <span class="nota-az"><button class="btn-icon danger" data-del-pref="${p.id}">Elimina</button></span>
+      </div>
+    </li>`).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
+}
+
+$('#pref-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (!clienteCorrente) return;
+  const reparto = f.reparto.value, categoria = f.categoria.value, testo = f.testo.value.trim();
+  if (!reparto || !categoria || !testo) return;
+  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, {
+    method: 'POST', body: JSON.stringify({ reparto, categoria, testo }),
+  });
+  if (status === 201) { f.reset(); caricaPreferenze(clienteCorrente); }
+});
+
+$('#cli-preferenze').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-del-pref]');
+  if (del) { await api(`/api/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); }
+});
+
+// --- Nucleo di viaggio / accompagnatori ---
+async function caricaNucleo(codCli) {
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/nucleo`);
+  const membri = body.nucleo || [];
+  $('#cli-nucleo').innerHTML = membri.map((m) => {
+    const nomeCompl = [m.nome, m.cognome].filter(Boolean).join(' ') || '—';
+    return `
+    <li data-nucleo="${m.id}">
+      <div class="nota-testo"><span class="pref-tag">${esc(m.tipo_relazione)}</span>${esc(nomeCompl)}${m.nota ? ` — <span class="cell-muted">${esc(m.nota)}</span>` : ''}</div>
+      <div class="nota-meta">
+        <span>${esc(m.autore || '?')} · ${new Date(m.created_at).toLocaleString('it-IT')}</span>
+        <span class="nota-az"><button class="btn-icon danger" data-del-nucleo="${m.id}">Elimina</button></span>
+      </div>
+    </li>`;
+  }).join('') || '<li class="nota-vuota">Nessun accompagnatore registrato.</li>';
+}
+
+$('#nucleo-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (!clienteCorrente) return;
+  const tipoRelazione = f.tipoRelazione.value;
+  const nome = f.nome.value.trim(), cognome = f.cognome.value.trim(), nota = f.nota.value.trim();
+  if (!tipoRelazione || (!nome && !cognome)) return;
+  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/nucleo`, {
+    method: 'POST', body: JSON.stringify({ tipoRelazione, nome, cognome, nota }),
+  });
+  if (status === 201) { f.reset(); caricaNucleo(clienteCorrente); }
+});
+
+$('#cli-nucleo').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-del-nucleo]');
+  if (del) { await api(`/api/nucleo/${del.dataset.delNucleo}`, { method: 'DELETE' }); caricaNucleo(clienteCorrente); }
+});
+
+// --- Intolleranze / allergie (dato di sicurezza) ---
+async function caricaIntolleranze(codCli) {
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/intolleranze`);
+  const intol = body.intolleranze || [];
+  $('#cli-intolleranze').innerHTML = intol.map((i) => `
+    <li data-intol="${i.id}">
+      <div class="nota-testo">${esc(i.testo)}</div>
+      <div class="nota-meta">
+        <span>${esc(i.autore || '?')} · ${new Date(i.created_at).toLocaleString('it-IT')}</span>
+        <span class="nota-az">
+          <button class="btn-icon danger" data-del-intol="${i.id}">Elimina</button>
+        </span>
+      </div>
+    </li>`).join('') || '<li class="nota-vuota">Nessuna intolleranza registrata.</li>';
+}
+
+$('#intol-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const testo = f.testo.value.trim();
+  if (!testo || !clienteCorrente) return;
+  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/intolleranze`, {
+    method: 'POST', body: JSON.stringify({ testo }),
+  });
+  if (status === 201) { f.reset(); caricaIntolleranze(clienteCorrente); }
+});
+
+$('#cli-intolleranze').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-del-intol]');
+  if (del) {
+    await api(`/api/intolleranze/${del.dataset.delIntol}`, { method: 'DELETE' });
+    caricaIntolleranze(clienteCorrente);
   }
 });
 
