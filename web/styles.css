@@ -206,6 +206,8 @@ tbody tr:hover { background: var(--surface-2); }
 .pill-partenza::before { background: var(--accent); }
 .pill-checkout { background: #edf0f2; color: var(--muted); }
 .pill-checkout::before { background: var(--faint); }
+.pill-eliminata { background: #fbeaea; color: #b23b3b; }
+.pill-eliminata::before { background: #cf5a5a; }
 
 /* ===== Stati (loading / vuoto / errore) ===== */
 .state { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }

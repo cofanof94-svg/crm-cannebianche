@@ -75,7 +75,7 @@ FROM (
     (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp
        FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = sp.codpratica GROUP BY ad.codcam) tc) AS importo,
-    'Concluso' AS stato,
+    CASE WHEN sp.DataEliminazione IS NOT NULL THEN 'Eliminata' ELSE 'Concluso' END AS stato,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM StorAlberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN StorAlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = sp.codpratica AND al.codcli IS NOT NULL

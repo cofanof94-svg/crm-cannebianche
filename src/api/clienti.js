@@ -5,10 +5,13 @@ const { listNote, createNota, updateNota, deleteNota } = require('../crm/note');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 
 function calcolaStatistiche(soggiorni) {
-  const nSoggiorni = soggiorni.length;
-  const totArrangiamenti = soggiorni.reduce((s, x) => s + (x.arrangiamento || 0), 0);
-  const totExtra = soggiorni.reduce((s, x) => s + (x.extra || 0), 0);
-  const date = soggiorni.map((x) => x.dtarrivo).filter(Boolean).sort();
+  // Le prenotazioni eliminate (annullate) restano nello storico ma non sono
+  // soggiorni reali: escluse dai conteggi e da prima/ultima visita.
+  const validi = soggiorni.filter((x) => x.stato !== 'Eliminata');
+  const nSoggiorni = validi.length;
+  const totArrangiamenti = validi.reduce((s, x) => s + (x.arrangiamento || 0), 0);
+  const totExtra = validi.reduce((s, x) => s + (x.extra || 0), 0);
+  const date = validi.map((x) => x.dtarrivo).filter(Boolean).sort();
   return {
     nSoggiorni,
     totArrangiamenti,

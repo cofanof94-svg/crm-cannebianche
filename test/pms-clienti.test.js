@@ -45,3 +45,20 @@ test('getSoggiorniCliente mappa le righe', async () => {
   assert.strictEqual(s.stato, 'Concluso');
   assert.strictEqual(pms.calls[0].params.codCli, 47186);
 });
+
+test('getSoggiorniCliente: la query marca Eliminata le prenotazioni con DataEliminazione', async () => {
+  const pms = fakePms([]);
+  await getSoggiorniCliente(pms, 81304);
+  const sql = pms.calls[0].text;
+  // Il ramo StorPrenota deve etichettare 'Eliminata' (annullate) e non 'Concluso' fisso
+  assert.match(sql, /sp\.DataEliminazione IS NOT NULL THEN 'Eliminata'/);
+});
+
+test('getSoggiorniCliente: mappa lo stato Eliminata senza alterarlo', async () => {
+  const pms = fakePms([{ codpratica: 62152, dtarrivo: '2026-07-28', dtpartenza: '2026-08-04', notti: 7,
+    camere: null, stato: 'Eliminata', camereJson: '[]' }]);
+  const [s] = await getSoggiorniCliente(pms, 81304);
+  assert.strictEqual(s.stato, 'Eliminata');
+  assert.strictEqual(s.arrangiamento, 0);
+  assert.strictEqual(s.extra, 0);
+});

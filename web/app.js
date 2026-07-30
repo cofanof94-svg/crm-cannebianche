@@ -442,6 +442,7 @@ function statoSoggPill(stato) {
   if (stato === 'In casa') return 'pill-incasa';
   if (stato === 'Concluso') return 'pill-checkout';
   if (stato === 'Partito') return 'pill-partenza';
+  if (stato === 'Eliminata') return 'pill-eliminata';
   return 'pill-atteso';
 }
 
