@@ -29,7 +29,7 @@ SELECT t.codpratica,
   CONVERT(varchar(10), t.dtarrivo, 23) AS dtarrivo,
   CONVERT(varchar(10), t.dtpartenza, 23) AS dtpartenza,
   DATEDIFF(day, t.dtarrivo, t.dtpartenza) AS notti,
-  t.camere, t.importo, t.stato, t.ospitiJson, t.camereJson
+  t.camere, t.importo, t.stato, t.source, t.ospitiJson, t.camereJson
 FROM (
   SELECT p.codpratica, p.dtarrivo, p.dtpartenza,
     COALESCE(
@@ -45,6 +45,7 @@ FROM (
       (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
     ) AS importo,
     CASE WHEN p.flgincasa = 'S' THEN 'In casa' WHEN p.flgincasa = 'P' THEN 'Partito' ELSE 'Confermato' END AS stato,
+    (SELECT TOP 1 src.DesSource FROM SourcePrenota src WHERE src.CodSource = p.CodSource) AS source,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM Alberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN AlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = p.codpratica AND al.codcli IS NOT NULL
@@ -58,10 +59,10 @@ FROM (
           AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) <> '')) AS arrangiamento,
        ((SELECT ISNULL(SUM(m.impoeur), 0) FROM Matura m WHERE m.codalb IN (
             SELECT alx.codalb FROM Alberg alx JOIN AlbergDay adx ON adx.codalb = alx.codalb WHERE alx.codpratica = p.codpratica AND adx.codcam = cc.camera)
-          AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) = '' AND ISNULL(m.flgDistintaArr, '') <> 'S')
+          AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) = '' AND ISNULL(m.flgDistintaArr, '') <> 'S' AND LTRIM(RTRIM(ISNULL(m.codser, ''))) <> 'IMP')
         + (SELECT ISNULL(SUM(m.impoeur), 0) FROM StorMatura m WHERE m.codalb IN (
             SELECT alx.codalb FROM Alberg alx JOIN AlbergDay adx ON adx.codalb = alx.codalb WHERE alx.codpratica = p.codpratica AND adx.codcam = cc.camera)
-          AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) = '' AND ISNULL(m.flgDistintaArr, '') <> 'S')) AS extra
+          AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) = '' AND ISNULL(m.flgDistintaArr, '') <> 'S' AND LTRIM(RTRIM(ISNULL(m.codser, ''))) <> 'IMP')) AS extra
      FROM (SELECT DISTINCT ad.codcam AS camera FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
            WHERE al.codpratica = p.codpratica) cc
      FOR JSON PATH) AS camereJson
@@ -76,6 +77,7 @@ FROM (
        FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = sp.codpratica GROUP BY ad.codcam) tc) AS importo,
     CASE WHEN sp.DataEliminazione IS NOT NULL THEN 'Eliminata' ELSE 'Concluso' END AS stato,
+    (SELECT TOP 1 src.DesSource FROM SourcePrenota src WHERE src.CodSource = sp.CodSource) AS source,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM StorAlberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN StorAlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = sp.codpratica AND al.codcli IS NOT NULL
@@ -89,10 +91,10 @@ FROM (
           AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) <> '')) AS arrangiamento,
        ((SELECT ISNULL(SUM(m.impoeur), 0) FROM Matura m WHERE m.codalb IN (
             SELECT alx.codalb FROM StorAlberg alx JOIN StorAlbergDay adx ON adx.codalb = alx.codalb WHERE alx.codpratica = sp.codpratica AND adx.codcam = cc.camera)
-          AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) = '' AND ISNULL(m.flgDistintaArr, '') <> 'S')
+          AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) = '' AND ISNULL(m.flgDistintaArr, '') <> 'S' AND LTRIM(RTRIM(ISNULL(m.codser, ''))) <> 'IMP')
         + (SELECT ISNULL(SUM(m.impoeur), 0) FROM StorMatura m WHERE m.codalb IN (
             SELECT alx.codalb FROM StorAlberg alx JOIN StorAlbergDay adx ON adx.codalb = alx.codalb WHERE alx.codpratica = sp.codpratica AND adx.codcam = cc.camera)
-          AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) = '' AND ISNULL(m.flgDistintaArr, '') <> 'S')) AS extra
+          AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) = '' AND ISNULL(m.flgDistintaArr, '') <> 'S' AND LTRIM(RTRIM(ISNULL(m.codser, ''))) <> 'IMP')) AS extra
      FROM (SELECT DISTINCT ad.codcam AS camera FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
            WHERE al.codpratica = sp.codpratica) cc
      FOR JSON PATH) AS camereJson
@@ -178,6 +180,7 @@ async function getSoggiorniCliente(pmsDb, codCli) {
       extra,
       camereDett,
       stato: r.stato,
+      source: pulisci(r.source),
       ospiti,
     };
   });

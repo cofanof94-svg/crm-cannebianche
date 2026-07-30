@@ -423,8 +423,14 @@ async function loadCliente(codCli) {
   $('#cli-contatti').textContent = [a.telefono, a.cellulare, a.email, luogo].filter(Boolean).join('   ·   ') || '—';
   $('#cli-vip').hidden = !a.vip;
   $('#cli-nsogg').textContent = s.nSoggiorni;
+  $('#cli-notti').textContent = s.nottiTotali != null ? s.nottiTotali : '–';
+  $('#cli-ltv').textContent = euro(s.ltv || 0);
+  $('#cli-ltv-media').textContent = s.nSoggiorni ? `media ${euro(s.spesaMediaSoggiorno || 0)}/soggiorno` : '';
   $('#cli-arr').textContent = euro(s.totArrangiamenti || 0);
+  $('#cli-arr-media').textContent = s.nSoggiorni ? `media ${euro(s.spesaMediaRooms || 0)}` : '';
   $('#cli-extra').textContent = euro(s.totExtra || 0);
+  $('#cli-extra-media').textContent = s.nSoggiorni ? `media ${euro(s.spesaMediaServizi || 0)}` : '';
+  $('#cli-source').textContent = s.ultimaSource || '—';
   $('#cli-visite').textContent = `${fmtData(s.primaVisita)} → ${fmtData(s.ultimaVisita)}`;
   const an = $('#cli-anagnote');
   if (a.note) { an.hidden = false; an.innerHTML = `<b>Note anagrafica (PMS)</b>${esc(a.note)}`; } else an.hidden = true;

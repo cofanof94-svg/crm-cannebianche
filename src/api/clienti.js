@@ -15,12 +15,23 @@ function calcolaStatistiche(soggiorni) {
   const nSoggiorni = validi.length;
   const totArrangiamenti = validi.reduce((s, x) => s + (x.arrangiamento || 0), 0);
   const totExtra = validi.reduce((s, x) => s + (x.extra || 0), 0);
+  const nottiTotali = validi.reduce((s, x) => s + (Number(x.notti) || 0), 0);
+  const ltv = totArrangiamenti + totExtra; // valore storico (city tax esclusa dagli extra)
   const date = validi.map((x) => x.dtarrivo).filter(Boolean).sort();
+  // Ultima Source = source del soggiorno valido con data di arrivo più recente
+  const piuRecente = validi.filter((x) => x.dtarrivo).sort((a, b) => (a.dtarrivo < b.dtarrivo ? 1 : -1))[0];
+  const media = (tot) => (nSoggiorni ? tot / nSoggiorni : 0);
   return {
     nSoggiorni,
+    nottiTotali,
     totArrangiamenti,
     totExtra,
-    totaleSpeso: totArrangiamenti + totExtra,
+    totaleSpeso: ltv,
+    ltv,
+    spesaMediaSoggiorno: media(ltv),
+    spesaMediaRooms: media(totArrangiamenti),
+    spesaMediaServizi: media(totExtra),
+    ultimaSource: (piuRecente && piuRecente.source) || null,
     primaVisita: date[0] || null,
     ultimaVisita: date[date.length - 1] || null,
   };

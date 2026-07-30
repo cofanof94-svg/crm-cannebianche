@@ -302,6 +302,9 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .pill-vip { background: #f6ead2; color: #97700f; font-size: 13px; padding: 5px 13px; align-self: center; }
 
 .cli-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; max-width: 965px; margin-bottom: 22px; }
+.stat-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.stat-note { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--faint); font-size: 10.5px; }
+.stat-hl { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand-050); }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow-sm); }
 .stat-n { display: block; font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1; color: var(--brand); font-variant-numeric: tabular-nums; }
 .stat-n.stat-sm { font-size: 17px; }
