@@ -34,7 +34,7 @@ test('getCliente restituisce null se non trovato', async () => {
 
 test('getSoggiorniCliente mappa le righe', async () => {
   const pms = fakePms([{ codpratica: 60397, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2,
-    camere: '109', stato: 'Concluso', source: 'DIRETTI', camereJson: '[{"camera":"109","arrangiamento":855,"extra":40}]' }]);
+    camere: '109', stato: 'Concluso', source: 'DIRETTI', mercato: 'LEISURE INDIVIDUALI', camereJson: '[{"camera":"109","arrangiamento":855,"extra":40}]' }]);
   const [s] = await getSoggiorniCliente(pms, 47186);
   assert.strictEqual(s.codpratica, 60397);
   assert.strictEqual(s.camere, '109');
@@ -44,6 +44,7 @@ test('getSoggiorniCliente mappa le righe', async () => {
   assert.deepStrictEqual(s.camereDett, [{ camera: '109', arrangiamento: 855, extra: 40 }]);
   assert.strictEqual(s.stato, 'Concluso');
   assert.strictEqual(s.source, 'DIRETTI');
+  assert.strictEqual(s.mercato, 'LEISURE INDIVIDUALI');
   assert.strictEqual(pms.calls[0].params.codCli, 47186);
 });
 
@@ -53,6 +54,7 @@ test('getSoggiorniCliente: la query esclude la city tax dagli extra e decodifica
   const sql = pms.calls[0].text;
   assert.match(sql, /codser, ''\)+ <> 'IMP'/);         // city tax (codser=IMP) esclusa
   assert.match(sql, /FROM SourcePrenota src/);          // Source decodificata
+  assert.match(sql, /FROM PrenotaProvenienze prov/);    // Mercato (tipologia viaggio) decodificato
 });
 
 test('getSoggiorniCliente: la query marca Eliminata le prenotazioni con DataEliminazione', async () => {

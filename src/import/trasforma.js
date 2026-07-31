@@ -80,7 +80,7 @@ function buildSnapshotRow(raw) {
 // condiviso src/stats.js mappando i nomi campo (imp* → arrangiamento/extra).
 function calcolaCumulativiCliente(righeValide) {
   return aggregaCumulativi(righeValide.map((r) => ({
-    arrangiamento: r.impArrangiamento, extra: r.impExtra, notti: r.notti, dtarrivo: r.dtarrivo, source: r.source,
+    arrangiamento: r.impArrangiamento, extra: r.impExtra, notti: r.notti, dtarrivo: r.dtarrivo, source: r.source, mercato: r.mercato,
   })));
 }
 

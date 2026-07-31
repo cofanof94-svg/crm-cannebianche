@@ -3,7 +3,7 @@
 // live (src/api/clienti.js) sia dall'import (src/import/trasforma.js), così le
 // due strade non possono divergere.
 //
-// Ogni riga: { arrangiamento, extra, notti, dtarrivo, source }.
+// Ogni riga: { arrangiamento, extra, notti, dtarrivo, source, mercato }.
 function aggregaCumulativi(rows) {
   const n = rows.length;
   const arr = rows.reduce((s, r) => s + (Number(r.arrangiamento) || 0), 0);
@@ -24,6 +24,7 @@ function aggregaCumulativi(rows) {
     spesaMediaRooms: media(arr),
     spesaMediaServizi: media(ext),
     ultimaSource: (piuRecente && piuRecente.source) || null,
+    ultimoMercato: (piuRecente && piuRecente.mercato) || null,
     primaVisita: date[0] || null,
     ultimaVisita: date[date.length - 1] || null,
   };

@@ -29,7 +29,7 @@ SELECT t.codpratica,
   CONVERT(varchar(10), t.dtarrivo, 23) AS dtarrivo,
   CONVERT(varchar(10), t.dtpartenza, 23) AS dtpartenza,
   DATEDIFF(day, t.dtarrivo, t.dtpartenza) AS notti,
-  t.camere, t.importo, t.stato, t.source, t.ospitiJson, t.camereJson
+  t.camere, t.importo, t.stato, t.source, t.mercato, t.ospitiJson, t.camereJson
 FROM (
   SELECT p.codpratica, p.dtarrivo, p.dtpartenza,
     COALESCE(
@@ -46,6 +46,7 @@ FROM (
     ) AS importo,
     CASE WHEN p.flgincasa = 'S' THEN 'In casa' WHEN p.flgincasa = 'P' THEN 'Partito' ELSE 'Confermato' END AS stato,
     (SELECT TOP 1 src.DesSource FROM SourcePrenota src WHERE src.CodSource = p.CodSource) AS source,
+    (SELECT TOP 1 prov.DesProvenienza FROM PrenotaProvenienze prov WHERE prov.CodProvenienza = p.CodProvenienza) AS mercato,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM Alberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN AlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = p.codpratica AND al.codcli IS NOT NULL
@@ -78,6 +79,7 @@ FROM (
        WHERE al.codpratica = sp.codpratica GROUP BY ad.codcam) tc) AS importo,
     CASE WHEN sp.DataEliminazione IS NOT NULL THEN 'Eliminata' ELSE 'Concluso' END AS stato,
     (SELECT TOP 1 src.DesSource FROM SourcePrenota src WHERE src.CodSource = sp.CodSource) AS source,
+    (SELECT TOP 1 prov.DesProvenienza FROM PrenotaProvenienze prov WHERE prov.CodProvenienza = sp.CodProvenienza) AS mercato,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM StorAlberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN StorAlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = sp.codpratica AND al.codcli IS NOT NULL
@@ -181,6 +183,7 @@ async function getSoggiorniCliente(pmsDb, codCli) {
       camereDett,
       stato: r.stato,
       source: pulisci(r.source),
+      mercato: pulisci(r.mercato),
       ospiti,
     };
   });

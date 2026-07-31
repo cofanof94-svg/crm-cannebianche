@@ -19,9 +19,9 @@ test('calcolaStatistiche esclude le prenotazioni Eliminata dai conteggi', () => 
 
 test('calcolaStatistiche: cumulativi LTV, notti, medie e ultima Source', () => {
   const s = calcolaStatistiche([
-    { stato: 'Concluso', dtarrivo: '2026-04-17', notti: 2, arrangiamento: 800, extra: 200, source: 'OTA' },
-    { stato: 'Confermato', dtarrivo: '2026-07-07', notti: 8, arrangiamento: 2000, extra: 0, source: 'DIRETTI' },
-    { stato: 'Eliminata', dtarrivo: '2026-08-01', notti: 5, arrangiamento: 0, extra: 0, source: 'OTA' }, // esclusa
+    { stato: 'Concluso', dtarrivo: '2026-04-17', notti: 2, arrangiamento: 800, extra: 200, source: 'OTA', mercato: 'LEISURE INDIVIDUALI' },
+    { stato: 'Confermato', dtarrivo: '2026-07-07', notti: 8, arrangiamento: 2000, extra: 0, source: 'DIRETTI', mercato: 'MEETING' },
+    { stato: 'Eliminata', dtarrivo: '2026-08-01', notti: 5, arrangiamento: 0, extra: 0, source: 'OTA', mercato: 'SPA' }, // esclusa
   ]);
   assert.strictEqual(s.nSoggiorni, 2);
   assert.strictEqual(s.nottiTotali, 10);            // 2+8, esclusa l'eliminata
@@ -30,6 +30,7 @@ test('calcolaStatistiche: cumulativi LTV, notti, medie e ultima Source', () => {
   assert.strictEqual(s.spesaMediaRooms, 1400);      // 2800/2
   assert.strictEqual(s.spesaMediaServizi, 100);     // 200/2
   assert.strictEqual(s.ultimaSource, 'DIRETTI');    // soggiorno valido più recente (2026-07-07)
+  assert.strictEqual(s.ultimoMercato, 'MEETING');   // idem, dal più recente
 });
 
 async function makeApp() {
@@ -70,8 +71,8 @@ async function makeApp() {
       if (/cameraInCasa/.test(text)) return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Telefono: '080123', Citta: 'TRANI', cameraInCasa: null }];
       if (/FROM Anagra WHERE CodCli/.test(text)) { if (params && params.codCli === 999) return []; return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', Telefono: '', Cellulare: '', email: 'a@b.it', Citta: 'TRANI', CodNaz: 'I', dtNascita: '1964-10-17', CodFis: 'X', CodVip: '', Annotazioni: '', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' }]; }
       // soggiorni (arrangiamento/extra da camereJson)
-      return [{ codpratica: 1, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2, camere: '109', stato: 'Concluso', source: 'OTA', camereJson: '[{"camera":"109","arrangiamento":855,"extra":0}]' },
-              { codpratica: 2, dtarrivo: '2026-07-07', dtpartenza: '2026-07-19', notti: 12, camere: '102', stato: 'Confermato', source: 'DIRETTI', camereJson: '[{"camera":"102","arrangiamento":2300,"extra":0}]' }];
+      return [{ codpratica: 1, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2, camere: '109', stato: 'Concluso', source: 'OTA', mercato: 'LEISURE INDIVIDUALI', camereJson: '[{"camera":"109","arrangiamento":855,"extra":0}]' },
+              { codpratica: 2, dtarrivo: '2026-07-07', dtpartenza: '2026-07-19', notti: 12, camere: '102', stato: 'Confermato', source: 'DIRETTI', mercato: 'MEETING', camereJson: '[{"camera":"102","arrangiamento":2300,"extra":0}]' }];
     },
   };
   return createApp({ crmDb, pmsDb, sessionSecret: 'test' });
@@ -108,6 +109,7 @@ test('GET /api/clienti/:codCli → anagrafica+statistiche+soggiorni', async () =
   assert.strictEqual(res.body.statistiche.ltv, 3155);
   assert.strictEqual(res.body.statistiche.nottiTotali, 14);
   assert.strictEqual(res.body.statistiche.ultimaSource, 'DIRETTI');
+  assert.strictEqual(res.body.statistiche.ultimoMercato, 'MEETING');
   assert.strictEqual(res.body.statistiche.primaVisita, '2026-04-17');
   assert.strictEqual(res.body.statistiche.ultimaVisita, '2026-07-07');
 });
