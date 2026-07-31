@@ -25,9 +25,7 @@ async function createPreferenza(db, { pmsCustomerId, autoreUserId, reparto, cate
   return rows[0];
 }
 
-async function deletePreferenza(db, id) {
-  const rows = await db.query('DELETE FROM customer_preferences OUTPUT DELETED.id WHERE id = @id', { id });
-  return rows.length > 0;
-}
+const { deleteById } = require('./helpers');
+const deletePreferenza = (db, id) => deleteById(db, 'customer_preferences', id);
 
 module.exports = { listPreferenze, createPreferenza, deletePreferenza, REPARTI, CATEGORIE };

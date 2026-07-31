@@ -49,9 +49,7 @@ async function setComplaintStato(db, id, stato) {
   return rows.length > 0;
 }
 
-async function deleteComplaint(db, id) {
-  const rows = await db.query('DELETE FROM customer_complaints OUTPUT DELETED.id WHERE id = @id', { id });
-  return rows.length > 0;
-}
+const { deleteById } = require('./helpers');
+const deleteComplaint = (db, id) => deleteById(db, 'customer_complaints', id);
 
 module.exports = { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint };

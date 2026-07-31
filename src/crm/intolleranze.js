@@ -23,9 +23,7 @@ async function createIntolleranza(db, { pmsCustomerId, autoreUserId, testo }) {
   return rows[0];
 }
 
-async function deleteIntolleranza(db, id) {
-  const rows = await db.query('DELETE FROM customer_intolerances OUTPUT DELETED.id WHERE id = @id', { id });
-  return rows.length > 0;
-}
+const { deleteById } = require('./helpers');
+const deleteIntolleranza = (db, id) => deleteById(db, 'customer_intolerances', id);
 
 module.exports = { listIntolleranze, createIntolleranza, deleteIntolleranza };

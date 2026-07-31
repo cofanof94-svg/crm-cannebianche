@@ -25,9 +25,7 @@ async function updateNota(db, id, testo) {
   return rows.length > 0;
 }
 
-async function deleteNota(db, id) {
-  const rows = await db.query('DELETE FROM customer_notes OUTPUT DELETED.id WHERE id = @id', { id });
-  return rows.length > 0;
-}
+const { deleteById } = require('./helpers');
+const deleteNota = (db, id) => deleteById(db, 'customer_notes', id);
 
 module.exports = { listNote, createNota, updateNota, deleteNota };

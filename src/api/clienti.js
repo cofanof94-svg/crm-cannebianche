@@ -7,39 +7,28 @@ const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('..
 const { getProfilo, upsertLingua } = require('../crm/profilo');
 const { listPreferenze, createPreferenza, deletePreferenza, REPARTI, CATEGORIE } = require('../crm/preferenze');
 const { listNucleo, createMembro, deleteMembro, RELAZIONI } = require('../crm/nucleo');
+const { aggregaCumulativi } = require('../stats');
 
+// Le prenotazioni eliminate restano nello storico ma non sono soggiorni reali:
+// escluse dai conteggi. L'aggregazione vera è nel modulo condiviso src/stats.js.
 function calcolaStatistiche(soggiorni) {
-  // Le prenotazioni eliminate (annullate) restano nello storico ma non sono
-  // soggiorni reali: escluse dai conteggi e da prima/ultima visita.
-  const validi = soggiorni.filter((x) => x.stato !== 'Eliminata');
-  const nSoggiorni = validi.length;
-  const totArrangiamenti = validi.reduce((s, x) => s + (x.arrangiamento || 0), 0);
-  const totExtra = validi.reduce((s, x) => s + (x.extra || 0), 0);
-  const nottiTotali = validi.reduce((s, x) => s + (Number(x.notti) || 0), 0);
-  const ltv = totArrangiamenti + totExtra; // valore storico (city tax esclusa dagli extra)
-  const date = validi.map((x) => x.dtarrivo).filter(Boolean).sort();
-  // Ultima Source = source del soggiorno valido con data di arrivo più recente
-  const piuRecente = validi.filter((x) => x.dtarrivo).sort((a, b) => (a.dtarrivo < b.dtarrivo ? 1 : -1))[0];
-  const media = (tot) => (nSoggiorni ? tot / nSoggiorni : 0);
-  return {
-    nSoggiorni,
-    nottiTotali,
-    totArrangiamenti,
-    totExtra,
-    totaleSpeso: ltv,
-    ltv,
-    spesaMediaSoggiorno: media(ltv),
-    spesaMediaRooms: media(totArrangiamenti),
-    spesaMediaServizi: media(totExtra),
-    ultimaSource: (piuRecente && piuRecente.source) || null,
-    primaVisita: date[0] || null,
-    ultimaVisita: date[date.length - 1] || null,
-  };
+  return aggregaCumulativi(soggiorni.filter((x) => x.stato !== 'Eliminata'));
 }
+
+// Ritorna l'intero da un parametro di rotta, o null se non valido.
+const intParam = (v) => { const n = Number(v); return Number.isInteger(n) ? n : null; };
 
 function createClientiRouter(pmsDb, crmDb) {
   const router = express.Router();
   router.use(requireAuth);
+
+  // Factory per le rotte DELETE /<risorsa>/:id (tutte identiche tranne fn e messaggio).
+  const delRoute = (path, fn, notFound) => router.delete(path, async (req, res) => {
+    const id = intParam(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'ID non valido' });
+    if (!(await fn(crmDb, id))) return res.status(404).json({ error: notFound });
+    res.json({ ok: true });
+  });
 
   router.get('/clienti', async (req, res) => {
     const q = (req.query.q || '').trim();
@@ -82,13 +71,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.json({ ok: true });
   });
 
-  router.delete('/note/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
-    const ok = await deleteNota(crmDb, id);
-    if (!ok) return res.status(404).json({ error: 'Nota non trovata' });
-    res.json({ ok: true });
-  });
+  delRoute('/note/:id', deleteNota, 'Nota non trovata');
 
   // --- Complaints (reclami) ---
   router.get('/clienti/:codCli/complaints', async (req, res) => {
@@ -126,13 +109,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.json({ ok: true });
   });
 
-  router.delete('/complaints/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
-    const ok = await deleteComplaint(crmDb, id);
-    if (!ok) return res.status(404).json({ error: 'Complaint non trovato' });
-    res.json({ ok: true });
-  });
+  delRoute('/complaints/:id', deleteComplaint, 'Complaint non trovato');
 
   // --- Intolleranze / allergie (dato di sicurezza) ---
   router.get('/clienti/:codCli/intolleranze', async (req, res) => {
@@ -150,13 +127,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.status(201).json({ intolleranza });
   });
 
-  router.delete('/intolleranze/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
-    const ok = await deleteIntolleranza(crmDb, id);
-    if (!ok) return res.status(404).json({ error: 'Intolleranza non trovata' });
-    res.json({ ok: true });
-  });
+  delRoute('/intolleranze/:id', deleteIntolleranza, 'Intolleranza non trovata');
 
   // --- Profilo / Lingua preferita (1:1) ---
   router.get('/clienti/:codCli/profilo', async (req, res) => {
@@ -194,13 +165,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.status(201).json({ preferenza });
   });
 
-  router.delete('/preferenze/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
-    const ok = await deletePreferenza(crmDb, id);
-    if (!ok) return res.status(404).json({ error: 'Preferenza non trovata' });
-    res.json({ ok: true });
-  });
+  delRoute('/preferenze/:id', deletePreferenza, 'Preferenza non trovata');
 
   // --- Nucleo di viaggio / accompagnatori ---
   router.get('/clienti/:codCli/nucleo', async (req, res) => {
@@ -223,13 +188,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.status(201).json({ membro });
   });
 
-  router.delete('/nucleo/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
-    const ok = await deleteMembro(crmDb, id);
-    if (!ok) return res.status(404).json({ error: 'Membro non trovato' });
-    res.json({ ok: true });
-  });
+  delRoute('/nucleo/:id', deleteMembro, 'Membro non trovato');
 
   return router;
 }

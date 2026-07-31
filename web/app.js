@@ -442,12 +442,11 @@ async function loadCliente(codCli) {
   popolaSelect($('#pref-form').reparto, REPARTI, 'Reparto');
   popolaSelect($('#pref-form').categoria, CATEGORIE, 'Categoria');
   popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
-  await caricaLingua(codCli);
-  await caricaIntolleranze(codCli);
-  await caricaPreferenze(codCli);
-  await caricaNucleo(codCli);
-  await caricaNote(codCli);
-  await caricaComplaints(codCli);
+  // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
+  await Promise.all([
+    caricaLingua(codCli), caricaIntolleranze(codCli), caricaPreferenze(codCli),
+    caricaNucleo(codCli), caricaNote(codCli), caricaComplaints(codCli),
+  ]);
   msg.hidden = true; body.hidden = false;
 }
 

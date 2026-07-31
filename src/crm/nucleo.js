@@ -25,9 +25,7 @@ async function createMembro(db, { pmsCustomerId, autoreUserId, tipoRelazione, no
   return rows[0];
 }
 
-async function deleteMembro(db, id) {
-  const rows = await db.query('DELETE FROM customer_travel_party OUTPUT DELETED.id WHERE id = @id', { id });
-  return rows.length > 0;
-}
+const { deleteById } = require('./helpers');
+const deleteMembro = (db, id) => deleteById(db, 'customer_travel_party', id);
 
 module.exports = { listNucleo, createMembro, deleteMembro, RELAZIONI };

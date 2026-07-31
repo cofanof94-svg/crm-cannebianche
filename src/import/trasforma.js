@@ -6,6 +6,8 @@
 // ⚠️ Le euristiche (mapStato per i correnti partiti, pattern "spazzatura") vanno
 // affinate sui dati veri in hotel: sono isolate qui apposta.
 
+const { aggregaCumulativi } = require('../stats');
+
 // Motivi "di servizio" in StorPrenota che NON sono soggiorni reali. Il grosso di
 // questi record è comunque già eliminato (→ Cancellata → escluso); questo è un
 // filtro di sicurezza aggiuntivo per gli eventuali non eliminati.
@@ -74,27 +76,12 @@ function buildSnapshotRow(raw) {
   };
 }
 
-// Cumulativi per cliente calcolati dalle sole righe snapshot valide.
+// Cumulativi per cliente dalle sole righe snapshot valide. Delega al modulo
+// condiviso src/stats.js mappando i nomi campo (imp* → arrangiamento/extra).
 function calcolaCumulativiCliente(righeValide) {
-  const n = righeValide.length;
-  const arr = righeValide.reduce((s, r) => s + num(r.impArrangiamento), 0);
-  const ext = righeValide.reduce((s, r) => s + num(r.impExtra), 0);
-  const notti = righeValide.reduce((s, r) => s + (Number(r.notti) || 0), 0);
-  const ltv = num(arr + ext);
-  const date = righeValide.map((r) => r.dtarrivo).filter(Boolean).sort();
-  const piuRecente = righeValide.filter((r) => r.dtarrivo).sort((a, b) => (a.dtarrivo < b.dtarrivo ? 1 : -1))[0];
-  const media = (t) => (n ? num(t / n) : 0);
-  return {
-    nSoggiorni: n,
-    nottiTotali: notti,
-    ltv,
-    spesaMediaSoggiorno: media(ltv),
-    spesaMediaRooms: media(arr),
-    spesaMediaServizi: media(ext),
-    ultimaSource: (piuRecente && piuRecente.source) || null,
-    primaVisita: date[0] || null,
-    ultimaVisita: date[date.length - 1] || null,
-  };
+  return aggregaCumulativi(righeValide.map((r) => ({
+    arrangiamento: r.impArrangiamento, extra: r.impExtra, notti: r.notti, dtarrivo: r.dtarrivo, source: r.source,
+  })));
 }
 
 module.exports = { mapStato, isSpazzatura, isValidoCumulativi, num, buildSnapshotRow, calcolaCumulativiCliente };
