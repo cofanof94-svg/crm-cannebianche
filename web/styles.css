@@ -1,36 +1,40 @@
-/* ===== Design tokens — Holiday Canne Bianche · console operativa ===== */
+/* ===== Design tokens — Holiday Canne Bianche · palette brand (cannebianche.com) =====
+   Marrone caldo #493B34, neutri sabbia/crema, serif elegante per il display. */
 :root {
-  --bg: #eaf0ef;
+  --bg: #f2efe8;
   --surface: #ffffff;
-  --surface-2: #f4f8f7;
-  --border: #dbe5e2;
-  --border-strong: #c6d4d0;
+  --surface-2: #f7f4ee;
+  --border: #e5e0d5;
+  --border-strong: #d5cebf;
 
-  --brand: #0f4c5c;
-  --brand-700: #0b3a47;
-  --brand-900: #082a34;
-  --brand-050: #e6eff1;
+  --brand: #493b34;
+  --brand-700: #3a2e28;
+  --brand-900: #2b211c;
+  --brand-050: #efe9e2;
 
-  --accent: #dd8a3e;
-  --accent-700: #a5641f;
-  --accent-050: #fbeede;
+  --accent: #9c7b4a;
+  --accent-700: #79603a;
+  --accent-050: #f2ecdd;
 
-  --sea: #2a9d8f;
-  --sea-700: #1c7a6e;
-  --sea-050: #e2f2ef;
+  --sea: #6f7d5e;
+  --sea-700: #55614a;
+  --sea-050: #edefe6;
 
-  --text: #14262c;
-  --muted: #5f757c;
-  --faint: #93a6ab;
-  --danger: #b3453a;
+  --sand: #e4e0d3;
+  --sand-050: #f5f3ea;
+
+  --text: #3a2f29;
+  --muted: #857a6e;
+  --faint: #b0a596;
+  --danger: #b0453a;
 
   --radius: 14px;
   --radius-sm: 9px;
-  --shadow-sm: 0 1px 2px rgba(16,40,48,.05), 0 2px 6px rgba(16,40,48,.05);
-  --shadow-md: 0 10px 30px rgba(16,40,48,.12);
+  --shadow-sm: 0 1px 2px rgba(73,59,52,.05), 0 2px 6px rgba(73,59,52,.06);
+  --shadow-md: 0 10px 30px rgba(73,59,52,.12);
 
-  --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
-  --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Lora', Georgia, 'Times New Roman', serif;
+  --font-body: 'Avenir Next', 'Inter', 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -294,19 +298,40 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .cli-ident { display: flex; align-items: center; gap: 16px; }
 .cli-avatar {
   width: 56px; height: 56px; border-radius: 50%; flex: none; display: grid; place-items: center;
-  background: linear-gradient(150deg, var(--brand), var(--brand-900)); color: #fff;
-  font-family: var(--font-display); font-weight: 700; font-size: 22px;
+  background: var(--brand); color: #fff;
+  font-family: var(--font-display); font-weight: 600; font-size: 22px;
 }
 .cli-header h1 { margin: 0; }
-.cli-contatti { color: var(--muted); font-size: 13.5px; margin: 5px 0 0; }
-.pill-vip { background: #f6ead2; color: #97700f; font-size: 13px; padding: 5px 13px; align-self: center; }
+.cli-ident > div:not(.cli-avatar) { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pill-vip { background: var(--accent-050); color: var(--accent-700); font-size: 12px; padding: 4px 12px; }
+
+/* Contatti in mini-card */
+.cli-contacts { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 22px; }
+.cc { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 15px; box-shadow: var(--shadow-sm); min-width: 150px; }
+.cc-l { display: block; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.cc-v { display: block; font-size: 14px; color: var(--text); margin-top: 3px; }
+.cc-v a { color: var(--brand); text-decoration: none; }
+.cc-v a:hover { text-decoration: underline; }
+.cc-empty { color: var(--muted); }
+
+/* Lingua: box compatto */
+.lingua-box { max-width: 320px; }
+.lingua-form { display: flex; gap: 10px; }
+.lingua-form input { flex: 1; min-width: 0; }
+.periodo-sep { color: var(--faint); }
+.cli-sogg-tab th.num { text-align: right; }
 
 .cli-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; max-width: 965px; margin-bottom: 22px; }
 .stat-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .stat-note { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--faint); font-size: 10.5px; }
 .stat-hl { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand-050); }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow-sm); }
-.stat-n { display: block; font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1; color: var(--brand); font-variant-numeric: tabular-nums; }
+.stat-n { display: block; font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1; color: var(--brand); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Riquadro Prima/Ultima visita: due date etichettate */
+.stat-visite { display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.visita-riga { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.visita-l { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.visita-d { font-family: var(--font-display); font-weight: 600; font-size: 16px; color: var(--brand); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stat-n.stat-sm { font-size: 17px; }
 .stat-l { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-top: 9px; }
 
@@ -335,8 +360,6 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .pref-form input { flex: 1 1 160px; }
 .pref-form input[name="nota"] { flex: 1 1 200px; }
 .pref-tag { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--brand); background: var(--brand-050); border-radius: 5px; padding: 1px 7px; margin-right: 8px; vertical-align: 1px; }
-/* Lingua: un codice breve non deve occupare tutta la larghezza */
-#cli-lingua { flex: 0 0 200px; }
 .note-list { list-style: none; margin: 0; padding: 0; }
 .note-list li { padding: 11px 0; border-bottom: 1px solid var(--border); }
 .note-list li:last-child { border-bottom: none; }
@@ -357,6 +380,13 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .cons-v { display: block; font-family: var(--font-display); font-weight: 600; font-size: 18px; margin-top: 7px; }
 .cons-box.si .cons-v { color: var(--sea-700); }
 .cons-box.no .cons-v { color: var(--danger); }
+
+/* Consensi in fondo, versione discreta */
+.sez-minor { color: var(--muted); font-size: 14px; font-weight: 600; margin-top: 34px; }
+.consensi-minor { max-width: 760px; gap: 12px; }
+.consensi-minor .cons-box { box-shadow: none; background: var(--surface-2); border-color: var(--border); padding: 9px 14px; }
+.consensi-minor .cons-l { font-size: 10.5px; }
+.consensi-minor .cons-v { font-size: 13.5px; font-family: var(--font-body); margin-top: 3px; }
 
 /* ===== Ricerca ospiti (pagina) ===== */
 .ric-search { max-width: 520px; margin-bottom: 20px; }

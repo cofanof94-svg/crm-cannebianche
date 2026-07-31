@@ -419,8 +419,12 @@ async function loadCliente(codCli) {
   const s = d.statistiche;
   $('#cli-nome').textContent = a.nominativo || '(senza nominativo)';
   $('#cli-avatar').textContent = ((a.cognome || a.nome || '?')[0] || '?').toUpperCase();
-  const luogo = [a.citta, a.nazione].filter(Boolean).join(' · ');
-  $('#cli-contatti').textContent = [a.telefono, a.cellulare, a.email, luogo].filter(Boolean).join('   ·   ') || '—';
+  $('#cli-contatti').innerHTML = [
+    contattoCard('Email', a.email, a.email ? `mailto:${a.email}` : null),
+    contattoCard('Telefono', a.telefono, a.telefono ? `tel:${a.telefono}` : null),
+    contattoCard('Cellulare', a.cellulare, a.cellulare ? `tel:${a.cellulare}` : null),
+    contattoCard('Provenienza', [a.citta, a.nazione].filter(Boolean).join(', ')),
+  ].filter(Boolean).join('') || '<div class="cc cc-empty">Nessun contatto</div>';
   $('#cli-vip').hidden = !a.vip;
   $('#cli-nsogg').textContent = s.nSoggiorni;
   $('#cli-notti').textContent = s.nottiTotali != null ? s.nottiTotali : '–';
@@ -431,7 +435,9 @@ async function loadCliente(codCli) {
   $('#cli-extra').textContent = euro(s.totExtra || 0);
   $('#cli-extra-media').textContent = s.nSoggiorni ? `media ${euro(s.spesaMediaServizi || 0)}` : '';
   $('#cli-source').textContent = s.ultimaSource || '—';
-  $('#cli-visite').textContent = `${fmtData(s.primaVisita)} → ${fmtData(s.ultimaVisita)}`;
+  $('#cli-mercato').textContent = s.ultimoMercato || '—';
+  $('#cli-prima').textContent = fmtData(s.primaVisita);
+  $('#cli-ultima').textContent = fmtData(s.ultimaVisita);
   const an = $('#cli-anagnote');
   if (a.note) { an.hidden = false; an.innerHTML = `<b>Note anagrafica (PMS)</b>${esc(a.note)}`; } else an.hidden = true;
   $('#cli-soggiorni').innerHTML = (d.soggiorni || []).map(rigaSoggiorno).join('')
@@ -458,31 +464,22 @@ function statoSoggPill(stato) {
   return 'pill-atteso';
 }
 
-// Storico: per ogni camera → arrangiamento/extra + occupanti di quella camera.
-function renderCamereStorico(x) {
-  if (x.camereDett && x.camereDett.length) {
-    return x.camereDett.map((c) => {
-      const nomi = (x.ospiti || []).filter((o) => o.camera === c.camera).map((o) => (o.codCli
-        ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
-        : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`)).join('');
-      return `<div class="sogg-cam">
-        <div class="sogg-cam-top"><span class="room">${esc(c.camera)}</span><span class="sogg-ae">${euro((c.arrangiamento || 0) + (c.extra || 0))}</span></div>
-        <div class="sogg-cam-osp">${nomi}</div>
-      </div>`;
-    }).join('');
-  }
-  return renderOspiti(x.ospiti) || (x.camere ? chipCamere(x.camere) : dash);
+// Mini-card di un dato di contatto (Email, Telefono, …). Vuoto → nessuna card.
+function contattoCard(label, value, href) {
+  if (!value) return '';
+  const inner = href ? `<a href="${esc(href)}">${esc(value)}</a>` : esc(value);
+  return `<div class="cc"><span class="cc-l">${esc(label)}</span><span class="cc-v">${inner}</span></div>`;
 }
 
+// Storico prenotazioni: una riga per pratica con le info principali.
 function rigaSoggiorno(x) {
-  const ae = `<div>Arrangiamenti ${euro(x.arrangiamento || 0)}</div><div class="sogg-extra">Extra ${euro(x.extra || 0)}</div>`;
   return `<tr>
     <td class="cell-num">${esc(x.codpratica)}</td>
-    <td class="cell-muted">${fmtData(x.dtarrivo)}</td>
-    <td class="cell-muted">${fmtData(x.dtpartenza)}</td>
-    <td class="cell-muted">${x.notti != null ? esc(x.notti) : '—'}</td>
-    <td>${renderCamereStorico(x)}</td>
-    <td class="cell-num sogg-ae-col">${x.importo != null ? ae : dash}</td>
+    <td class="cell-muted">${fmtData(x.dtarrivo)} <span class="periodo-sep">→</span> ${fmtData(x.dtpartenza)}</td>
+    <td class="cell-num">${x.notti != null ? esc(x.notti) : '—'}</td>
+    <td>${x.camere ? chipCamere(x.camere) : dash}</td>
+    <td class="cell-num">${euro(x.arrangiamento || 0)}</td>
+    <td class="cell-num sogg-extra">${euro(x.extra || 0)}</td>
     <td><span class="pill ${statoSoggPill(x.stato)}">${esc(x.stato)}</span></td>
   </tr>`;
 }

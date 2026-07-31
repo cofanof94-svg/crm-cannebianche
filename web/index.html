@@ -6,7 +6,7 @@
   <title>CRM · Holiday Canne Bianche</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -205,14 +205,12 @@
                 <div class="cli-avatar" id="cli-avatar">?</div>
                 <div>
                   <h1 id="cli-nome"></h1>
-                  <p class="cli-contatti" id="cli-contatti"></p>
+                  <span id="cli-vip" class="pill pill-vip" hidden>★ VIP</span>
                 </div>
               </div>
-              <span id="cli-vip" class="pill pill-vip" hidden>★ VIP</span>
             </div>
 
-            <h2 class="sez">Consensi privacy</h2>
-            <div class="consensi" id="cli-consensi"></div>
+            <div class="cli-contacts" id="cli-contatti"></div>
 
             <div class="cli-stats">
               <div class="stat"><span class="stat-n" id="cli-nsogg">–</span><span class="stat-l">Soggiorni</span></div>
@@ -220,23 +218,27 @@
               <div class="stat stat-hl"><span class="stat-n" id="cli-ltv">–</span><span class="stat-l">Valore storico (LTV)</span><span class="stat-sub" id="cli-ltv-media"></span></div>
               <div class="stat"><span class="stat-n" id="cli-arr">–</span><span class="stat-l">Arrangiamenti</span><span class="stat-sub" id="cli-arr-media"></span></div>
               <div class="stat"><span class="stat-n" id="cli-extra">–</span><span class="stat-l">Extra <span class="stat-note">(city tax esclusa)</span></span><span class="stat-sub" id="cli-extra-media"></span></div>
-              <div class="stat"><span class="stat-n stat-sm" id="cli-visite">–</span><span class="stat-l">Prima → ultima visita</span></div>
+              <div class="stat stat-visite">
+                <div class="visita-riga"><span class="visita-l">Prima visita</span><span class="visita-d" id="cli-prima">–</span></div>
+                <div class="visita-riga"><span class="visita-l">Ultima visita</span><span class="visita-d" id="cli-ultima">–</span></div>
+              </div>
               <div class="stat"><span class="stat-n stat-sm" id="cli-source">–</span><span class="stat-l">Ultima Source</span></div>
+              <div class="stat"><span class="stat-n stat-sm" id="cli-mercato">–</span><span class="stat-l">Tipologia viaggio</span></div>
             </div>
 
             <div id="cli-anagnote" class="cli-anagnote" hidden></div>
 
-            <h2 class="sez">Storico soggiorni</h2>
+            <h2 class="sez">Storico prenotazioni</h2>
             <div class="card table-wrap">
               <table class="cli-sogg-tab">
-                <thead><tr><th>Pratica</th><th>Arrivo</th><th>Partenza</th><th>Notti</th><th>Ospiti in camera</th><th>Arrangiamenti / Extra</th><th>Stato</th></tr></thead>
+                <thead><tr><th>Pratica</th><th>Periodo</th><th class="num">Notti</th><th>Camere</th><th class="num">Arrangiamenti</th><th class="num">Extra</th><th>Stato</th></tr></thead>
                 <tbody id="cli-soggiorni"></tbody>
               </table>
             </div>
 
             <h2 class="sez">Lingua preferita</h2>
-            <div class="card note-box">
-              <form id="lingua-form" class="nota-form">
+            <div class="card note-box lingua-box">
+              <form id="lingua-form" class="lingua-form">
                 <input id="cli-lingua" name="lingua" placeholder="Es. IT, EN, DE…" autocomplete="off" maxlength="40" />
                 <button type="submit" class="btn btn-primary">Salva</button>
               </form>
@@ -292,6 +294,9 @@
               </form>
               <ul id="cli-complaints" class="note-list"></ul>
             </div>
+
+            <h2 class="sez sez-minor">Consensi privacy</h2>
+            <div class="consensi consensi-minor" id="cli-consensi"></div>
           </div>
         </section>
       </div>
