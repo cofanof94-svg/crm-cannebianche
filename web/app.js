@@ -664,9 +664,10 @@ async function caricaComplaints(codCli) {
   $('#cli-complaints').innerHTML = compl.map((c) => {
     const risolto = c.stato === 'risolto';
     return `
-    <li data-compl="${c.id}" class="${risolto ? 'compl-risolto' : ''}">
+    <li data-compl="${c.id}" data-periodo="${esc(c.periodo || '')}" class="${risolto ? 'compl-risolto' : ''}">
       <div class="compl-top">
         <span class="pill ${risolto ? 'pill-checkout' : 'pill-atteso'}">${risolto ? 'Risolto' : 'Aperto'}</span>
+        ${c.periodo ? `<span class="pref-tag">${esc(c.periodo)}</span>` : ''}
         <span class="compl-testo nota-testo">${esc(c.testo)}</span>
       </div>
       <div class="nota-meta">
@@ -685,9 +686,10 @@ $('#compl-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
   const testo = f.testo.value.trim();
+  const periodo = f.periodo.value.trim();
   if (!testo || !clienteCorrente) return;
   const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints`, {
-    method: 'POST', body: JSON.stringify({ testo }),
+    method: 'POST', body: JSON.stringify({ testo, periodo }),
   });
   if (status === 201) { f.reset(); caricaComplaints(clienteCorrente); }
 });
@@ -706,10 +708,11 @@ $('#cli-complaints').addEventListener('click', async (e) => {
   } else if (edit) {
     const li = edit.closest('[data-compl]');
     const nuovo = prompt('Modifica complaint:', li.querySelector('.compl-testo').textContent);
-    if (nuovo != null && nuovo.trim()) {
-      await api(`/api/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify({ testo: nuovo.trim() }) });
-      caricaComplaints(clienteCorrente);
-    }
+    if (nuovo == null || !nuovo.trim()) return;
+    const nuovoPeriodo = prompt('Periodo (es. ago 2025), lascia vuoto per nessuno:', li.dataset.periodo || '');
+    if (nuovoPeriodo == null) return;
+    await api(`/api/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify({ testo: nuovo.trim(), periodo: nuovoPeriodo.trim() }) });
+    caricaComplaints(clienteCorrente);
   }
 });
 

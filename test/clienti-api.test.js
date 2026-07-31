@@ -59,9 +59,9 @@ async function makeApp() {
       if (/DELETE FROM customer_notes/.test(text)) { const i = note.findIndex((x) => x.id === params.id); if (i >= 0) { const id = note[i].id; note.splice(i, 1); return [{ id }]; } return []; }
       if (/FROM customer_notes/.test(text)) return note.filter((n) => n.pmsCustomerId === params.pmsCustomerId).map((n) => ({ id: n.id, testo: n.testo, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_complaints/.test(text)) { const n = { id: complaints.length + 1, stato: 'aperto', ...params }; complaints.push(n); return [{ id: n.id }]; }
-      if (/UPDATE customer_complaints/.test(text)) { const n = complaints.find((x) => x.id === params.id); if (n) { if (params.testo != null) n.testo = params.testo; if (params.stato != null) n.stato = params.stato; return [{ id: n.id }]; } return []; }
+      if (/UPDATE customer_complaints/.test(text)) { const n = complaints.find((x) => x.id === params.id); if (n) { if (params.testo != null) n.testo = params.testo; if (params.stato != null) n.stato = params.stato; if (params.periodo !== undefined) n.periodo = params.periodo; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_complaints/.test(text)) { const i = complaints.findIndex((x) => x.id === params.id); if (i >= 0) { const id = complaints[i].id; complaints.splice(i, 1); return [{ id }]; } return []; }
-      if (/FROM customer_complaints/.test(text)) return complaints.filter((n) => n.pmsCustomerId === params.pmsCustomerId).map((n) => ({ id: n.id, testo: n.testo, stato: n.stato, autore: 'admin', created_at: 'x', resolved_at: null, autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
+      if (/FROM customer_complaints/.test(text)) return complaints.filter((n) => n.pmsCustomerId === params.pmsCustomerId).map((n) => ({ id: n.id, testo: n.testo, stato: n.stato, periodo: n.periodo || null, autore: 'admin', created_at: 'x', resolved_at: null, autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       return [];
     },
   };
@@ -181,6 +181,19 @@ test('complaints: crea/elenca/risolvi (PATCH stato)/404/elimina', async () => {
   assert.strictEqual(patch404.status, 404);
   const del = await ag.delete(`/api/complaints/${id}`);
   assert.strictEqual(del.status, 200);
+});
+
+test('complaint: periodo salvato in creazione e modificabile', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'rumore', periodo: 'ago 2025' });
+  assert.strictEqual(c.status, 201);
+  const l = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l.body.complaints[0].periodo, 'ago 2025');
+  const patch = await ag.patch(`/api/complaints/${c.body.complaint.id}`).send({ periodo: 'set 2025' });
+  assert.strictEqual(patch.status, 200);
+  const l2 = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l2.body.complaints[0].periodo, 'set 2025');
 });
 
 test('complaint: stato non valido → 400', async () => {

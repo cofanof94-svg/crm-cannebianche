@@ -2,7 +2,7 @@ const express = require('express');
 const { requireAuth } = require('../auth/middleware');
 const { cercaClienti, getCliente, getSoggiorniCliente } = require('../pms/clienti');
 const { listNote, createNota, updateNota, deleteNota } = require('../crm/note');
-const { listComplaints, createComplaint, updateComplaintTesto, setComplaintStato, deleteComplaint } = require('../crm/complaint');
+const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
 const { getProfilo, upsertLingua } = require('../crm/profilo');
 const { listPreferenze, createPreferenza, deletePreferenza, REPARTI, CATEGORIE } = require('../crm/preferenze');
@@ -99,10 +99,12 @@ function createClientiRouter(pmsDb, crmDb) {
 
   router.post('/clienti/:codCli/complaints', async (req, res) => {
     const codCli = Number(req.params.codCli);
-    const testo = (req.body && req.body.testo ? String(req.body.testo) : '').trim();
+    const b = req.body || {};
+    const testo = (b.testo ? String(b.testo) : '').trim();
+    const periodo = (b.periodo != null ? String(b.periodo).trim() : '') || null;
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     if (!testo) return res.status(400).json({ error: 'Testo mancante' });
-    const complaint = await createComplaint(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo });
+    const complaint = await createComplaint(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo, periodo });
     res.status(201).json({ complaint });
   });
 
@@ -112,12 +114,14 @@ function createClientiRouter(pmsDb, crmDb) {
     const body = req.body || {};
     const testo = body.testo != null ? String(body.testo).trim() : null;
     const stato = body.stato != null ? String(body.stato).trim() : null;
+    const periodo = body.periodo != null ? String(body.periodo).trim() : null;
     if (stato != null && stato !== 'aperto' && stato !== 'risolto') return res.status(400).json({ error: 'Stato non valido' });
     if (testo === '') return res.status(400).json({ error: 'Testo mancante' });
-    if (testo == null && stato == null) return res.status(400).json({ error: 'Niente da aggiornare' });
+    if (testo == null && stato == null && periodo == null) return res.status(400).json({ error: 'Niente da aggiornare' });
     let ok = true;
     if (testo != null) ok = await updateComplaintTesto(crmDb, id, testo);
     if (ok && stato != null) ok = await setComplaintStato(crmDb, id, stato);
+    if (ok && periodo != null) ok = await setComplaintPeriodo(crmDb, id, periodo);
     if (!ok) return res.status(404).json({ error: 'Complaint non trovato' });
     res.json({ ok: true });
   });

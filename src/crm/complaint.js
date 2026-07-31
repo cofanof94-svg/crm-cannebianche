@@ -4,7 +4,7 @@
 
 async function listComplaints(db, pmsCustomerId) {
   return db.query(
-    `SELECT c.id, c.pms_customer_id, c.testo, c.stato, c.created_at, c.resolved_at,
+    `SELECT c.id, c.pms_customer_id, c.testo, c.stato, c.periodo, c.created_at, c.resolved_at,
             c.autore_user_id, u.username AS autore
      FROM customer_complaints c LEFT JOIN users u ON u.id = c.autore_user_id
      WHERE c.pms_customer_id = @pmsCustomerId
@@ -13,12 +13,12 @@ async function listComplaints(db, pmsCustomerId) {
   );
 }
 
-async function createComplaint(db, { pmsCustomerId, autoreUserId, testo }) {
+async function createComplaint(db, { pmsCustomerId, autoreUserId, testo, periodo = null }) {
   const rows = await db.query(
-    `INSERT INTO customer_complaints (pms_customer_id, autore_user_id, testo, stato, created_at)
+    `INSERT INTO customer_complaints (pms_customer_id, autore_user_id, testo, periodo, stato, created_at)
      OUTPUT INSERTED.id
-     VALUES (@pmsCustomerId, @autoreUserId, @testo, 'aperto', SYSUTCDATETIME())`,
-    { pmsCustomerId, autoreUserId, testo }
+     VALUES (@pmsCustomerId, @autoreUserId, @testo, @periodo, 'aperto', SYSUTCDATETIME())`,
+    { pmsCustomerId, autoreUserId, testo, periodo }
   );
   return rows[0];
 }
@@ -27,6 +27,14 @@ async function updateComplaintTesto(db, id, testo) {
   const rows = await db.query(
     'UPDATE customer_complaints SET testo = @testo OUTPUT INSERTED.id WHERE id = @id',
     { id, testo }
+  );
+  return rows.length > 0;
+}
+
+async function setComplaintPeriodo(db, id, periodo) {
+  const rows = await db.query(
+    'UPDATE customer_complaints SET periodo = @periodo OUTPUT INSERTED.id WHERE id = @id',
+    { id, periodo: periodo || null }
   );
   return rows.length > 0;
 }
@@ -46,4 +54,4 @@ async function deleteComplaint(db, id) {
   return rows.length > 0;
 }
 
-module.exports = { listComplaints, createComplaint, updateComplaintTesto, setComplaintStato, deleteComplaint };
+module.exports = { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint };
