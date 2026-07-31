@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "seed": "node scripts/seed-admin.js",
+    "import": "node src/import/run.js",
     "test": "node --test"
   },
   "keywords": [],
