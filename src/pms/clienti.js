@@ -37,7 +37,7 @@ SELECT t.codpratica,
   CONVERT(varchar(10), t.dtarrivo, 23) AS dtarrivo,
   CONVERT(varchar(10), t.dtpartenza, 23) AS dtpartenza,
   DATEDIFF(day, t.dtarrivo, t.dtpartenza) AS notti,
-  t.camere, t.stato, t.source, t.mercato, t.arrangiamento, t.extra, t.ospitiJson
+  t.camere, t.stato, t.source, t.mercato, t.arrangiamento, t.extra, t.pianificato, t.ospitiJson
 FROM (
   SELECT p.codpratica, p.dtarrivo, p.dtpartenza,
     COALESCE(
@@ -52,6 +52,11 @@ FROM (
     (SELECT TOP 1 prov.DesProvenienza FROM PrenotaProvenienze prov WHERE prov.CodProvenienza = p.CodProvenienza) AS mercato,
     ${_impP.arrangiamento} AS arrangiamento,
     ${_impP.extra} AS extra,
+    COALESCE(
+      (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
+         WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc),
+      (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
+    ) AS pianificato,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM Alberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN AlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = p.codpratica AND al.codcli IS NOT NULL
@@ -68,6 +73,8 @@ FROM (
     (SELECT TOP 1 prov.DesProvenienza FROM PrenotaProvenienze prov WHERE prov.CodProvenienza = sp.CodProvenienza) AS mercato,
     ${_impS.arrangiamento} AS arrangiamento,
     ${_impS.extra} AS extra,
+    (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
+       WHERE al.codpratica = sp.codpratica GROUP BY ad.codcam) tc) AS pianificato,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM StorAlberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN StorAlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = sp.codpratica AND al.codcli IS NOT NULL
@@ -145,6 +152,7 @@ async function getSoggiorniCliente(pmsDb, codCli) {
       importo: arrangiamento, // = arrangiamento (compat)
       arrangiamento,
       extra,
+      pianificato: r.pianificato == null ? 0 : Number(r.pianificato), // tariffa pianificata (per "previsto" quando maturato=0)
       stato: r.stato,
       source: pulisci(r.source),
       mercato: pulisci(r.mercato),

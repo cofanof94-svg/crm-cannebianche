@@ -34,7 +34,7 @@ test('getCliente restituisce null se non trovato', async () => {
 
 test('getSoggiorniCliente mappa le righe', async () => {
   const pms = fakePms([{ codpratica: 60397, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2,
-    camere: '109', stato: 'Concluso', source: 'DIRETTI', mercato: 'LEISURE INDIVIDUALI', arrangiamento: 855, extra: 40 }]);
+    camere: '109', stato: 'Concluso', source: 'DIRETTI', mercato: 'LEISURE INDIVIDUALI', arrangiamento: 855, extra: 40, pianificato: 900 }]);
   const [s] = await getSoggiorniCliente(pms, 47186);
   assert.strictEqual(s.codpratica, 60397);
   assert.strictEqual(s.camere, '109');
@@ -44,6 +44,7 @@ test('getSoggiorniCliente mappa le righe', async () => {
   assert.strictEqual(s.stato, 'Concluso');
   assert.strictEqual(s.source, 'DIRETTI');
   assert.strictEqual(s.mercato, 'LEISURE INDIVIDUALI');
+  assert.strictEqual(s.pianificato, 900);          // tariffa pianificata (per il "previsto")
   assert.strictEqual(pms.calls[0].params.codCli, 47186);
 });
 

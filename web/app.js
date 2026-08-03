@@ -473,14 +473,22 @@ function contattoCard(label, value, href) {
 }
 
 // Storico prenotazioni: una riga per pratica con le info principali.
+// Stati "in corso/futuri": per questi, se il maturato è 0 ma c'è la tariffa
+// pianificata, la mostriamo come "previsto".
+const STATI_PREVISTO = ['In casa', 'Confermato', 'Pianificata'];
 function rigaSoggiorno(x) {
+  const arr = x.arrangiamento || 0;
+  const ext = x.extra || 0;
+  const usaPrevisto = arr + ext === 0 && (x.pianificato || 0) > 0 && STATI_PREVISTO.includes(x.stato);
+  const celleImporti = usaPrevisto
+    ? `<td class="cell-num" colspan="2">${euro(x.pianificato)} <span class="prev-tag">previsto</span></td>`
+    : `<td class="cell-num">${euro(arr)}</td><td class="cell-num sogg-extra">${euro(ext)}</td>`;
   return `<tr>
     <td class="cell-num">${esc(x.codpratica)}</td>
     <td class="cell-muted">${fmtData(x.dtarrivo)} <span class="periodo-sep">→</span> ${fmtData(x.dtpartenza)}</td>
     <td class="cell-num">${x.notti != null ? esc(x.notti) : '—'}</td>
     <td>${x.camere ? chipCamere(x.camere) : dash}</td>
-    <td class="cell-num">${euro(x.arrangiamento || 0)}</td>
-    <td class="cell-num sogg-extra">${euro(x.extra || 0)}</td>
+    ${celleImporti}
     <td><span class="pill ${statoSoggPill(x.stato)}">${esc(x.stato)}</span></td>
   </tr>`;
 }
