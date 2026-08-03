@@ -450,7 +450,7 @@ async function loadCliente(codCli) {
   popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
-    caricaLingua(codCli), caricaIntolleranze(codCli), caricaPreferenze(codCli),
+    caricaGusti(codCli), caricaLingua(codCli), caricaIntolleranze(codCli), caricaPreferenze(codCli),
     caricaNucleo(codCli), caricaNote(codCli), caricaComplaints(codCli),
   ]);
   msg.hidden = true; body.hidden = false;
@@ -627,6 +627,22 @@ $('#cli-nucleo').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-nucleo]');
   if (del) { await api(`/api/nucleo/${del.dataset.delNucleo}`, { method: 'DELETE' }); caricaNucleo(clienteCorrente); }
 });
+
+// --- Gusti F&B (consumi ristorante/bar aggregati dal PMS) ---
+async function caricaGusti(codCli) {
+  const el = $('#cli-gusti');
+  el.innerHTML = '<div class="nota-vuota">Caricamento consumi…</div>';
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/gusti`);
+  const g = (body && body.gusti) || { items: [] };
+  if (!g.items || !g.items.length) { el.innerHTML = '<div class="nota-vuota">Nessun consumo F&B registrato.</div>'; return; }
+  const gruppi = ['Vini', 'Bevande', 'Cibo', 'Altro'].map((m) => {
+    const its = g.items.filter((i) => i.categoria === m).slice(0, 6);
+    if (!its.length) return '';
+    const chips = its.map((i) => `<span class="gusto"><b>${i.volte}×</b> ${esc(i.nome)}</span>`).join('');
+    return `<div class="gusti-grp"><span class="gusti-cat">${m}</span><div class="gusti-chips">${chips}</div></div>`;
+  }).join('');
+  el.innerHTML = `<div class="gusti-head">${g.totConsumi} consumi · ${g.totVoci} voci diverse (i più frequenti)</div>${gruppi}`;
+}
 
 // --- Intolleranze / allergie (dato di sicurezza) ---
 async function caricaIntolleranze(codCli) {

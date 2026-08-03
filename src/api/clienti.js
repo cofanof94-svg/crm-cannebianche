@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth } = require('../auth/middleware');
 const { cercaClienti, getCliente, getSoggiorniCliente } = require('../pms/clienti');
+const { getGustiFB } = require('../pms/gusti');
 const { listNote, createNota, updateNota, deleteNota } = require('../crm/note');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
@@ -45,6 +46,13 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!anagrafica) return res.status(404).json({ error: 'Cliente non trovato' });
     const soggiorni = await getSoggiorniCliente(pmsDb, codCli);
     res.json({ anagrafica, statistiche: calcolaStatistiche(soggiorni), soggiorni });
+  });
+
+  // Gusti F&B (Fase 3 A): endpoint separato, query più pesante → caricata a parte.
+  router.get('/clienti/:codCli/gusti', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    res.json({ gusti: await getGustiFB(pmsDb, codCli) });
   });
 
   router.get('/clienti/:codCli/note', async (req, res) => {
