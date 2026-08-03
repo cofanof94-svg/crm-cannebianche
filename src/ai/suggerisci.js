@@ -104,7 +104,7 @@ function buildRequest(fatti, { model = 'claude-sonnet-5', maxTokens = 2000 } = {
     system: SYSTEM,
     messages: [{ role: 'user', content: `FATTI dell'ospite:\n\n${fatti}` }],
     output_config: {
-      format: { type: 'json_schema', name: 'suggerimenti_crm', schema: SCHEMA },
+      format: { type: 'json_schema', schema: SCHEMA },
     },
   };
   // Adaptive thinking (utile per la sintesi) su Opus/Sonnet 4.6+; Haiku 4.5 non lo
