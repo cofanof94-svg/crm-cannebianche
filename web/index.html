@@ -264,6 +264,11 @@
                 <input name="testo" placeholder="Preferenza (es. Predilige Amarone)…" required autocomplete="off" />
                 <button type="submit" class="btn btn-primary">Aggiungi</button>
               </form>
+              <div class="ai-sugg-bar">
+                <button type="button" id="btn-suggerisci" class="btn btn-ai">✨ Suggerisci preferenze (AI)</button>
+                <span class="info" data-tip="Un assistente AI legge i consumi F&amp;B e le note e propone preferenze/intolleranze sintetiche. Nulla viene salvato: confermi tu quelle giuste.">i</span>
+              </div>
+              <div id="cli-suggerimenti" class="ai-sugg"></div>
               <ul id="cli-preferenze" class="note-list"></ul>
             </div>
 

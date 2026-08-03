@@ -448,6 +448,7 @@ async function loadCliente(codCli) {
   popolaSelect($('#pref-form').reparto, REPARTI, 'Reparto');
   popolaSelect($('#pref-form').categoria, CATEGORIE, 'Categoria');
   popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
+  suggerimentiCorrenti = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
     caricaGusti(codCli), caricaLingua(codCli), caricaIntolleranze(codCli), caricaPreferenze(codCli),
@@ -591,6 +592,69 @@ $('#pref-form').addEventListener('submit', async (e) => {
 $('#cli-preferenze').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-pref]');
   if (del) { await api(`/api/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); }
+});
+
+// --- Suggerimenti AI (Fase 3 C): proposte on-demand, l'operatore conferma ---
+let suggerimentiCorrenti = [];
+function renderSuggerimenti(msg) {
+  const box = $('#cli-suggerimenti');
+  if (typeof msg === 'string') { box.innerHTML = `<div class="ai-msg">${esc(msg)}</div>`; return; }
+  if (!suggerimentiCorrenti.length) { box.innerHTML = '<div class="ai-msg">Nessun suggerimento: dati insufficienti o già tutto registrato.</div>'; return; }
+  const righe = suggerimentiCorrenti.map((s, i) => {
+    const tag = s.tipo === 'intolleranza' ? 'Intolleranza · sicurezza' : `${esc(s.reparto)} · ${esc(s.categoria)}`;
+    const motivo = s.motivo ? `<span class="ai-motivo">${esc(s.motivo)}</span>` : '';
+    return `<li class="ai-item">
+      <label><input type="checkbox" data-sugg="${i}" checked />
+        <span class="ai-tag ai-${s.tipo}">${tag}</span>
+        <span class="ai-testo">${esc(s.testo)}</span>
+        <span class="ai-conf conf-${esc(s.confidenza)}">${esc(s.confidenza)}</span>
+      </label>
+      ${motivo}
+    </li>`;
+  }).join('');
+  box.innerHTML = `<ul class="ai-list">${righe}</ul>
+    <div class="ai-actions">
+      <button type="button" id="btn-salva-sugg" class="btn btn-primary">Salva selezionati</button>
+      <button type="button" id="btn-scarta-sugg" class="btn">Scarta</button>
+    </div>`;
+}
+
+$('#btn-suggerisci').addEventListener('click', async (e) => {
+  if (!clienteCorrente) return;
+  const btn = e.target;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Analisi in corso…';
+  suggerimentiCorrenti = [];
+  renderSuggerimenti('Analisi dei consumi e delle note in corso…');
+  try {
+    const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/suggerimenti`, { method: 'POST' });
+    if (status === 503) { renderSuggerimenti('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); return; }
+    if (status !== 200) { renderSuggerimenti('Errore durante la generazione dei suggerimenti.'); return; }
+    suggerimentiCorrenti = body.suggerimenti || [];
+    renderSuggerimenti();
+  } catch { renderSuggerimenti('Errore di rete durante la generazione.'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+});
+
+$('#cli-suggerimenti').addEventListener('click', async (e) => {
+  if (e.target.closest('#btn-scarta-sugg')) { suggerimentiCorrenti = []; $('#cli-suggerimenti').innerHTML = ''; return; }
+  if (!e.target.closest('#btn-salva-sugg')) return;
+  const scelti = [...$('#cli-suggerimenti').querySelectorAll('[data-sugg]:checked')].map((c) => suggerimentiCorrenti[Number(c.dataset.sugg)]);
+  if (!scelti.length) { suggerimentiCorrenti = []; $('#cli-suggerimenti').innerHTML = ''; return; }
+  const btn = $('#btn-salva-sugg'); btn.disabled = true; btn.textContent = 'Salvataggio…';
+  let salvaPref = false, salvaIntol = false;
+  for (const s of scelti) {
+    if (s.tipo === 'intolleranza') {
+      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/intolleranze`, { method: 'POST', body: JSON.stringify({ testo: s.testo }) });
+      salvaIntol = true;
+    } else {
+      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, { method: 'POST', body: JSON.stringify({ reparto: s.reparto, categoria: s.categoria, testo: s.testo }) });
+      salvaPref = true;
+    }
+  }
+  suggerimentiCorrenti = []; $('#cli-suggerimenti').innerHTML = '';
+  if (salvaPref) caricaPreferenze(clienteCorrente);
+  if (salvaIntol) caricaIntolleranze(clienteCorrente);
 });
 
 // --- Nucleo di viaggio / accompagnatori ---

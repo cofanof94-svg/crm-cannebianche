@@ -9,6 +9,8 @@ const { getProfilo, upsertLingua } = require('../crm/profilo');
 const { listPreferenze, createPreferenza, deletePreferenza, REPARTI, CATEGORIE } = require('../crm/preferenze');
 const { listNucleo, createMembro, deleteMembro, RELAZIONI } = require('../crm/nucleo');
 const { aggregaCumulativi } = require('../stats');
+const { getAiClient } = require('../ai/client');
+const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
 
 // Eliminate e No-show restano nello storico ma non sono soggiorni reali:
 // escluse dai conteggi. L'aggregazione vera è nel modulo condiviso src/stats.js.
@@ -53,6 +55,29 @@ function createClientiRouter(pmsDb, crmDb) {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     res.json({ gusti: await getGustiFB(pmsDb, codCli) });
+  });
+
+  // Suggerisci preferenze (Fase 3 C, AI on-demand). Raccoglie i fatti dell'ospite
+  // (gusti F&B + note + intolleranze/preferenze già presenti) e chiede a Claude di
+  // proporre preferenze/intolleranze. NON salva: l'operatore conferma a mano dai
+  // pulsanti esistenti. 503 se l'AI non è configurata (SDK/chiave assenti).
+  router.post('/clienti/:codCli/suggerimenti', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const ai = getAiClient();
+    if (!ai) return res.status(503).json({ error: 'AI non configurata (manca @anthropic-ai/sdk o ANTHROPIC_API_KEY)' });
+    const [gusti, note, intolleranze, preferenze] = await Promise.all([
+      getGustiFB(pmsDb, codCli),
+      listNote(crmDb, codCli),
+      listIntolleranze(crmDb, codCli),
+      listPreferenze(crmDb, codCli),
+    ]);
+    const fatti = costruisciFatti({ gusti, note, intolleranze, preferenze });
+    if (!haFatti(fatti)) return res.json({ suggerimenti: [], motivo: 'dati insufficienti' });
+    const suggerimenti = await suggerisci(ai.client, fatti, { model: ai.model });
+    // Audit minimale (Fase 3 privacy): chi ha generato suggerimenti, per chi, quanti.
+    console.log(`[AI suggerimenti] cliente=${codCli} utente=${req.session.user.username} n=${suggerimenti.length}`);
+    res.json({ suggerimenti });
   });
 
   router.get('/clienti/:codCli/note', async (req, res) => {

@@ -411,6 +411,26 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .gusti-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
 .gusto { font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 3px 9px; }
 .gusto b { color: var(--brand); font-weight: 700; font-variant-numeric: tabular-nums; margin-right: 3px; }
+
+/* --- Suggerimenti AI (Fase 3 C) --- */
+.ai-sugg-bar { display: flex; align-items: center; gap: 6px; margin: 4px 0 2px; }
+.btn-ai { background: var(--sand-050); color: var(--brand-700); border-color: var(--accent); }
+.btn-ai:hover { background: #efe6d5; }
+.btn-ai:disabled { opacity: .6; cursor: default; }
+.ai-sugg:not(:empty) { margin: 8px 0 4px; border: 1px dashed var(--accent); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--sand-050); }
+.ai-msg { font-size: 13px; color: var(--muted); }
+.ai-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.ai-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; }
+.ai-item input { accent-color: var(--brand); }
+.ai-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--brand-050); color: var(--brand); border-radius: 6px; padding: 2px 8px; }
+.ai-tag.ai-intolleranza { background: #f6e4e2; color: var(--danger); }
+.ai-testo { font-size: 13.5px; }
+.ai-conf { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-radius: 999px; padding: 1px 8px; margin-left: auto; }
+.conf-alta { background: var(--sea-050); color: var(--sea-700); }
+.conf-media { background: var(--sand-050); color: var(--accent-700); border: 1px solid var(--accent); }
+.conf-bassa { background: #f0ebe4; color: #9a8467; }
+.ai-motivo { display: block; font-size: 12px; color: var(--muted); padding-left: 26px; margin-top: 2px; }
+.ai-actions { display: flex; gap: 8px; margin-top: 10px; }
 .compl-top { display: flex; align-items: baseline; gap: 10px; }
 .compl-top .pill { flex: none; }
 .compl-risolto .compl-testo { color: var(--muted); text-decoration: line-through; }
