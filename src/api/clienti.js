@@ -12,6 +12,8 @@ const { listNucleo, createMembro, deleteMembro, RELAZIONI } = require('../crm/nu
 const { aggregaCumulativi } = require('../stats');
 const { getAiClient } = require('../ai/client');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
+const { getGruppo, mergeInto, unmerge, listMappature } = require('../crm/merge');
+const { getDuplicatiCandidati, getTuttiGruppiDuplicati } = require('../pms/duplicati');
 
 // Eliminate e No-show restano nello storico ma non sono soggiorni reali:
 // escluse dai conteggi. L'aggregazione vera è nel modulo condiviso src/stats.js.
@@ -47,22 +49,74 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     const anagrafica = await getCliente(pmsDb, codCli);
     if (!anagrafica) return res.status(404).json({ error: 'Cliente non trovato' });
-    const soggiorni = await getSoggiorniCliente(pmsDb, codCli);
-    res.json({ anagrafica, statistiche: calcolaStatistiche(soggiorni), soggiorni });
+    const { canonicalId, membri } = await getGruppo(crmDb, codCli);
+    const soggiorni = await getSoggiorniCliente(pmsDb, membri);
+    // Info fusione per il banner: se il gruppo ha più codici, elenco i nominativi.
+    let merge = null;
+    if (membri.length > 1) {
+      const anags = await Promise.all(membri.map((id) => getCliente(pmsDb, id)));
+      merge = {
+        canonicalId,
+        membri,
+        anagrafiche: anags.filter(Boolean).map((a) => ({ codCli: a.codCli, nominativo: a.nominativo })),
+      };
+    }
+    res.json({ anagrafica, statistiche: calcolaStatistiche(soggiorni), soggiorni, merge });
   });
 
   // Gusti F&B (Fase 3 A): endpoint separato, query più pesante → caricata a parte.
   router.get('/clienti/:codCli/gusti', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    res.json({ gusti: await getGustiFB(pmsDb, codCli) });
+    const { membri } = await getGruppo(crmDb, codCli);
+    res.json({ gusti: await getGustiFB(pmsDb, membri) });
   });
 
   // Trattamenti SPA (Fase 3): consumi benessere dagli extra, aggregati per nome.
   router.get('/clienti/:codCli/spa', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    res.json({ spa: await getTrattamentiSpa(pmsDb, codCli) });
+    const { membri } = await getGruppo(crmDb, codCli);
+    res.json({ spa: await getTrattamentiSpa(pmsDb, membri) });
+  });
+
+  // --- Fusione anagrafiche duplicate (virtual merge, lato CRM) ---
+  // Candidati duplicati per la scheda, esclusi i codici già nel gruppo.
+  router.get('/clienti/:codCli/duplicati', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const { membri } = await getGruppo(crmDb, codCli);
+    const candidati = await getDuplicatiCandidati(pmsDb, codCli);
+    res.json({ candidati: candidati.filter((c) => !membri.includes(c.codCli)) });
+  });
+
+  // Fonde un codice (memberId) nel gruppo di un principale (canonicalId).
+  router.post('/clienti/:codCli/merge', async (req, res) => {
+    const b = req.body || {};
+    const memberId = intParam(b.memberId);
+    const canonicalId = intParam(b.canonicalId);
+    if (memberId === null || canonicalId === null) return res.status(400).json({ error: 'memberId/canonicalId non validi' });
+    const r = await mergeInto(crmDb, { memberId, canonicalId, autoreUserId: req.session.user.id });
+    if (!r.ok) return res.status(400).json({ error: 'Fusione non valida (auto-fusione)' });
+    res.status(201).json({ ok: true, canonicalId: r.canonicalId });
+  });
+
+  // Annulla la fusione di un singolo codice (torna standalone).
+  router.delete('/merge/:memberId', async (req, res) => {
+    const memberId = intParam(req.params.memberId);
+    if (memberId === null) return res.status(400).json({ error: 'ID non valido' });
+    if (!(await unmerge(crmDb, memberId))) return res.status(404).json({ error: 'Mappatura non trovata' });
+    res.json({ ok: true });
+  });
+
+  // Tutti i gruppi di duplicati (pagina di gestione), con lo stato "già fuso".
+  router.get('/duplicati', async (req, res) => {
+    const [gruppi, mappature] = await Promise.all([
+      getTuttiGruppiDuplicati(pmsDb),
+      listMappature(crmDb),
+    ]);
+    const fusi = new Set(mappature.map((m) => m.pms_customer_id));
+    res.json({ gruppi: gruppi.map((g) => ({ ...g, fusiCount: g.membri.filter((id) => fusi.has(id)).length })) });
   });
 
   // Suggerisci preferenze (Fase 3 C, AI on-demand). Raccoglie i fatti dell'ospite
@@ -74,12 +128,13 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     const ai = getAiClient();
     if (!ai) return res.status(503).json({ error: 'AI non configurata (manca @anthropic-ai/sdk o ANTHROPIC_API_KEY)' });
+    const { membri } = await getGruppo(crmDb, codCli);
     const [gusti, spa, note, intolleranze, preferenze] = await Promise.all([
-      getGustiFB(pmsDb, codCli),
-      getTrattamentiSpa(pmsDb, codCli),
-      listNote(crmDb, codCli),
-      listIntolleranze(crmDb, codCli),
-      listPreferenze(crmDb, codCli),
+      getGustiFB(pmsDb, membri),
+      getTrattamentiSpa(pmsDb, membri),
+      listNote(crmDb, membri),
+      listIntolleranze(crmDb, membri),
+      listPreferenze(crmDb, membri),
     ]);
     const fatti = costruisciFatti({ gusti, spa, note, intolleranze, preferenze });
     if (!haFatti(fatti)) return res.json({ suggerimenti: [], motivo: 'dati insufficienti' });
@@ -92,7 +147,8 @@ function createClientiRouter(pmsDb, crmDb) {
   router.get('/clienti/:codCli/note', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    res.json({ note: await listNote(crmDb, codCli) });
+    const { membri } = await getGruppo(crmDb, codCli);
+    res.json({ note: await listNote(crmDb, membri) });
   });
 
   router.post('/clienti/:codCli/note', async (req, res) => {
@@ -120,7 +176,8 @@ function createClientiRouter(pmsDb, crmDb) {
   router.get('/clienti/:codCli/complaints', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    res.json({ complaints: await listComplaints(crmDb, codCli) });
+    const { membri } = await getGruppo(crmDb, codCli);
+    res.json({ complaints: await listComplaints(crmDb, membri) });
   });
 
   router.post('/clienti/:codCli/complaints', async (req, res) => {
@@ -158,7 +215,8 @@ function createClientiRouter(pmsDb, crmDb) {
   router.get('/clienti/:codCli/intolleranze', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    res.json({ intolleranze: await listIntolleranze(crmDb, codCli) });
+    const { membri } = await getGruppo(crmDb, codCli);
+    res.json({ intolleranze: await listIntolleranze(crmDb, membri) });
   });
 
   router.post('/clienti/:codCli/intolleranze', async (req, res) => {
@@ -176,7 +234,8 @@ function createClientiRouter(pmsDb, crmDb) {
   router.get('/clienti/:codCli/profilo', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    res.json({ profilo: await getProfilo(crmDb, codCli) });
+    const { membri } = await getGruppo(crmDb, codCli);
+    res.json({ profilo: await getProfilo(crmDb, membri) });
   });
 
   router.put('/clienti/:codCli/profilo', async (req, res) => {
@@ -191,7 +250,8 @@ function createClientiRouter(pmsDb, crmDb) {
   router.get('/clienti/:codCli/preferenze', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    res.json({ preferenze: await listPreferenze(crmDb, codCli) });
+    const { membri } = await getGruppo(crmDb, codCli);
+    res.json({ preferenze: await listPreferenze(crmDb, membri) });
   });
 
   router.post('/clienti/:codCli/preferenze', async (req, res) => {
@@ -214,7 +274,8 @@ function createClientiRouter(pmsDb, crmDb) {
   router.get('/clienti/:codCli/nucleo', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    res.json({ nucleo: await listNucleo(crmDb, codCli) });
+    const { membri } = await getGruppo(crmDb, codCli);
+    res.json({ nucleo: await listNucleo(crmDb, membri) });
   });
 
   router.post('/clienti/:codCli/nucleo', async (req, res) => {

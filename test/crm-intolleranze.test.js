@@ -11,7 +11,7 @@ test('listIntolleranze filtra per cliente e ordina', async () => {
   const r = await listIntolleranze(db, 47186);
   assert.strictEqual(r[0].testo, 'Celiachia');
   assert.match(db.calls[0].text, /FROM customer_intolerances/);
-  assert.strictEqual(db.calls[0].params.pmsCustomerId, 47186);
+  assert.match(db.calls[0].text, /IN \(47186\)/);
 });
 
 test('createIntolleranza passa i parametri e restituisce l\'id', async () => {

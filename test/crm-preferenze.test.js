@@ -24,7 +24,7 @@ test('listPreferenze filtra per cliente; delete true/false', async () => {
   const db = fakeDb([{ id: 1, reparto: 'SPA', categoria: 'Persona', testo: 'Massaggio' }]);
   const r = await listPreferenze(db, 47186);
   assert.strictEqual(r[0].reparto, 'SPA');
-  assert.strictEqual(db.calls[0].params.pmsCustomerId, 47186);
+  assert.match(db.calls[0].text, /IN \(47186\)/);
   assert.strictEqual(await deletePreferenza(fakeDb([{ id: 1 }]), 1), true);
   assert.strictEqual(await deletePreferenza(fakeDb([]), 9), false);
 });

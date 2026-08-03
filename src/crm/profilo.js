@@ -1,10 +1,15 @@
 // Profilo CRM del cliente (1:1). Oggi: lingua preferita (dato manuale, il PMS non
 // la memorizza). upsert su UNIQUE pms_customer_id.
 
-async function getProfilo(db, pmsCustomerId) {
+const { inClause } = require('../db/query');
+
+// ids: codice singolo o array (gruppo). Con più profili nel gruppo si prende la
+// lingua non nulla più recente (la scrittura resta sul codice visualizzato).
+async function getProfilo(db, ids) {
   const rows = await db.query(
-    'SELECT pms_customer_id, lingua, updated_at FROM customer_profile WHERE pms_customer_id = @pmsCustomerId',
-    { pmsCustomerId }
+    `SELECT TOP 1 pms_customer_id, lingua, updated_at FROM customer_profile
+     WHERE pms_customer_id IN ${inClause(ids)}
+     ORDER BY CASE WHEN lingua IS NOT NULL THEN 0 ELSE 1 END, updated_at DESC`
   );
   return rows[0] || null;
 }

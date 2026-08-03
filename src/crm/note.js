@@ -1,10 +1,12 @@
-async function listNote(db, pmsCustomerId) {
+const { inClause } = require('../db/query');
+
+// ids: codice singolo o array (gruppo di anagrafiche fuse).
+async function listNote(db, ids) {
   return db.query(
     `SELECT n.id, n.pms_customer_id, n.testo, n.created_at, n.autore_user_id, u.username AS autore
      FROM customer_notes n LEFT JOIN users u ON u.id = n.autore_user_id
-     WHERE n.pms_customer_id = @pmsCustomerId
-     ORDER BY n.created_at DESC`,
-    { pmsCustomerId }
+     WHERE n.pms_customer_id IN ${inClause(ids)}
+     ORDER BY n.created_at DESC`
   );
 }
 

@@ -10,7 +10,7 @@ test('listComplaints filtra per cliente e ordina gli aperti per primi', async ()
   const db = fakeDb([{ id: 1, testo: 'x', stato: 'aperto', autore: 'admin' }]);
   const r = await c.listComplaints(db, 47186);
   assert.strictEqual(r[0].autore, 'admin');
-  assert.strictEqual(db.calls[0].params.pmsCustomerId, 47186);
+  assert.match(db.calls[0].text, /IN \(47186\)/);
   assert.match(db.calls[0].text, /FROM customer_complaints/);
   assert.match(db.calls[0].text, /stato = 'aperto'/);
 });

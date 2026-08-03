@@ -7,17 +7,19 @@
 // ⚠️ Attribuzione per camera: con famiglie/coppie i consumi sono del nucleo, non
 // solo del referente. Le voci interne/omaggio (prezzo 0) sono escluse dai totali.
 
-const SQL_GUSTI = `
+const { inClause } = require('../db/query');
+
+const sqlGusti = (inl) => `
 WITH stays AS (
   SELECT DISTINCT ad.codcam AS cam, CAST(sp.dtarrivo AS date) AS arr, CAST(sp.dtpartenza AS date) AS par
   FROM StorPrenota sp JOIN StorAlberg al ON al.codpratica = sp.codpratica
     JOIN StorAlbergDay ad ON ad.codalb = al.codalb
-  WHERE sp.codclinterm = @codCli AND ISNULL(ad.codcam,'') <> '' AND sp.DataEliminazione IS NULL
+  WHERE sp.codclinterm IN ${inl} AND ISNULL(ad.codcam,'') <> '' AND sp.DataEliminazione IS NULL
   UNION
   SELECT DISTINCT ad.codcam, CAST(p.dtarrivo AS date), CAST(p.dtpartenza AS date)
   FROM Prenota p JOIN Alberg al ON al.codpratica = p.codpratica
     JOIN AlbergDay ad ON ad.codalb = al.codalb
-  WHERE p.codclinterm = @codCli AND ISNULL(ad.codcam,'') <> '' AND p.DataEliminazione IS NULL
+  WHERE p.codclinterm IN ${inl} AND ISNULL(ad.codcam,'') <> '' AND p.DataEliminazione IS NULL
 )
 SELECT TOP 40 ac.CodArt AS codArt,
   LEFT(ISNULL(ma.desart, MAX(ac.desaggiunte)), 60) AS nome,
@@ -41,8 +43,9 @@ function macro(fb, grp) {
   return 'Altro';
 }
 
-async function getGustiFB(pmsDb, codCli) {
-  const rows = await pmsDb.query(SQL_GUSTI, { codCli });
+// ids: codice singolo o array di codici del gruppo (anagrafiche fuse).
+async function getGustiFB(pmsDb, ids) {
+  const rows = await pmsDb.query(sqlGusti(inClause(ids)), {});
   const items = rows.map((r) => ({
     codArt: r.codArt,
     nome: (r.nome == null ? '' : String(r.nome)).trim() || r.codArt,

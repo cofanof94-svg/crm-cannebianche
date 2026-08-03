@@ -10,13 +10,15 @@
 // ⚠️ Questi importi sono già dentro il totale "Extra" dell'ospite: qui li itemizziamo
 // per le preferenze, non è un doppio conteggio economico.
 
-const SQL_SPA = `
+const { inClause } = require('../db/query');
+
+const sqlSpa = (inl) => `
 WITH alb AS (
   SELECT al.codalb FROM StorAlberg al JOIN StorPrenota sp ON sp.codpratica = al.codpratica
-  WHERE sp.codclinterm = @codCli AND sp.DataEliminazione IS NULL
+  WHERE sp.codclinterm IN ${inl} AND sp.DataEliminazione IS NULL
   UNION
   SELECT al.codalb FROM Alberg al JOIN Prenota p ON p.codpratica = al.codpratica
-  WHERE p.codclinterm = @codCli AND p.DataEliminazione IS NULL
+  WHERE p.codclinterm IN ${inl} AND p.DataEliminazione IS NULL
 ),
 mov AS (
   SELECT codalb, codart, impoeur, qta FROM Matura
@@ -39,8 +41,9 @@ function macroSpa(grp) {
   return 'Altro';
 }
 
-async function getTrattamentiSpa(pmsDb, codCli) {
-  const rows = await pmsDb.query(SQL_SPA, { codCli });
+// ids: codice singolo o array di codici del gruppo (anagrafiche fuse).
+async function getTrattamentiSpa(pmsDb, ids) {
+  const rows = await pmsDb.query(sqlSpa(inClause(ids)), {});
   const items = rows.map((r) => ({
     nome: (r.nome == null ? '' : String(r.nome)).trim() || '(senza nome)',
     categoria: macroSpa(r.grp),

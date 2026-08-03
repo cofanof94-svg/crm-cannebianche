@@ -45,7 +45,7 @@ test('getSoggiorniCliente mappa le righe', async () => {
   assert.strictEqual(s.source, 'DIRETTI');
   assert.strictEqual(s.mercato, 'LEISURE INDIVIDUALI');
   assert.strictEqual(s.pianificato, 900);          // tariffa pianificata (per il "previsto")
-  assert.strictEqual(pms.calls[0].params.codCli, 47186);
+  assert.match(pms.calls[0].text, /IN \(47186\)/);
 });
 
 test('getSoggiorniCliente: la query esclude la city tax dagli extra e decodifica la Source', async () => {

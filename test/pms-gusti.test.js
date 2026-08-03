@@ -27,7 +27,7 @@ test('getGustiFB mappa, categorizza e totalizza', async () => {
   assert.strictEqual(g.items[1].categoria, 'Vini');
   assert.strictEqual(g.items[2].categoria, 'Cibo');
   assert.strictEqual(g.items[0].nome, 'COCA COLA ZERO');
-  assert.strictEqual(pms.calls[0].params.codCli, 2117);
+  assert.match(pms.calls[0].text, /IN \(2117\)/);           // codice del gruppo interpolato
   assert.match(pms.calls[0].text, /StorAddebitiComanda/);   // aggancio consumi
   assert.match(pms.calls[0].text, /BETWEEN s\.arr AND s\.par/); // camera + data
 });

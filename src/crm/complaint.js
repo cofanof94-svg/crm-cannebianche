@@ -2,14 +2,16 @@
 // aperto/risolto. Le funzioni di modifica/eliminazione restituiscono true se
 // una riga è stata effettivamente toccata (per il 404 dell'API).
 
-async function listComplaints(db, pmsCustomerId) {
+const { inClause } = require('../db/query');
+
+// ids: codice singolo o array (gruppo di anagrafiche fuse).
+async function listComplaints(db, ids) {
   return db.query(
     `SELECT c.id, c.pms_customer_id, c.testo, c.stato, c.periodo, c.created_at, c.resolved_at,
             c.autore_user_id, u.username AS autore
      FROM customer_complaints c LEFT JOIN users u ON u.id = c.autore_user_id
-     WHERE c.pms_customer_id = @pmsCustomerId
-     ORDER BY CASE WHEN c.stato = 'aperto' THEN 0 ELSE 1 END, c.created_at DESC`,
-    { pmsCustomerId }
+     WHERE c.pms_customer_id IN ${inClause(ids)}
+     ORDER BY CASE WHEN c.stato = 'aperto' THEN 0 ELSE 1 END, c.created_at DESC`
   );
 }
 

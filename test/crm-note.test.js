@@ -10,7 +10,7 @@ test('listNote filtra per cliente e unisce l\'autore', async () => {
   const db = fakeDb([{ id: 1, pms_customer_id: 47186, testo: 'ciao', created_at: 'x', autore_user_id: 1, autore: 'admin' }]);
   const r = await note.listNote(db, 47186);
   assert.strictEqual(r[0].autore, 'admin');
-  assert.strictEqual(db.calls[0].params.pmsCustomerId, 47186);
+  assert.match(db.calls[0].text, /IN \(47186\)/);
   assert.match(db.calls[0].text, /FROM customer_notes/);
 });
 

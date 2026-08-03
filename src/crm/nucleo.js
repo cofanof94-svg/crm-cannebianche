@@ -2,16 +2,18 @@
 // occupanti effettivi arrivano dal PMS (Alberg); qui si aggiungono relazione e nota.
 // tipo_relazione = lista chiusa (validata anche a livello DB con CHECK).
 
+const { inClause } = require('../db/query');
+
 const RELAZIONI = ['Coniuge', 'Figlio-a', 'Genitore', 'Amico-a', 'Assistente', 'Altro'];
 
-async function listNucleo(db, pmsCustomerId) {
+// ids: codice singolo o array (gruppo di anagrafiche fuse).
+async function listNucleo(db, ids) {
   return db.query(
     `SELECT n.id, n.pms_customer_id, n.tipo_relazione, n.nome, n.cognome, n.nota, n.created_at,
             n.autore_user_id, u.username AS autore
      FROM customer_travel_party n LEFT JOIN users u ON u.id = n.autore_user_id
-     WHERE n.pms_customer_id = @pmsCustomerId
-     ORDER BY n.created_at DESC`,
-    { pmsCustomerId }
+     WHERE n.pms_customer_id IN ${inClause(ids)}
+     ORDER BY n.created_at DESC`
   );
 }
 

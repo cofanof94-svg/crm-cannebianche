@@ -4,14 +4,16 @@
 const REPARTI = ['Rooms', 'F&B', 'SPA', 'Front office'];
 const CATEGORIE = ['F&B', 'Camera', 'Persona', 'Occasioni', 'Generale'];
 
-async function listPreferenze(db, pmsCustomerId) {
+const { inClause } = require('../db/query');
+
+// ids: codice singolo o array (gruppo di anagrafiche fuse).
+async function listPreferenze(db, ids) {
   return db.query(
     `SELECT p.id, p.pms_customer_id, p.reparto, p.categoria, p.testo, p.created_at,
             p.autore_user_id, u.username AS autore
      FROM customer_preferences p LEFT JOIN users u ON u.id = p.autore_user_id
-     WHERE p.pms_customer_id = @pmsCustomerId
-     ORDER BY p.created_at DESC`,
-    { pmsCustomerId }
+     WHERE p.pms_customer_id IN ${inClause(ids)}
+     ORDER BY p.created_at DESC`
   );
 }
 

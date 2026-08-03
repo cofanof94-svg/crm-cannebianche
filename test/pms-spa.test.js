@@ -25,7 +25,7 @@ test('getTrattamentiSpa mappa, categorizza e totalizza', async () => {
   assert.strictEqual(s.items[0].categoria, 'Trattamento');
   assert.strictEqual(s.items[2].categoria, 'Prodotto');
   assert.strictEqual(s.items[0].nome, 'SERENITY');
-  assert.strictEqual(pms.calls[0].params.codCli, 18598);
+  assert.match(pms.calls[0].text, /IN \(18598\)/);      // codice del gruppo interpolato
   assert.match(pms.calls[0].text, /StorMatura/);        // extra da Matura/StorMatura
   assert.match(pms.calls[0].text, /codgrpmerCAT LIKE 'SPA%'/); // filtro gruppo SPA
   assert.match(pms.calls[0].text, /alb\.codalb = mov\.codalb/); // aggancio via codalb

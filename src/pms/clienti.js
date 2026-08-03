@@ -1,4 +1,5 @@
 const { importiExpr } = require('../import/estrai');
+const { inClause } = require('../db/query');
 
 // cameraInCasa: camera(e) se l'ospite è in casa alla data di lavoro (Persona.Dataggio), altrimenti NULL.
 const SQL_CERCA = `
@@ -31,7 +32,7 @@ FROM Anagra WHERE CodCli = @codCli`;
 // assegnata in roomlist, così scheda live e snapshot coincidono. City tax esclusa.
 const _impP = importiExpr('Alberg', 'p');
 const _impS = importiExpr('StorAlberg', 'sp');
-const SQL_SOGGIORNI = `
+const sqlSoggiorni = (inl) => `
 DECLARE @dlav date = (SELECT TOP 1 Dataggio FROM Persona);
 SELECT t.codpratica,
   CONVERT(varchar(10), t.dtarrivo, 23) AS dtarrivo,
@@ -66,8 +67,8 @@ FROM (
   FROM Prenota p
   WHERE p.DataEliminazione IS NULL
     AND NOT EXISTS (SELECT 1 FROM StorPrenota spx WHERE spx.codpratica = p.codpratica) -- dedup: se archiviata, vince StorPrenota
-    AND (p.codclinterm = @codCli
-    OR EXISTS (SELECT 1 FROM Alberg alo WHERE alo.codpratica = p.codpratica AND alo.codcli = @codCli))
+    AND (p.codclinterm IN ${inl}
+    OR EXISTS (SELECT 1 FROM Alberg alo WHERE alo.codpratica = p.codpratica AND alo.codcli IN ${inl}))
   UNION ALL
   SELECT sp.codpratica, sp.dtarrivo, sp.dtpartenza,
     (SELECT STUFF((SELECT DISTINCT ', ' + ad.codcam FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
@@ -84,8 +85,8 @@ FROM (
      WHERE al.codpratica = sp.codpratica AND al.codcli IS NOT NULL
      GROUP BY al.codcli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) FOR JSON PATH) AS ospitiJson
   FROM StorPrenota sp
-  WHERE sp.codclinterm = @codCli
-    OR EXISTS (SELECT 1 FROM StorAlberg alo WHERE alo.codpratica = sp.codpratica AND alo.codcli = @codCli)
+  WHERE sp.codclinterm IN ${inl}
+    OR EXISTS (SELECT 1 FROM StorAlberg alo WHERE alo.codpratica = sp.codpratica AND alo.codcli IN ${inl})
 ) t
 ORDER BY t.dtarrivo DESC`;
 
@@ -140,8 +141,9 @@ async function getCliente(pmsDb, codCli) {
   };
 }
 
-async function getSoggiorniCliente(pmsDb, codCli) {
-  const rows = await pmsDb.query(SQL_SOGGIORNI, { codCli });
+// ids: codice singolo o array di codici del gruppo (anagrafiche fuse).
+async function getSoggiorniCliente(pmsDb, ids) {
+  const rows = await pmsDb.query(sqlSoggiorni(inClause(ids)), {});
   return rows.map((r) => {
     let ospiti = [];
     try { ospiti = r.ospitiJson ? JSON.parse(r.ospitiJson) : []; } catch (e) { ospiti = []; }
