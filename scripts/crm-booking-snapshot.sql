@@ -19,7 +19,7 @@ CREATE TABLE booking_snapshot (
   stato              NVARCHAR(20)  NULL,              -- Confermata | Completata | Cancellata
   source             NVARCHAR(60)  NULL,              -- da SourcePrenota (decodificato)
   mercato            NVARCHAR(60)  NULL,              -- da PrenotaProvenienze (decodificato)
-  camere             NVARCHAR(100) NULL,
+  camere             NVARCHAR(1000) NULL,             -- lista camere: le prenotazioni di gruppo ne hanno molte
   tipologia          NVARCHAR(120) NULL,              -- da Tipologie (decodificato)
   trattamento        NVARCHAR(20)  NULL,
   pax                INT           NULL,
