@@ -37,7 +37,7 @@ function ramoCorrenti(filtri) {
     (SELECT TOP 1 pr.DesProvenienza FROM PrenotaProvenienze pr WHERE pr.CodProvenienza = p.CodProvenienza) AS mercato,
     (SELECT STUFF((SELECT DISTINCT ', ' + ad.codcam FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = p.codpratica AND ISNULL(ad.codcam,'') <> '' FOR XML PATH('')), 1, 2, '')) AS camere,
-    (SELECT TOP 1 t.DesTipologia FROM TipoPre tp JOIN Tipologie t ON t.CodTip = tp.codtip WHERE tp.codpratica = p.codpratica) AS tipologia,
+    (SELECT TOP 1 t.destip FROM TipoPre tp JOIN Tipologie t ON t.codtip = tp.codtip WHERE tp.codpratica = p.codpratica) AS tipologia,
     (SELECT CodVip FROM Anagra WHERE CodCli = p.codclinterm) AS vipSnapshot,
     p.ListaCodAmenities AS amenitiesSnapshot,
     CASE WHEN EXISTS (SELECT 1 FROM Alberg alo WHERE alo.codpratica = p.codpratica AND alo.codcli IS NOT NULL) THEN 1 ELSE 0 END AS hasOccupanti,
@@ -62,7 +62,7 @@ function ramoStorici(filtri) {
     (SELECT TOP 1 pr.DesProvenienza FROM PrenotaProvenienze pr WHERE pr.CodProvenienza = sp.CodProvenienza) AS mercato,
     (SELECT STUFF((SELECT DISTINCT ', ' + ad.codcam FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = sp.codpratica AND ISNULL(ad.codcam,'') <> '' FOR XML PATH('')), 1, 2, '')) AS camere,
-    (SELECT TOP 1 t.DesTipologia FROM TipoPre tp JOIN Tipologie t ON t.CodTip = tp.codtip WHERE tp.codpratica = sp.codpratica) AS tipologia,
+    (SELECT TOP 1 t.destip FROM TipoPre tp JOIN Tipologie t ON t.codtip = tp.codtip WHERE tp.codpratica = sp.codpratica) AS tipologia,
     (SELECT CodVip FROM Anagra WHERE CodCli = sp.codclinterm) AS vipSnapshot,
     sp.ListaCodAmenities AS amenitiesSnapshot,
     CASE WHEN EXISTS (SELECT 1 FROM StorAlberg alo WHERE alo.codpratica = sp.codpratica AND alo.codcli IS NOT NULL) THEN 1 ELSE 0 END AS hasOccupanti,
