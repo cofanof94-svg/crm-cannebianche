@@ -16,6 +16,19 @@ Tre filoni complementari:
 - **B. Note anagrafica** — le preferenze già scritte in testo libero dagli operatori.
 - **C. Assistente AI** — legge A+B e **propone** voci strutturate; l'operatore **conferma**.
 
+## 1bis. Decisioni sui "gusti" (prese 2026-08-03)
+
+- **Output = sintesi, non registro.** NON si salva ogni consumo: si salvano poche **preferenze ricorrenti** ("sempre vino bianco, mai carne rossa, caffè leccese"). Gli episodi isolati si scartano. Obiettivo: **pochi dati, corretti e sensati**, per un servizio 5 stelle.
+- **Approccio ibrido (anti-allucinazione):** i **fatti** (conteggi/pattern) li calcola il sistema in modo deterministico dai dati PMS; l'**AI** li **sintetizza** in preferenze leggibili partendo da quei numeri (non inventa). L'**operatore conferma** prima del salvataggio.
+- **Soglia:** basta una **forte prevalenza anche in un solo soggiorno** (non serve la ripetizione su più visite). Comunque *prevalenza*, non singolo ordine.
+- **Pattern negativi inclusi:** "mai/evita X" (es. mai carne rossa). Da inferire solo con una **base minima di ordini** perché l'assenza sia significativa.
+- **Ambito:** **F&B + SPA/trattamenti + note anagrafica**. → l'inclusione delle note rende **l'AI (filone C) centrale** e la **governance privacy un prerequisito** (vedi §5).
+- **Granularità:** **categoria + tratto saliente** (es. "vini bianchi", "caffè leccese", "predilige pesce") → mappa su `customer_preferences` (reparto/categoria/testo).
+
+### Cautele sulla qualità del dato (decise da gestire)
+- **Attribuzione per camera, non per persona:** i consumi sono agganciati a `codalb` (camera/conto); con famiglie/coppie un consumo può essere di un accompagnatore. Attribuire con cautela / segnalare l'incertezza (rilevante soprattutto per i pattern negativi).
+- **Escludere voci interne/omaggio:** welcome, complimentary, "proprietà/direzione", righe a 0€ → non sono gusti dell'ospite.
+
 ## 2. Fonti dati PMS (verificate sui dati reali il 2026-08-03)
 
 ### A. Consumi F&B (dettaglio ristorante/bar)
@@ -61,6 +74,15 @@ Scheda ospite ──"Suggerisci preferenze"──▶ POST /api/clienti/:codCli/a
 ```
 - Nuovo modulo `src/ai/` (client LLM + costruzione prompt + parsing risposta).
 - Il PMS resta **sola lettura**; le scritture vanno solo sulle tabelle CRM esistenti.
+
+## 4bis. Come si attiva (NON è in tempo reale)
+
+Chiarimento importante: **l'AI non è "sempre in ascolto" e non registra i singoli ordini.** Gli ordini li scrive il PMS (POS ristorante → `Comanda*`); il CRM li **legge** (SELECT). L'analisi guarda i **pattern nel tempo**, non l'ordine singolo. Due modi possibili (scelta **da prendere**):
+
+- **Su richiesta (pull):** l'operatore apre la scheda e clicca "Suggerisci preferenze" → analisi di *quel* cliente in quel momento → suggerimenti → conferma. Semplice, economico, conferma umana per natura.
+- **Batch notturno:** un job (come l'import) pre-calcola i suggerimenti per i clienti con nuovi consumi; l'operatore li trova pronti da rivedere. Migliore alla scala.
+
+In entrambi i casi: **mai per singolo ordine**, **mai inserimento automatico**.
 
 ## 5. Privacy e governance (da decidere PRIMA di costruire)
 
