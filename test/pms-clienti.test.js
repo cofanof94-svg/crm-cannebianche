@@ -56,6 +56,7 @@ test('getSoggiorniCliente: la query esclude la city tax dagli extra e decodifica
   assert.match(sql, /FROM SourcePrenota src/);          // Source decodificata
   assert.match(sql, /FROM PrenotaProvenienze prov/);    // Mercato (tipologia viaggio) decodificato
   assert.match(sql, /> @dlav THEN 'Pianificata'/);      // prenotazioni future = Pianificata
+  assert.match(sql, /< @dlav THEN 'No-show'/);          // arrivo passato mai in casa = No-show
 });
 
 test('getSoggiorniCliente: la query marca Eliminata le prenotazioni con DataEliminazione', async () => {

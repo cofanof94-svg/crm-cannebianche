@@ -47,7 +47,9 @@ FROM (
          WHERE tp.codpratica = p.codpratica AND ISNULL(tp.codcam,'') <> '' FOR XML PATH('')), 1, 2, ''))
     ) AS camere,
     CASE WHEN p.flgincasa = 'S' THEN 'In casa' WHEN p.flgincasa = 'P' THEN 'Partito'
-         WHEN CAST(p.dtarrivo AS date) > @dlav THEN 'Pianificata' ELSE 'Confermato' END AS stato,
+         WHEN CAST(p.dtarrivo AS date) > @dlav THEN 'Pianificata'
+         WHEN CAST(p.dtarrivo AS date) < @dlav THEN 'No-show'
+         ELSE 'Confermato' END AS stato,
     (SELECT TOP 1 src.DesSource FROM SourcePrenota src WHERE src.CodSource = p.CodSource) AS source,
     (SELECT TOP 1 prov.DesProvenienza FROM PrenotaProvenienze prov WHERE prov.CodProvenienza = p.CodProvenienza) AS mercato,
     ${_impP.arrangiamento} AS arrangiamento,
@@ -62,7 +64,9 @@ FROM (
      WHERE al.codpratica = p.codpratica AND al.codcli IS NOT NULL
      GROUP BY al.codcli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) FOR JSON PATH) AS ospitiJson
   FROM Prenota p
-  WHERE p.DataEliminazione IS NULL AND (p.codclinterm = @codCli
+  WHERE p.DataEliminazione IS NULL
+    AND NOT EXISTS (SELECT 1 FROM StorPrenota spx WHERE spx.codpratica = p.codpratica) -- dedup: se archiviata, vince StorPrenota
+    AND (p.codclinterm = @codCli
     OR EXISTS (SELECT 1 FROM Alberg alo WHERE alo.codpratica = p.codpratica AND alo.codcli = @codCli))
   UNION ALL
   SELECT sp.codpratica, sp.dtarrivo, sp.dtpartenza,

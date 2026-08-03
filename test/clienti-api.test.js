@@ -9,9 +9,10 @@ test('calcolaStatistiche esclude le prenotazioni Eliminata dai conteggi', () => 
   const s = calcolaStatistiche([
     { stato: 'Concluso', dtarrivo: '2026-04-17', arrangiamento: 855, extra: 40 },
     { stato: 'Eliminata', dtarrivo: '2026-01-01', arrangiamento: 0, extra: 0 },
+    { stato: 'No-show', dtarrivo: '2025-05-05', arrangiamento: 0, extra: 0 },
     { stato: 'Confermato', dtarrivo: '2026-07-07', arrangiamento: 2300, extra: 0 },
   ]);
-  assert.strictEqual(s.nSoggiorni, 2);              // l'eliminata non conta
+  assert.strictEqual(s.nSoggiorni, 2);              // eliminata e no-show non contano
   assert.strictEqual(s.totaleSpeso, 3195);
   assert.strictEqual(s.primaVisita, '2026-04-17');  // non 2026-01-01 dell'eliminata
   assert.strictEqual(s.ultimaVisita, '2026-07-07');

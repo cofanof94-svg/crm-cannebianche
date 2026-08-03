@@ -9,10 +9,11 @@ const { listPreferenze, createPreferenza, deletePreferenza, REPARTI, CATEGORIE }
 const { listNucleo, createMembro, deleteMembro, RELAZIONI } = require('../crm/nucleo');
 const { aggregaCumulativi } = require('../stats');
 
-// Le prenotazioni eliminate restano nello storico ma non sono soggiorni reali:
+// Eliminate e No-show restano nello storico ma non sono soggiorni reali:
 // escluse dai conteggi. L'aggregazione vera è nel modulo condiviso src/stats.js.
+const STATI_NON_VALIDI = ['Eliminata', 'No-show'];
 function calcolaStatistiche(soggiorni) {
-  return aggregaCumulativi(soggiorni.filter((x) => x.stato !== 'Eliminata'));
+  return aggregaCumulativi(soggiorni.filter((x) => !STATI_NON_VALIDI.includes(x.stato)));
 }
 
 // Ritorna l'intero da un parametro di rotta, o null se non valido.
