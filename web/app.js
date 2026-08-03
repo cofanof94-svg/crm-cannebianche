@@ -47,14 +47,14 @@ function route() {
     return;
   }
   const view = hash;
-  const known = ['home', 'arrivi', 'incasa', 'ricerca', 'utenti'];
+  const known = ['home', 'arrivi', 'incasa', 'ricerca', 'duplicati', 'utenti'];
   let v = known.includes(view) ? view : 'home';
   // Utenti è riservato agli admin: reindirizza gli altri alla home
   if (v === 'utenti' && !(currentUser && currentUser.role === 'admin')) {
     location.hash = '#home';
     return;
   }
-  const titoli = { home: 'Home', arrivi: 'Arrivi', incasa: 'In casa', ricerca: 'Ricerca', utenti: 'Utenti' };
+  const titoli = { home: 'Home', arrivi: 'Arrivi', incasa: 'In casa', ricerca: 'Ricerca', duplicati: 'Duplicati', utenti: 'Utenti' };
   $('#topbar-title').textContent = titoli[v] || 'Home';
   document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
   document.querySelectorAll('.sidebar a').forEach((a) => a.classList.toggle('active', a.dataset.nav === v));
@@ -64,6 +64,7 @@ function route() {
   else if (v === 'arrivi') initArrivi();
   else if (v === 'incasa') initInCasa();
   else if (v === 'ricerca') initRicerca();
+  else if (v === 'duplicati') loadDuplicatiPage();
   else if (v === 'utenti') { if (currentUser && currentUser.role === 'admin') loadUsers(); }
 }
 window.addEventListener('hashchange', route);
@@ -440,6 +441,8 @@ async function loadCliente(codCli) {
   $('#cli-ultima').textContent = fmtData(s.ultimaVisita);
   const an = $('#cli-anagnote');
   if (a.note) { an.hidden = false; an.innerHTML = `<b>Note anagrafica (PMS)</b>${esc(a.note)}`; } else an.hidden = true;
+  clienteNSogg = (d.soggiorni || []).length;
+  renderMergeBanner(codCli, d.merge);
   $('#cli-soggiorni').innerHTML = (d.soggiorni || []).map(rigaSoggiorno).join('')
     || '<tr><td colspan="7" class="cell-muted">Nessun soggiorno registrato.</td></tr>';
   const c = a.consensi;
@@ -451,8 +454,8 @@ async function loadCliente(codCli) {
   suggerimentiCorrenti = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
-    caricaGusti(codCli), caricaSpa(codCli), caricaLingua(codCli), caricaIntolleranze(codCli), caricaPreferenze(codCli),
-    caricaNucleo(codCli), caricaNote(codCli), caricaComplaints(codCli),
+    caricaGusti(codCli), caricaSpa(codCli), caricaDuplicati(codCli), caricaLingua(codCli), caricaIntolleranze(codCli),
+    caricaPreferenze(codCli), caricaNucleo(codCli), caricaNote(codCli), caricaComplaints(codCli),
   ]);
   msg.hidden = true; body.hidden = false;
 }
@@ -723,6 +726,95 @@ async function caricaSpa(codCli) {
   }).join('');
   el.innerHTML = `<div class="gusti-head">${s.totConsumi} trattamenti/prodotti · ${s.totVoci} voci diverse (i più frequenti)</div>${gruppi}`;
 }
+
+// --- Fusione anagrafiche duplicate ---
+let clienteNSogg = 0;      // n. soggiorni del cliente corrente (per scegliere il principale)
+let duplicatiCorrenti = []; // candidati mostrati nel box
+
+function renderMergeBanner(codCli, merge) {
+  const el = $('#cli-merge-banner');
+  if (!merge || !merge.membri || merge.membri.length < 2) { el.hidden = true; el.innerHTML = ''; return; }
+  const rows = (merge.anagrafiche || []).map((x) => {
+    const isPrinc = x.codCli === merge.canonicalId;
+    const nome = x.codCli === codCli ? `<b>${esc(x.nominativo || ('#' + x.codCli))}</b>` : `<a href="#cliente/${x.codCli}">${esc(x.nominativo || ('#' + x.codCli))}</a>`;
+    const scollega = isPrinc ? '' : ` <button class="btn-icon danger" data-unmerge="${x.codCli}" title="Scollega dal gruppo">×</button>`;
+    return `<span class="merge-chip">${nome} <span class="cell-muted">#${x.codCli}${isPrinc ? ' · principale' : ''}</span>${scollega}</span>`;
+  }).join(' ');
+  el.hidden = false;
+  el.innerHTML = `<span class="merge-ico">⛓</span><div><b>Scheda fusa</b> — dati aggregati su ${merge.membri.length} anagrafiche.<div class="merge-chips">${rows}</div></div>`;
+}
+
+async function caricaDuplicati(codCli) {
+  const el = $('#cli-duplicati');
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/duplicati`);
+  duplicatiCorrenti = (body && body.candidati) || [];
+  if (!duplicatiCorrenti.length) { el.hidden = true; el.innerHTML = ''; return; }
+  const righe = duplicatiCorrenti.map((c) => `<li class="dup-item">
+      <span class="dup-match ${c.match === 'CF' ? 'm-cf' : 'm-an'}">${c.match === 'CF' ? 'stesso CF' : 'stesso nome+nascita'}</span>
+      <span class="dup-nome">${esc(c.nominativo || ('#' + c.codCli))}</span>
+      <span class="cell-muted">#${c.codCli}${c.dtNascita ? ' · ' + fmtData(c.dtNascita) : ''} · ${c.nPrenotazioni} pren.</span>
+      <button type="button" class="btn btn-sm" data-merge="${c.codCli}">Unisci</button>
+    </li>`).join('');
+  el.hidden = false;
+  el.innerHTML = `<div class="dup-head">⚠️ Possibili duplicati di questo ospite <span class="info" data-tip="Anagrafiche che sembrano la stessa persona (stesso codice fiscale, o stesso cognome+nome+data di nascita). Unendole, la scheda aggrega soggiorni, consumi e note. Reversibile.">i</span></div><ul class="dup-list">${righe}</ul>`;
+}
+
+// Unisci: il principale è chi ha più prenotazioni (default), l'altro diventa membro.
+$('#cli-duplicati').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-merge]');
+  if (!btn || !clienteCorrente) return;
+  const cand = duplicatiCorrenti.find((c) => c.codCli === Number(btn.dataset.merge));
+  if (!cand) return;
+  const candPrincipale = cand.nPrenotazioni > clienteNSogg;
+  const canonicalId = candPrincipale ? cand.codCli : clienteCorrente;
+  const memberId = candPrincipale ? clienteCorrente : cand.codCli;
+  btn.disabled = true;
+  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/merge`, {
+    method: 'POST', body: JSON.stringify({ memberId, canonicalId }),
+  });
+  if (status === 201) loadCliente(clienteCorrente); // ricarica: aggregazione aggiornata
+  else btn.disabled = false;
+});
+
+$('#cli-merge-banner').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-unmerge]');
+  if (!btn || !clienteCorrente) return;
+  await api(`/api/merge/${encodeURIComponent(btn.dataset.unmerge)}`, { method: 'DELETE' });
+  loadCliente(clienteCorrente);
+});
+
+// --- Pagina "Gestione duplicati" ---
+let duplicatiGruppi = [];
+async function loadDuplicatiPage() {
+  const msg = $('#duplicati-msg'); const wrap = $('#duplicati-wrap');
+  msg.hidden = false; msg.textContent = 'Caricamento…'; wrap.hidden = true;
+  const { status, body } = await api('/api/duplicati');
+  if (status !== 200) { msg.textContent = 'Errore nel caricamento dei duplicati.'; return; }
+  duplicatiGruppi = body.gruppi || [];
+  renderDuplicatiPage();
+}
+function renderDuplicatiPage() {
+  const sel = document.querySelector('input[name="dupf"]:checked');
+  const f = sel ? sel.value : 'tutti';
+  const lista = duplicatiGruppi.filter((g) => f === 'tutti' || g.tipo === f);
+  $('#dup-count').textContent = `${lista.length} gruppi`;
+  const msg = $('#duplicati-msg'); const wrap = $('#duplicati-wrap');
+  if (!lista.length) { msg.hidden = false; msg.textContent = 'Nessun gruppo di duplicati.'; wrap.hidden = true; return; }
+  msg.hidden = true; wrap.hidden = false;
+  $('#duplicati-tbody').innerHTML = lista.map((g) => {
+    const codici = g.membri.map((id) => `<a href="#cliente/${id}">#${id}</a>`).join(', ');
+    const crit = g.tipo === 'CF' ? 'stesso CF' : 'stesso nome+nascita';
+    const fusi = g.fusiCount ? ` <span class="cell-muted">(${g.fusiCount} già fusi)</span>` : '';
+    return `<tr>
+      <td>${esc(g.nominativo || '—')}</td>
+      <td><span class="dup-match ${g.tipo === 'CF' ? 'm-cf' : 'm-an'}">${crit}</span></td>
+      <td>${codici}${fusi}</td>
+      <td class="num">${g.n}</td>
+      <td><a class="btn btn-sm" href="#cliente/${g.membri[0]}">Apri e unisci</a></td>
+    </tr>`;
+  }).join('');
+}
+document.querySelectorAll('input[name="dupf"]').forEach((r) => r.addEventListener('change', renderDuplicatiPage));
 
 // --- Intolleranze / allergie (dato di sicurezza) ---
 async function caricaIntolleranze(codCli) {

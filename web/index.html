@@ -58,6 +58,10 @@
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <span>Ricerca</span>
         </a>
+        <a href="#duplicati" data-nav="duplicati">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>
+          <span>Duplicati</span>
+        </a>
         <a href="#utenti" data-nav="utenti" id="nav-utenti" hidden>
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M18 13.5a5.5 5.5 0 0 1 3.5 5.5"/></svg>
           <span>Utenti</span>
@@ -195,6 +199,29 @@
           </dialog>
         </section>
 
+        <!-- GESTIONE DUPLICATI -->
+        <section id="view-duplicati" class="view" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Gestione duplicati</h1>
+              <p class="sub">Anagrafiche che sembrano la stessa persona (stesso codice fiscale, o stesso cognome+nome+data di nascita). Unire aggrega soggiorni, consumi e note. Reversibile.</p>
+            </div>
+          </div>
+          <div class="dup-filtri">
+            <label class="check"><input type="radio" name="dupf" value="tutti" checked /> Tutti</label>
+            <label class="check"><input type="radio" name="dupf" value="CF" /> Stesso CF</label>
+            <label class="check"><input type="radio" name="dupf" value="anagrafica" /> Stesso nome+nascita</label>
+            <span class="dup-count" id="dup-count"></span>
+          </div>
+          <div id="duplicati-msg" class="state">Caricamento…</div>
+          <div class="card table-wrap" id="duplicati-wrap" hidden>
+            <table class="dup-tab">
+              <thead><tr><th>Nominativo</th><th>Criterio</th><th>Codici</th><th class="num">Anagrafiche</th><th></th></tr></thead>
+              <tbody id="duplicati-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
         <!-- SCHEDA OSPITE 360° -->
         <section id="view-cliente" class="view" hidden>
           <div id="cliente-msg" class="state" hidden></div>
@@ -211,6 +238,9 @@
             </div>
 
             <div class="cli-contacts" id="cli-contatti"></div>
+
+            <div id="cli-merge-banner" class="merge-banner" hidden></div>
+            <div id="cli-duplicati" class="dup-box" hidden></div>
 
             <div class="cli-stats">
               <div class="stat"><span class="stat-n" id="cli-nsogg">–</span><span class="stat-l">Soggiorni <span class="info" data-tip="Tutte le prenotazioni valide del cliente, inclusi i day-use (0 notti: ristorante/SPA). Escluse Eliminate e No-show.">i</span></span></div>

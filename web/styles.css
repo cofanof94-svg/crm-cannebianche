@@ -439,6 +439,33 @@ summary.sez-sum::-webkit-details-marker { display: none; }
 summary.sez-sum::before { content: "\25B8"; color: var(--accent); font-size: 12px; transition: transform .15s; }
 details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .sez-hint { font-size: 11.5px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
+
+/* --- Fusione anagrafiche duplicate --- */
+.btn-sm { padding: .3rem .6rem; font-size: 12.5px; }
+.merge-banner { display: flex; align-items: flex-start; gap: 10px; margin: 4px 0 12px; padding: 10px 14px;
+  background: var(--brand-050); border: 1px solid var(--accent); border-radius: var(--radius-sm); }
+.merge-banner .merge-ico { font-size: 16px; line-height: 1.4; }
+.merge-banner > div { flex: 1; font-size: 13px; }
+.merge-banner .btn { flex: none; align-self: center; }
+.merge-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.merge-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 10px; font-size: 12.5px; }
+.dup-box { margin: 0 0 14px; border: 1px dashed var(--accent); border-radius: var(--radius-sm); padding: 10px 14px; background: var(--sand-050); }
+.dup-head { font-size: 12.5px; font-weight: 700; color: var(--brand-700); margin-bottom: 8px; }
+.dup-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.dup-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dup-item .btn { margin-left: auto; }
+.dup-match { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; border-radius: 6px; padding: 2px 7px; }
+.dup-match.m-cf { background: var(--sea-050); color: var(--sea-700); }
+.dup-match.m-an { background: #f0ebe4; color: #9a8467; }
+.dup-nome { font-weight: 600; font-size: 13.5px; }
+.dup-filtri { display: flex; align-items: center; gap: 16px; margin: 4px 0 14px; flex-wrap: wrap; }
+.dup-count { margin-left: auto; color: var(--muted); font-size: 13px; }
+.dup-tab { width: 100%; border-collapse: collapse; }
+.dup-tab th, .dup-tab td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.dup-tab th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--surface-2); }
+.dup-tab td.num, .dup-tab th.num { text-align: right; }
+.dup-tab a { color: var(--brand-700); }
 .compl-top { display: flex; align-items: baseline; gap: 10px; }
 .compl-top .pill { flex: none; }
 .compl-risolto .compl-testo { color: var(--muted); text-decoration: line-through; }
