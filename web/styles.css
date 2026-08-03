@@ -349,6 +349,19 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .sez .info { vertical-align: 3px; }
 .info-wide::after { max-width: 340px; }
 .info-left::after { left: auto; right: 0; transform: none; }
+
+/* Pop-over legenda (pannello con una riga per voce), es. gli stati */
+.info-pop::after { display: none; } /* niente tooltip di testo su questo */
+.info-pop-body {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; display: none;
+  width: 290px; text-align: left; background: var(--brand-900); color: #fff;
+  border-radius: 10px; padding: 11px 13px; box-shadow: var(--shadow-md);
+  font: 400 11.5px/1.5 var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.info-pop:hover .info-pop-body { display: block; }
+.info-pop-row { display: block; padding: 2px 0; }
+.info-pop-row b { color: #fff; font-weight: 700; }
+.info-pop-note { display: block; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.18); color: rgba(255,255,255,.72); }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow-sm); }
 .stat-n { display: block; font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1; color: var(--brand); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Riquadro Prima/Ultima visita: due date etichettate */
