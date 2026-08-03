@@ -97,17 +97,20 @@ function haFatti(fatti) {
   return typeof fatti === 'string' && fatti.trim().length > 0;
 }
 
-function buildRequest(fatti, { model = 'claude-opus-5', maxTokens = 2000 } = {}) {
-  return {
+function buildRequest(fatti, { model = 'claude-sonnet-5', maxTokens = 2000 } = {}) {
+  const req = {
     model,
     max_tokens: maxTokens,
-    thinking: { type: 'adaptive' },
     system: SYSTEM,
     messages: [{ role: 'user', content: `FATTI dell'ospite:\n\n${fatti}` }],
     output_config: {
       format: { type: 'json_schema', name: 'suggerimenti_crm', schema: SCHEMA },
     },
   };
+  // Adaptive thinking (utile per la sintesi) su Opus/Sonnet 4.6+; Haiku 4.5 non lo
+  // supporta → lo omettiamo per restare compatibili se qualcuno usa un Haiku.
+  if (!/haiku/i.test(model)) req.thinking = { type: 'adaptive' };
+  return req;
 }
 
 // Estrae il JSON dal messaggio di risposta e normalizza i suggerimenti scartando

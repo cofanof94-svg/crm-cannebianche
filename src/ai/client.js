@@ -24,7 +24,9 @@ function getAiClient() {
   }
   cached = {
     client: new Anthropic({ apiKey }),
-    model: process.env.ANTHROPIC_MODEL || 'claude-opus-5',
+    // Sonnet 5: buon giudizio a costo contenuto per una sintesi come questa.
+    // Override con ANTHROPIC_MODEL (es. claude-opus-5 per max qualità, claude-haiku-4-5 per min costo).
+    model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
   };
   return cached;
 }
