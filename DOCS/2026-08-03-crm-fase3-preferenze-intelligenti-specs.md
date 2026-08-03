@@ -82,7 +82,7 @@ Chiarimento importante: **l'AI non è "sempre in ascolto" e non registra i singo
 - **Su richiesta (pull):** l'operatore apre la scheda e clicca "Suggerisci preferenze" → analisi di *quel* cliente in quel momento → suggerimenti → conferma. Semplice, economico, conferma umana per natura.
 - **Batch notturno:** un job (come l'import) pre-calcola i suggerimenti per i clienti con nuovi consumi; l'operatore li trova pronti da rivedere. Migliore alla scala.
 
-In entrambi i casi: **mai per singolo ordine**, **mai inserimento automatico**.
+**DECISO (2026-08-03): si parte con "su richiesta" (on-demand).** Il batch notturno si valuta dopo, se serve. In entrambi i casi: **mai per singolo ordine**, **mai inserimento automatico**.
 
 ## 5. Privacy e governance (da decidere PRIMA di costruire)
 
@@ -93,6 +93,8 @@ In entrambi i casi: **mai per singolo ordine**, **mai inserimento automatico**.
 - **Audit:** log di cosa è stato inviato e dei suggerimenti approvati.
 
 Finché questo non è chiaro, si può partire dai filoni **A** e **B** (tutto interno, nessun LLM esterno) e attivare **C** solo dopo l'ok.
+
+**DECISO (2026-08-03): via libera a procedere** con l'uso dell'LLM. Restano da **implementare come requisiti** le salvaguardie sopra: minimizzazione dell'input (solo il testo necessario, pseudonimizzazione dove possibile), scelta di provider/modello conforme senza conservazione oltre il necessario, e **log di audit** di ciò che viene inviato e dei suggerimenti approvati.
 
 ## 6. Modello AI
 
