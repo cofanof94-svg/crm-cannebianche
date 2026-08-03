@@ -228,17 +228,6 @@
 
             <div id="cli-anagnote" class="cli-anagnote" hidden></div>
 
-            <h2 class="sez">Gusti F&amp;B <span class="info" data-tip="Consumi ristorante/bar dell'ospite aggregati dai dati reali. Attribuiti per camera + data del soggiorno (con famiglie sono del nucleo). Voci omaggio/interne escluse.">i</span></h2>
-            <div class="card note-box" id="cli-gusti"></div>
-
-            <h2 class="sez">Storico prenotazioni <span class="info" data-tip="Tutte le prenotazioni del cliente (correnti e archiviate): periodo, camere, importi e stato. Una riga per pratica.">i</span></h2>
-            <div class="card table-wrap">
-              <table class="cli-sogg-tab">
-                <thead><tr><th>Pratica</th><th>Periodo</th><th class="num">Notti</th><th>Camere</th><th class="num">Arrangiamenti</th><th class="num">Extra</th><th>Stato <span class="info info-pop info-left">i<span class="info-pop-body"><span class="info-pop-row"><b>Pianificata</b> — arrivo futuro</span><span class="info-pop-row"><b>Confermato</b> — arrivo oggi, check-in in attesa</span><span class="info-pop-row"><b>In casa</b> — ospite attualmente presente</span><span class="info-pop-row"><b>Partito</b> — check-out effettuato</span><span class="info-pop-row"><b>Concluso</b> — soggiorno archiviato</span><span class="info-pop-row"><b>No-show</b> — arrivo passato, mai arrivato</span><span class="info-pop-row"><b>Eliminata</b> — prenotazione annullata</span><span class="info-pop-note">No-show ed Eliminata non contano nei soggiorni.</span></span></span></th></tr></thead>
-                <tbody id="cli-soggiorni"></tbody>
-              </table>
-            </div>
-
             <h2 class="sez">Lingua preferita <span class="info" data-tip="Lingua preferita del cliente per le comunicazioni. Dato interno CRM, inserito dal team.">i</span></h2>
             <div class="card note-box lingua-box">
               <form id="lingua-form" class="lingua-form">
@@ -284,6 +273,11 @@
               <ul id="cli-nucleo" class="note-list"></ul>
             </div>
 
+            <details class="sez-collapse">
+              <summary class="sez sez-sum">Gusti F&amp;B <span class="sez-hint">consumi ristorante/bar — apri per il dettaglio</span> <span class="info" data-tip="Consumi ristorante/bar dell'ospite aggregati dai dati reali. Attribuiti per camera + data del soggiorno (con famiglie sono del nucleo). Voci omaggio/interne escluse.">i</span></summary>
+              <div class="card note-box" id="cli-gusti"></div>
+            </details>
+
             <h2 class="sez">Note CRM <span class="info" data-tip="Note interne libere del team sul cliente. Non provengono dal gestionale.">i</span></h2>
             <div class="card note-box">
               <form id="nota-form" class="nota-form">
@@ -301,6 +295,14 @@
                 <button type="submit" class="btn btn-primary">Aggiungi</button>
               </form>
               <ul id="cli-complaints" class="note-list"></ul>
+            </div>
+
+            <h2 class="sez">Storico prenotazioni <span class="info" data-tip="Tutte le prenotazioni del cliente (correnti e archiviate): periodo, camere, importi e stato. Una riga per pratica.">i</span></h2>
+            <div class="card table-wrap">
+              <table class="cli-sogg-tab">
+                <thead><tr><th>Pratica</th><th>Periodo</th><th class="num">Notti</th><th>Camere</th><th class="num">Arrangiamenti</th><th class="num">Extra</th><th>Stato <span class="info info-pop info-left">i<span class="info-pop-body"><span class="info-pop-row"><b>Pianificata</b> — arrivo futuro</span><span class="info-pop-row"><b>Confermato</b> — arrivo oggi, check-in in attesa</span><span class="info-pop-row"><b>In casa</b> — ospite attualmente presente</span><span class="info-pop-row"><b>Partito</b> — check-out effettuato</span><span class="info-pop-row"><b>Concluso</b> — soggiorno archiviato</span><span class="info-pop-row"><b>No-show</b> — arrivo passato, mai arrivato</span><span class="info-pop-row"><b>Eliminata</b> — prenotazione annullata</span><span class="info-pop-note">No-show ed Eliminata non contano nei soggiorni.</span></span></span></th></tr></thead>
+                <tbody id="cli-soggiorni"></tbody>
+              </table>
             </div>
 
             <h2 class="sez sez-minor">Consensi privacy <span class="info" data-tip="Consensi GDPR dal gestionale: marketing, telefonate in camera, conservazione, cessione. Sola lettura.">i</span></h2>
