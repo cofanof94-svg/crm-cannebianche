@@ -54,13 +54,14 @@ const SYSTEM = [
   '- NON riproporre cose già presenti fra intolleranze/preferenze registrate.',
   "- Le intolleranze/allergie sono un dato di SICUREZZA: proponile come tipo 'intolleranza' (reparto/categoria vuoti) solo se esplicite nelle note.",
   "- Per le preferenze scegli reparto (destinatario) e categoria coerenti; il testo è breve e operativo.",
+  "- I trattamenti SPA ricorrenti sono preferenze reparto 'SPA' (es. 'Predilige il massaggio Serenity', 'Abituale del percorso benessere').",
   '- Massimo 8 suggerimenti. Se i fatti non bastano, restituisci una lista vuota. Non inventare.',
   '- confidenza: "alta" solo con evidenza forte (prevalenza netta o nota esplicita).',
 ].join('\n');
 
 // Costruisce il blocco FATTI testuale, minimizzando i dati inviati: niente
 // identificativi/cognomi, solo i segnali utili alle preferenze.
-function costruisciFatti({ gusti, note, intolleranze, preferenze } = {}) {
+function costruisciFatti({ gusti, spa, note, intolleranze, preferenze } = {}) {
   const parti = [];
 
   const items = (gusti && gusti.items) || [];
@@ -70,6 +71,15 @@ function costruisciFatti({ gusti, note, intolleranze, preferenze } = {}) {
       .map((i) => `- [${i.categoria}] ${i.nome} — ${i.volte}x`)
       .join('\n');
     parti.push(`CONSUMI F&B (aggregati per camera+date del soggiorno):\n${righe}`);
+  }
+
+  const spaItems = (spa && spa.items) || [];
+  if (spaItems.length) {
+    const righe = spaItems
+      .slice(0, 25)
+      .map((i) => `- [${i.categoria}] ${i.nome} — ${i.volte}x`)
+      .join('\n');
+    parti.push(`TRATTAMENTI SPA / BENESSERE (dagli extra):\n${righe}`);
   }
 
   const testiNote = (note || []).map((n) => (n.testo || '').trim()).filter(Boolean);

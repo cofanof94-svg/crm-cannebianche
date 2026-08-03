@@ -451,7 +451,7 @@ async function loadCliente(codCli) {
   suggerimentiCorrenti = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
-    caricaGusti(codCli), caricaLingua(codCli), caricaIntolleranze(codCli), caricaPreferenze(codCli),
+    caricaGusti(codCli), caricaSpa(codCli), caricaLingua(codCli), caricaIntolleranze(codCli), caricaPreferenze(codCli),
     caricaNucleo(codCli), caricaNote(codCli), caricaComplaints(codCli),
   ]);
   msg.hidden = true; body.hidden = false;
@@ -706,6 +706,22 @@ async function caricaGusti(codCli) {
     return `<div class="gusti-grp"><span class="gusti-cat">${m}</span><div class="gusti-chips">${chips}</div></div>`;
   }).join('');
   el.innerHTML = `<div class="gusti-head">${g.totConsumi} consumi · ${g.totVoci} voci diverse (i più frequenti)</div>${gruppi}`;
+}
+
+// --- Trattamenti SPA (consumi benessere aggregati dagli extra) ---
+async function caricaSpa(codCli) {
+  const el = $('#cli-spa');
+  el.innerHTML = '<div class="nota-vuota">Caricamento trattamenti…</div>';
+  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/spa`);
+  const s = (body && body.spa) || { items: [] };
+  if (!s.items || !s.items.length) { el.innerHTML = '<div class="nota-vuota">Nessun trattamento SPA registrato.</div>'; return; }
+  const gruppi = ['Trattamento', 'Prodotto', 'Altro'].map((m) => {
+    const its = s.items.filter((i) => i.categoria === m).slice(0, 8);
+    if (!its.length) return '';
+    const chips = its.map((i) => `<span class="gusto"><b>${i.volte}×</b> ${esc(i.nome)}</span>`).join('');
+    return `<div class="gusti-grp"><span class="gusti-cat">${m === 'Trattamento' ? 'Trattamenti' : m === 'Prodotto' ? 'Prodotti' : m}</span><div class="gusti-chips">${chips}</div></div>`;
+  }).join('');
+  el.innerHTML = `<div class="gusti-head">${s.totConsumi} trattamenti/prodotti · ${s.totVoci} voci diverse (i più frequenti)</div>${gruppi}`;
 }
 
 // --- Intolleranze / allergie (dato di sicurezza) ---

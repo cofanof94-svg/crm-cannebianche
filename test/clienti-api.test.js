@@ -72,6 +72,7 @@ async function makeApp() {
       if (/cameraInCasa/.test(text)) return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Telefono: '080123', Citta: 'TRANI', cameraInCasa: null }];
       if (/FROM Anagra WHERE CodCli/.test(text)) { if (params && params.codCli === 999) return []; return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', Telefono: '', Cellulare: '', email: 'a@b.it', Citta: 'TRANI', CodNaz: 'I', dtNascita: '1964-10-17', CodFis: 'X', CodVip: '', Annotazioni: '', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' }]; }
       if (/StorAddebitiComanda/.test(text)) return [{ codArt: 'COCAZ', nome: 'COCA COLA ZERO', fb: 'B', grp: 'BEV.BI', volte: 5, qta: 5, eur: 30 }];
+      if (/codgrpmerCAT LIKE 'SPA/.test(text)) return [{ nome: 'SERENITY', grp: 'SPA', volte: 12, qta: 12, eur: 1200 }];
       // soggiorni (arrangiamento/extra da camereJson)
       return [{ codpratica: 1, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2, camere: '109', stato: 'Concluso', source: 'OTA', mercato: 'LEISURE INDIVIDUALI', arrangiamento: 855, extra: 0 },
               { codpratica: 2, dtarrivo: '2026-07-07', dtpartenza: '2026-07-19', notti: 12, camere: '102', stato: 'Confermato', source: 'DIRETTI', mercato: 'MEETING', arrangiamento: 2300, extra: 0 }];
@@ -125,6 +126,18 @@ test('GET /api/clienti/:codCli/gusti → consumi F&B aggregati', async () => {
   assert.strictEqual(res.body.gusti.items[0].nome, 'COCA COLA ZERO');
   assert.strictEqual(res.body.gusti.items[0].categoria, 'Bevande');
   const noauth = await request(app).get('/api/clienti/47186/gusti');
+  assert.strictEqual(noauth.status, 401);
+});
+
+test('GET /api/clienti/:codCli/spa → trattamenti benessere aggregati', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const res = await ag.get('/api/clienti/47186/spa');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.spa.totVoci, 1);
+  assert.strictEqual(res.body.spa.items[0].nome, 'SERENITY');
+  assert.strictEqual(res.body.spa.items[0].categoria, 'Trattamento');
+  const noauth = await request(app).get('/api/clienti/47186/spa');
   assert.strictEqual(noauth.status, 401);
 });
 

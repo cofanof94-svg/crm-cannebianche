@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth } = require('../auth/middleware');
 const { cercaClienti, getCliente, getSoggiorniCliente } = require('../pms/clienti');
 const { getGustiFB } = require('../pms/gusti');
+const { getTrattamentiSpa } = require('../pms/spa');
 const { listNote, createNota, updateNota, deleteNota } = require('../crm/note');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
@@ -57,6 +58,13 @@ function createClientiRouter(pmsDb, crmDb) {
     res.json({ gusti: await getGustiFB(pmsDb, codCli) });
   });
 
+  // Trattamenti SPA (Fase 3): consumi benessere dagli extra, aggregati per nome.
+  router.get('/clienti/:codCli/spa', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    res.json({ spa: await getTrattamentiSpa(pmsDb, codCli) });
+  });
+
   // Suggerisci preferenze (Fase 3 C, AI on-demand). Raccoglie i fatti dell'ospite
   // (gusti F&B + note + intolleranze/preferenze già presenti) e chiede a Claude di
   // proporre preferenze/intolleranze. NON salva: l'operatore conferma a mano dai
@@ -66,13 +74,14 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     const ai = getAiClient();
     if (!ai) return res.status(503).json({ error: 'AI non configurata (manca @anthropic-ai/sdk o ANTHROPIC_API_KEY)' });
-    const [gusti, note, intolleranze, preferenze] = await Promise.all([
+    const [gusti, spa, note, intolleranze, preferenze] = await Promise.all([
       getGustiFB(pmsDb, codCli),
+      getTrattamentiSpa(pmsDb, codCli),
       listNote(crmDb, codCli),
       listIntolleranze(crmDb, codCli),
       listPreferenze(crmDb, codCli),
     ]);
-    const fatti = costruisciFatti({ gusti, note, intolleranze, preferenze });
+    const fatti = costruisciFatti({ gusti, spa, note, intolleranze, preferenze });
     if (!haFatti(fatti)) return res.json({ suggerimenti: [], motivo: 'dati insufficienti' });
     const suggerimenti = await suggerisci(ai.client, fatti, { model: ai.model });
     // Audit minimale (Fase 3 privacy): chi ha generato suggerimenti, per chi, quanti.
