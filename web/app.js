@@ -461,6 +461,7 @@ function statoSoggPill(stato) {
   if (stato === 'Concluso') return 'pill-checkout';
   if (stato === 'Partito') return 'pill-partenza';
   if (stato === 'Eliminata') return 'pill-eliminata';
+  if (stato === 'Pianificata') return 'pill-pianificata';
   return 'pill-atteso';
 }
 

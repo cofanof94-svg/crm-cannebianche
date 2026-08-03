@@ -32,6 +32,7 @@ FROM Anagra WHERE CodCli = @codCli`;
 const _impP = importiExpr('Alberg', 'p');
 const _impS = importiExpr('StorAlberg', 'sp');
 const SQL_SOGGIORNI = `
+DECLARE @dlav date = (SELECT TOP 1 Dataggio FROM Persona);
 SELECT t.codpratica,
   CONVERT(varchar(10), t.dtarrivo, 23) AS dtarrivo,
   CONVERT(varchar(10), t.dtpartenza, 23) AS dtpartenza,
@@ -45,7 +46,8 @@ FROM (
       (SELECT STUFF((SELECT DISTINCT ', ' + tp.codcam FROM TipoPre tp
          WHERE tp.codpratica = p.codpratica AND ISNULL(tp.codcam,'') <> '' FOR XML PATH('')), 1, 2, ''))
     ) AS camere,
-    CASE WHEN p.flgincasa = 'S' THEN 'In casa' WHEN p.flgincasa = 'P' THEN 'Partito' ELSE 'Confermato' END AS stato,
+    CASE WHEN p.flgincasa = 'S' THEN 'In casa' WHEN p.flgincasa = 'P' THEN 'Partito'
+         WHEN CAST(p.dtarrivo AS date) > @dlav THEN 'Pianificata' ELSE 'Confermato' END AS stato,
     (SELECT TOP 1 src.DesSource FROM SourcePrenota src WHERE src.CodSource = p.CodSource) AS source,
     (SELECT TOP 1 prov.DesProvenienza FROM PrenotaProvenienze prov WHERE prov.CodProvenienza = p.CodProvenienza) AS mercato,
     ${_impP.arrangiamento} AS arrangiamento,

@@ -212,6 +212,8 @@ tbody tr:hover { background: var(--surface-2); }
 .pill-checkout::before { background: var(--faint); }
 .pill-eliminata { background: #fbeaea; color: #b23b3b; }
 .pill-eliminata::before { background: #cf5a5a; }
+.pill-pianificata { background: var(--sand-050); color: var(--brand); }
+.pill-pianificata::before { background: var(--accent); }
 
 /* ===== Stati (loading / vuoto / errore) ===== */
 .state { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
