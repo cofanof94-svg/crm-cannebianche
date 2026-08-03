@@ -34,14 +34,13 @@ test('getCliente restituisce null se non trovato', async () => {
 
 test('getSoggiorniCliente mappa le righe', async () => {
   const pms = fakePms([{ codpratica: 60397, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2,
-    camere: '109', stato: 'Concluso', source: 'DIRETTI', mercato: 'LEISURE INDIVIDUALI', camereJson: '[{"camera":"109","arrangiamento":855,"extra":40}]' }]);
+    camere: '109', stato: 'Concluso', source: 'DIRETTI', mercato: 'LEISURE INDIVIDUALI', arrangiamento: 855, extra: 40 }]);
   const [s] = await getSoggiorniCliente(pms, 47186);
   assert.strictEqual(s.codpratica, 60397);
   assert.strictEqual(s.camere, '109');
-  assert.strictEqual(s.arrangiamento, 855);       // somma arrangiamenti per camera (Matura codarr non nullo)
-  assert.strictEqual(s.extra, 40);                // somma extra per camera
+  assert.strictEqual(s.arrangiamento, 855);       // arrangiamento per pratica (Matura+StorMatura, codarr non nullo)
+  assert.strictEqual(s.extra, 40);                // extra per pratica (city tax esclusa)
   assert.strictEqual(s.importo, 855);             // = arrangiamento (compat)
-  assert.deepStrictEqual(s.camereDett, [{ camera: '109', arrangiamento: 855, extra: 40 }]);
   assert.strictEqual(s.stato, 'Concluso');
   assert.strictEqual(s.source, 'DIRETTI');
   assert.strictEqual(s.mercato, 'LEISURE INDIVIDUALI');
