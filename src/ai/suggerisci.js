@@ -34,10 +34,11 @@ const SCHEMA = {
           reparto: { type: 'string', enum: ['', ...REPARTI] },
           categoria: { type: 'string', enum: ['', ...CATEGORIE] },
           testo: { type: 'string' },
+          fonte: { type: 'string' },
           motivo: { type: 'string' },
-          confidenza: { type: 'string', enum: ['alta', 'media', 'bassa'] },
+          affidabilita: { type: 'string', enum: ['media', 'alta', 'molto alta'] },
         },
-        required: ['tipo', 'reparto', 'categoria', 'testo', 'motivo', 'confidenza'],
+        required: ['tipo', 'reparto', 'categoria', 'testo', 'fonte', 'motivo', 'affidabilita'],
       },
     },
   },
@@ -46,19 +47,27 @@ const SCHEMA = {
 
 const SYSTEM = [
   "Sei l'assistente CRM di un hotel 5 stelle (Canne Bianche Lifestyle Hotel, Torre Canne).",
-  'Dai FATTI di un ospite proponi SOLO NUOVE preferenze, utili a personalizzare il servizio.',
-  'Regole:',
-  '- Considera TUTTE le fonti con pari peso: note anagrafica (PMS), note CRM, consumi F&B, trattamenti SPA, dati CRM. Nessuna fonte prevale sulle altre.',
+  "Obiettivo: aiutare la reception a costruire un profilo ospite affidabile. NON inventare preferenze: deducile in modo prudente e supportato dai dati. Proponi SOLO NUOVE preferenze.",
+  '',
+  'FONTI e AFFIDABILITÀ:',
+  '- NOTE PMS = fonte DIRETTA e altamente affidabile. Se una nota PMS contiene chiaramente una preferenza, proponila subito → affidabilità "alta" (basta anche una sola nota esplicita).',
+  '- CONSUMI (F&B, Bar, SPA) = fonte INDIRETTA. Proponi una preferenza solo con almeno 3-4 evidenze coerenti (il conteggio "Nx"; se disponibile, meglio se distribuite su soggiorni diversi) → affidabilità "media". Un singolo episodio NON basta.',
+  '- NOTE CRM = fonte INDIRETTA: una preferenza chiaramente espressa in una nota CRM → affidabilità "media".',
+  '- Se una preferenza è confermata SIA da nota PMS SIA dai consumi (o da nota CRM concorde) → affidabilità "molto alta".',
+  '- PREFERENZE/INTOLLERANZE già registrate: servono solo a NON riproporre.',
+  '',
+  'REGOLE:',
   '- Sintetizza il TRATTO, non il singolo consumo: "Caffè: preferisce leccese", non "ha ordinato 3 caffè leccese".',
   '- Proponi solo preferenze NUOVE: non riproporre nulla già presente fra preferenze/intolleranze registrate, né fra quelle già proposte in questa sessione.',
-  '- Il confronto è SEMANTICO, non testuale: se una proposta esprime lo stesso concetto di una già presente/proposta è un duplicato e va OMESSA (es. "Adora la Coca-Cola Zero" ≡ "Piace molto la Coca-Cola Zero").',
-  '- Inferenze equilibrate: deduci una preferenza solo se sostenuta da evidenze RIPETUTE o comunque solide (prevalenza netta, nota esplicita). Evita affermazioni eccessive o basate su un singolo indizio debole.',
+  '- Confronto SEMANTICO, non testuale: se una proposta esprime lo stesso concetto di una già presente/proposta è un duplicato e va OMESSA (es. "Adora la Coca-Cola Zero" ≡ "Piace molto la Coca-Cola Zero").',
+  '- Solo informazioni PERMANENTI, utili anche nei soggiorni futuri. NON trasformare in preferenze le richieste operative occasionali o contestuali (taxi, late check-out, un problema temporaneo, una richiesta una tantum).',
+  '- Deduzioni PRUDENTI: nel dubbio, non proporre.',
   '- Includi anche i tratti NEGATIVI se emergono dalle note (es. "Non gradisce il piano terra").',
-  "- Le intolleranze/allergie sono un dato di SICUREZZA: proponile come tipo 'intolleranza' (reparto/categoria vuoti) solo se esplicite nelle note.",
+  "- Le intolleranze/allergie sono un dato di SICUREZZA: proponile come tipo 'intolleranza' (reparto/categoria vuoti) se esplicite nelle note.",
   "- Per le preferenze scegli reparto (destinatario) e categoria coerenti; il testo è breve e operativo.",
-  "- I trattamenti SPA ricorrenti sono preferenze reparto 'SPA' (es. 'Predilige il massaggio Serenity', 'Abituale del percorso benessere').",
+  "- I trattamenti SPA ricorrenti sono preferenze reparto 'SPA' (es. 'Predilige il massaggio Serenity').",
+  '- Per ogni suggerimento indica "fonte" in modo breve (es. "nota PMS", "consumi SPA 24x", "nota PMS + consumi") e "motivo" sintetico.',
   '- Massimo 8 suggerimenti. Se non ci sono nuove preferenze solide, restituisci una lista VUOTA. Non inventare.',
-  '- confidenza: "alta" solo con evidenza forte e ripetuta; "bassa" per indizi deboli.',
 ].join('\n');
 
 // Costruisce il blocco FATTI testuale, minimizzando i dati inviati: niente
@@ -156,15 +165,16 @@ function parseSuggerimenti(resp) {
     const testoS = (s && s.testo != null ? String(s.testo) : '').trim();
     if (!testoS) continue;
     const motivo = (s && s.motivo != null ? String(s.motivo) : '').trim();
-    const confidenza = ['alta', 'media', 'bassa'].includes(s && s.confidenza) ? s.confidenza : 'media';
+    const fonte = (s && s.fonte != null ? String(s.fonte) : '').trim();
+    const affidabilita = ['media', 'alta', 'molto alta'].includes(s && s.affidabilita) ? s.affidabilita : 'media';
     if (tipo === 'intolleranza') {
-      out.push({ tipo, reparto: null, categoria: null, testo: testoS, motivo, confidenza });
+      out.push({ tipo, reparto: null, categoria: null, testo: testoS, fonte, motivo, affidabilita });
       continue;
     }
     const reparto = s && REPARTI.includes(s.reparto) ? s.reparto : null;
     const categoria = s && CATEGORIE.includes(s.categoria) ? s.categoria : null;
     if (!reparto || !categoria) continue; // preferenza non salvabile → scartata
-    out.push({ tipo, reparto, categoria, testo: testoS, motivo, confidenza });
+    out.push({ tipo, reparto, categoria, testo: testoS, fonte, motivo, affidabilita });
   }
   return out;
 }

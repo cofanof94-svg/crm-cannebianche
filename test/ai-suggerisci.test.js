@@ -43,11 +43,14 @@ test('costruisciFatti include note PMS e le proposte già mostrate in sessione',
   assert.match(fatti, /Caffè leccese/);
 });
 
-test('SYSTEM impone pari peso, dedup semantico e solo nuove', () => {
-  assert.match(SYSTEM, /pari peso/);
+test('SYSTEM: modello di affidabilità a livelli, semantico, solo nuove', () => {
+  assert.match(SYSTEM, /NOTE PMS/);
+  assert.match(SYSTEM, /3-4 evidenze/);
+  assert.match(SYSTEM, /molto alta/);
   assert.match(SYSTEM, /SEMANTICO/);
   assert.match(SYSTEM, /NUOVE/);
-  assert.match(SYSTEM, /note anagrafica \(PMS\)/);
+  assert.match(SYSTEM, /PERMANENTI/);          // permanente vs contestuale
+  assert.match(SYSTEM, /late check-out/);      // richieste operative escluse
 });
 
 test('costruisciFatti senza dati → stringa vuota, haFatti false', () => {
@@ -67,15 +70,15 @@ test('buildRequest imposta modello, structured output e system', () => {
 
 test('parseSuggerimenti: valida, scarta preferenze con reparto/categoria fuori lista', () => {
   const resp = { content: [{ type: 'text', text: JSON.stringify({ suggerimenti: [
-    { tipo: 'preferenza', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè: preferisce leccese', motivo: '3 su 3', confidenza: 'alta' },
-    { tipo: 'preferenza', reparto: 'Cucina', categoria: 'F&B', testo: 'reparto inventato', motivo: '', confidenza: 'media' },
-    { tipo: 'intolleranza', reparto: '', categoria: '', testo: 'Glutine', motivo: 'nota esplicita', confidenza: 'alta' },
-    { tipo: 'preferenza', reparto: 'Rooms', categoria: 'Camera', testo: '   ', motivo: 'vuoto', confidenza: 'bassa' },
+    { tipo: 'preferenza', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè: preferisce leccese', fonte: 'consumi F&B 4x', motivo: '4 evidenze', affidabilita: 'media' },
+    { tipo: 'preferenza', reparto: 'Cucina', categoria: 'F&B', testo: 'reparto inventato', fonte: 'x', motivo: '', affidabilita: 'media' },
+    { tipo: 'intolleranza', reparto: '', categoria: '', testo: 'Glutine', fonte: 'nota PMS', motivo: 'nota esplicita', affidabilita: 'alta' },
+    { tipo: 'preferenza', reparto: 'Rooms', categoria: 'Camera', testo: '   ', fonte: 'x', motivo: 'vuoto', affidabilita: 'media' },
   ] }) }] };
   const out = parseSuggerimenti(resp);
   assert.strictEqual(out.length, 2);
-  assert.deepStrictEqual(out[0], { tipo: 'preferenza', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè: preferisce leccese', motivo: '3 su 3', confidenza: 'alta' });
-  assert.deepStrictEqual(out[1], { tipo: 'intolleranza', reparto: null, categoria: null, testo: 'Glutine', motivo: 'nota esplicita', confidenza: 'alta' });
+  assert.deepStrictEqual(out[0], { tipo: 'preferenza', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè: preferisce leccese', fonte: 'consumi F&B 4x', motivo: '4 evidenze', affidabilita: 'media' });
+  assert.deepStrictEqual(out[1], { tipo: 'intolleranza', reparto: null, categoria: null, testo: 'Glutine', fonte: 'nota PMS', motivo: 'nota esplicita', affidabilita: 'alta' });
 });
 
 test('parseSuggerimenti: JSON non valido o vuoto → []', () => {
@@ -86,11 +89,13 @@ test('parseSuggerimenti: JSON non valido o vuoto → []', () => {
 
 test('suggerisci: chiama il client e normalizza', async () => {
   const client = clientConTesto(JSON.stringify({ suggerimenti: [
-    { tipo: 'preferenza', reparto: 'SPA', categoria: 'Persona', testo: 'Massaggio serale', motivo: 'x', confidenza: 'media' },
+    { tipo: 'preferenza', reparto: 'SPA', categoria: 'Persona', testo: 'Massaggio serale', fonte: 'consumi SPA 5x', motivo: 'x', affidabilita: 'media' },
   ] }));
   const out = await suggerisci(client, 'FATTI', { model: 'claude-opus-5' });
   assert.strictEqual(out.length, 1);
   assert.strictEqual(out[0].reparto, 'SPA');
+  assert.strictEqual(out[0].affidabilita, 'media');
+  assert.strictEqual(out[0].fonte, 'consumi SPA 5x');
 });
 
 test('suggerisci: fatti vuoti → nessuna chiamata al modello', async () => {

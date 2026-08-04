@@ -605,15 +605,16 @@ function renderSuggerimenti(msg) {
   if (typeof msg === 'string') { box.innerHTML = `<div class="ai-msg">${esc(msg)}</div>`; return; }
   if (!suggerimentiCorrenti.length) { box.innerHTML = '<div class="ai-msg">Non sono state trovate nuove preferenze da suggerire.</div>'; return; }
   const righe = suggerimentiCorrenti.map((s, i) => {
-    const tag = s.tipo === 'intolleranza' ? 'Intolleranza · sicurezza' : `${esc(s.reparto)} · ${esc(s.categoria)}`;
-    const motivo = s.motivo ? `<span class="ai-motivo">${esc(s.motivo)}</span>` : '';
+    const af = s.affidabilita || 'media';
+    const afClass = 'aff-' + af.replace(/\s+/g, '-');
+    const fonteMot = [s.fonte, s.motivo].filter(Boolean).map(esc).join(' — ');
+    const safety = s.tipo === 'intolleranza' ? '<span class="ai-tag ai-intolleranza">Intolleranza · sicurezza</span> ' : '';
     return `<li class="ai-item">
       <label><input type="checkbox" data-sugg="${i}" checked />
-        <span class="ai-tag ai-${s.tipo}">${tag}</span>
-        <span class="ai-testo">${esc(s.testo)}</span>
-        <span class="ai-conf conf-${esc(s.confidenza)}">${esc(s.confidenza)}</span>
+        <span class="ai-testo">${safety}${esc(s.testo)}</span>
+        <span class="ai-conf ${afClass}">${esc(af)}</span>
       </label>
-      ${motivo}
+      ${fonteMot ? `<span class="ai-motivo">${fonteMot}</span>` : ''}
     </li>`;
   }).join('');
   box.innerHTML = `<ul class="ai-list">${righe}</ul>

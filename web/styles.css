@@ -426,9 +426,9 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .ai-tag.ai-intolleranza { background: #f6e4e2; color: var(--danger); }
 .ai-testo { font-size: 13.5px; }
 .ai-conf { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-radius: 999px; padding: 1px 8px; margin-left: auto; }
-.conf-alta { background: var(--sea-050); color: var(--sea-700); }
-.conf-media { background: var(--sand-050); color: var(--accent-700); border: 1px solid var(--accent); }
-.conf-bassa { background: #f0ebe4; color: #9a8467; }
+.aff-molto-alta { background: var(--sea-050); color: var(--sea-700); }
+.aff-alta { background: var(--sand-050); color: var(--accent-700); border: 1px solid var(--accent); }
+.aff-media { background: #f0ebe4; color: #9a8467; }
 .ai-motivo { display: block; font-size: 12px; color: var(--muted); padding-left: 26px; margin-top: 2px; }
 .ai-actions { display: flex; gap: 8px; margin-top: 10px; }
 
