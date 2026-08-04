@@ -7,7 +7,8 @@ const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPerio
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
 const { getProfilo, upsertLingua } = require('../crm/profilo');
 const { listPreferenze, createPreferenza, deletePreferenza, REPARTI, CATEGORIE } = require('../crm/preferenze');
-const { listNucleo, createMembro, deleteMembro, RELAZIONI } = require('../crm/nucleo');
+const { listNucleo, createMembro, updateMembro, deleteMembro, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
+const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
 const { aggregaCumulativi } = require('../stats');
 const { getAiClient } = require('../ai/client');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
@@ -247,10 +248,22 @@ function createClientiRouter(pmsDb, crmDb) {
   delRoute('/preferenze/:id', deletePreferenza, 'Preferenza non trovata');
 
   // --- Nucleo di viaggio / accompagnatori ---
+  // Auto-popolamento iniziale (one-shot): alla prima apertura precompila il nucleo
+  // con i co-occupanti delle prenotazioni (ricorrenti, o tutti se poche; no aziende).
+  async function autoPopulaNucleo(canonicalId, membri, autoreUserId) {
+    if (await nucleoInizializzato(crmDb, canonicalId)) return;
+    const { total, items } = await getCoOccupanti(pmsDb, membri);
+    for (const o of filtraCoOccupanti(total, items)) {
+      await createMembro(crmDb, { pmsCustomerId: canonicalId, autoreUserId, tipoRelazione: 'Altro', nome: o.nome, cognome: o.cognome, nota: null, pmsOccupantId: o.codCli });
+    }
+    await markNucleoInit(crmDb, canonicalId);
+  }
+
   router.get('/clienti/:codCli/nucleo', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    const { membri } = await getGruppo(crmDb, codCli);
+    const { canonicalId, membri } = await getGruppo(crmDb, codCli);
+    await autoPopulaNucleo(canonicalId, membri, req.session.user.id);
     res.json({ nucleo: await listNucleo(crmDb, membri) });
   });
 
@@ -266,6 +279,25 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!nome && !cognome) return res.status(400).json({ error: 'Nome o cognome richiesto' });
     const membro = await createMembro(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, tipoRelazione, nome: nome || null, cognome: cognome || null, nota: nota || null });
     res.status(201).json({ membro });
+  });
+
+  // Modifica un membro del nucleo (relazione/nome/cognome/nota) — tutto editabile.
+  router.patch('/nucleo/:id', async (req, res) => {
+    const id = intParam(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'ID non valido' });
+    const b = req.body || {};
+    const fields = {};
+    if (b.tipoRelazione !== undefined) {
+      const rel = String(b.tipoRelazione).trim();
+      if (!RELAZIONI.includes(rel)) return res.status(400).json({ error: 'Relazione non valida' });
+      fields.tipoRelazione = rel;
+    }
+    if (b.nome !== undefined) fields.nome = String(b.nome).trim() || null;
+    if (b.cognome !== undefined) fields.cognome = String(b.cognome).trim() || null;
+    if (b.nota !== undefined) fields.nota = String(b.nota).trim() || null;
+    if (!Object.keys(fields).length) return res.status(400).json({ error: 'Niente da aggiornare' });
+    if (!(await updateMembro(crmDb, id, fields))) return res.status(404).json({ error: 'Membro non trovato' });
+    res.json({ ok: true });
   });
 
   delRoute('/nucleo/:id', deleteMembro, 'Membro non trovato');

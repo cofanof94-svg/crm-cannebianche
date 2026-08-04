@@ -9,7 +9,7 @@ const RELAZIONI = ['Coniuge', 'Figlio-a', 'Genitore', 'Amico-a', 'Assistente', '
 // ids: codice singolo o array (gruppo di anagrafiche fuse).
 async function listNucleo(db, ids) {
   return db.query(
-    `SELECT n.id, n.pms_customer_id, n.tipo_relazione, n.nome, n.cognome, n.nota, n.created_at,
+    `SELECT n.id, n.pms_customer_id, n.tipo_relazione, n.nome, n.cognome, n.nota, n.pms_occupant_id, n.created_at,
             n.autore_user_id, u.username AS autore
      FROM customer_travel_party n LEFT JOIN users u ON u.id = n.autore_user_id
      WHERE n.pms_customer_id IN ${inClause(ids)}
@@ -17,17 +17,43 @@ async function listNucleo(db, ids) {
   );
 }
 
-async function createMembro(db, { pmsCustomerId, autoreUserId, tipoRelazione, nome, cognome, nota }) {
+async function createMembro(db, { pmsCustomerId, autoreUserId, tipoRelazione, nome, cognome, nota, pmsOccupantId = null }) {
   const rows = await db.query(
-    `INSERT INTO customer_travel_party (pms_customer_id, autore_user_id, tipo_relazione, nome, cognome, nota, created_at)
+    `INSERT INTO customer_travel_party (pms_customer_id, autore_user_id, tipo_relazione, nome, cognome, nota, pms_occupant_id, created_at)
      OUTPUT INSERTED.id
-     VALUES (@pmsCustomerId, @autoreUserId, @tipoRelazione, @nome, @cognome, @nota, SYSUTCDATETIME())`,
-    { pmsCustomerId, autoreUserId, tipoRelazione, nome, cognome, nota }
+     VALUES (@pmsCustomerId, @autoreUserId, @tipoRelazione, @nome, @cognome, @nota, @pmsOccupantId, SYSUTCDATETIME())`,
+    { pmsCustomerId, autoreUserId, tipoRelazione, nome, cognome, nota, pmsOccupantId }
   );
   return rows[0];
+}
+
+// Aggiorna solo i campi passati (relazione/nome/cognome/nota). true se toccato.
+async function updateMembro(db, id, { tipoRelazione, nome, cognome, nota }) {
+  const set = [];
+  const params = { id };
+  if (tipoRelazione !== undefined) { set.push('tipo_relazione = @tipoRelazione'); params.tipoRelazione = tipoRelazione; }
+  if (nome !== undefined) { set.push('nome = @nome'); params.nome = nome; }
+  if (cognome !== undefined) { set.push('cognome = @cognome'); params.cognome = cognome; }
+  if (nota !== undefined) { set.push('nota = @nota'); params.nota = nota; }
+  if (!set.length) return false;
+  const rows = await db.query(`UPDATE customer_travel_party SET ${set.join(', ')} OUTPUT INSERTED.id WHERE id = @id`, params);
+  return rows.length > 0;
+}
+
+// Marker one-shot dell'auto-popolamento (evita di rifarlo ad ogni apertura).
+async function nucleoInizializzato(db, pmsCustomerId) {
+  const rows = await db.query('SELECT 1 AS x FROM customer_nucleo_init WHERE pms_customer_id = @pmsCustomerId', { pmsCustomerId });
+  return rows.length > 0;
+}
+async function markNucleoInit(db, pmsCustomerId) {
+  await db.query(
+    `IF NOT EXISTS (SELECT 1 FROM customer_nucleo_init WHERE pms_customer_id = @pmsCustomerId)
+     INSERT INTO customer_nucleo_init (pms_customer_id) VALUES (@pmsCustomerId)`,
+    { pmsCustomerId }
+  );
 }
 
 const { deleteById } = require('./helpers');
 const deleteMembro = (db, id) => deleteById(db, 'customer_travel_party', id);
 
-module.exports = { listNucleo, createMembro, deleteMembro, RELAZIONI };
+module.exports = { listNucleo, createMembro, updateMembro, deleteMembro, nucleoInizializzato, markNucleoInit, RELAZIONI };

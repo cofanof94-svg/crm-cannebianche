@@ -638,20 +638,24 @@ $('#cli-suggerimenti').addEventListener('click', async (e) => {
 });
 
 // --- Nucleo di viaggio / accompagnatori ---
+// Righe completamente editabili: relazione, nome, cognome, nota (salva → PATCH).
+// I membri precompilati dalle prenotazioni portano il badge "auto".
 async function caricaNucleo(codCli) {
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/nucleo`);
   const membri = body.nucleo || [];
   $('#cli-nucleo').innerHTML = membri.map((m) => {
-    const nomeCompl = [m.nome, m.cognome].filter(Boolean).join(' ') || '—';
-    return `
-    <li data-nucleo="${m.id}">
-      <div class="nota-testo"><span class="pref-tag">${esc(m.tipo_relazione)}</span>${esc(nomeCompl)}${m.nota ? ` — <span class="cell-muted">${esc(m.nota)}</span>` : ''}</div>
-      <div class="nota-meta">
-        <span>${esc(m.autore || '?')} · ${new Date(m.created_at).toLocaleString('it-IT')}</span>
-        <span class="nota-az"><button class="btn-icon danger" data-del-nucleo="${m.id}">Elimina</button></span>
-      </div>
+    const opts = RELAZIONI.map((r) => `<option${r === m.tipo_relazione ? ' selected' : ''}>${esc(r)}</option>`).join('');
+    const auto = m.pms_occupant_id ? '<span class="nucleo-auto" title="Precompilato automaticamente dalle prenotazioni">auto</span>' : '';
+    return `<li class="nucleo-item" data-nucleo="${m.id}">
+      <select class="nucleo-rel" data-field="tipoRelazione">${opts}</select>
+      <input class="nucleo-in" data-field="nome" value="${esc(m.nome || '')}" placeholder="Nome" autocomplete="off" />
+      <input class="nucleo-in" data-field="cognome" value="${esc(m.cognome || '')}" placeholder="Cognome" autocomplete="off" />
+      <input class="nucleo-in nucleo-nota" data-field="nota" value="${esc(m.nota || '')}" placeholder="Nota" autocomplete="off" />
+      ${auto}
+      <button type="button" class="btn btn-sm" data-save-nucleo="${m.id}">Salva</button>
+      <button type="button" class="btn-icon danger" data-del-nucleo="${m.id}">Elimina</button>
     </li>`;
-  }).join('') || '<li class="nota-vuota">Nessun accompagnatore registrato.</li>';
+  }).join('') || '<li class="nota-vuota">Nessun componente. Aggiungine uno qui sopra.</li>';
 }
 
 $('#nucleo-form').addEventListener('submit', async (e) => {
@@ -669,7 +673,17 @@ $('#nucleo-form').addEventListener('submit', async (e) => {
 
 $('#cli-nucleo').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-nucleo]');
-  if (del) { await api(`/api/nucleo/${del.dataset.delNucleo}`, { method: 'DELETE' }); caricaNucleo(clienteCorrente); }
+  if (del) { await api(`/api/nucleo/${del.dataset.delNucleo}`, { method: 'DELETE' }); caricaNucleo(clienteCorrente); return; }
+  const save = e.target.closest('[data-save-nucleo]');
+  if (save) {
+    const li = save.closest('[data-nucleo]');
+    const payload = {};
+    li.querySelectorAll('[data-field]').forEach((el) => { payload[el.dataset.field] = el.value.trim(); });
+    save.disabled = true; const t = save.textContent;
+    const { status } = await api(`/api/nucleo/${save.dataset.saveNucleo}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    save.textContent = status === 200 ? 'Salvato ✓' : 'Errore';
+    setTimeout(() => { save.disabled = false; save.textContent = t; }, 1000);
+  }
 });
 
 // --- Gusti F&B (consumi ristorante/bar aggregati dal PMS) ---

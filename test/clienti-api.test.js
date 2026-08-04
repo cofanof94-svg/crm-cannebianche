@@ -34,19 +34,22 @@ test('calcolaStatistiche: cumulativi LTV, notti, medie e ultima Source', () => {
   assert.strictEqual(s.ultimoMercato, 'MEETING');   // idem, dal più recente
 });
 
-async function makeApp() {
+async function makeApp(opts = {}) {
   const admin = { id: 1, username: 'admin', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
   const complaints = [];
   const intolleranze = [];
   const preferenze = [];
   const nucleo = [];
   const merges = []; // { pms_customer_id, canonical_id }
+  const nucleoInit = new Set();
   let profilo = null;
   const crmDb = {
     async query(text, params) {
       // le letture di lista interpolano gli id nel gruppo come IN (a, b, …)
       const ids = (() => { const m = String(text).match(/IN \(([\d,\s]+)\)/); return m ? m[1].split(',').map((s) => Number(s.trim())) : []; })();
       if (/FROM users WHERE username/.test(text)) return params.username === 'admin' ? [admin] : [];
+      if (/INSERT INTO customer_nucleo_init/.test(text)) { nucleoInit.add(params.pmsCustomerId); return []; }
+      if (/FROM customer_nucleo_init/.test(text)) return nucleoInit.has(params.pmsCustomerId) ? [{ x: 1 }] : [];
       if (/customer_merge/.test(text)) {
         if (/MERGE customer_merge/.test(text)) { const ex = merges.find((m) => m.pms_customer_id === params.memberId); if (ex) ex.canonical_id = params.principale; else merges.push({ pms_customer_id: params.memberId, canonical_id: params.principale }); return []; }
         if (/UPDATE customer_merge SET canonical_id/.test(text)) { merges.forEach((m) => { if (m.canonical_id === params.memberId) m.canonical_id = params.principale; }); return []; }
@@ -66,8 +69,9 @@ async function makeApp() {
       if (/DELETE FROM customer_preferences/.test(text)) { const i = preferenze.findIndex((x) => x.id === params.id); if (i >= 0) { const id = preferenze[i].id; preferenze.splice(i, 1); return [{ id }]; } return []; }
       if (/FROM customer_preferences/.test(text)) return preferenze.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, reparto: n.reparto, categoria: n.categoria, testo: n.testo, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_travel_party/.test(text)) { const n = { id: nucleo.length + 1, ...params }; nucleo.push(n); return [{ id: n.id }]; }
+      if (/UPDATE customer_travel_party/.test(text)) { const n = nucleo.find((x) => x.id === params.id); if (n) { if (params.tipoRelazione !== undefined) n.tipoRelazione = params.tipoRelazione; if (params.nome !== undefined) n.nome = params.nome; if (params.cognome !== undefined) n.cognome = params.cognome; if (params.nota !== undefined) n.nota = params.nota; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_travel_party/.test(text)) { const i = nucleo.findIndex((x) => x.id === params.id); if (i >= 0) { const id = nucleo[i].id; nucleo.splice(i, 1); return [{ id }]; } return []; }
-      if (/FROM customer_travel_party/.test(text)) return nucleo.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, tipo_relazione: n.tipoRelazione, nome: n.nome, cognome: n.cognome, nota: n.nota, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
+      if (/FROM customer_travel_party/.test(text)) return nucleo.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, tipo_relazione: n.tipoRelazione, nome: n.nome, cognome: n.cognome, nota: n.nota, pms_occupant_id: n.pmsOccupantId != null ? n.pmsOccupantId : null, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_complaints/.test(text)) { const n = { id: complaints.length + 1, stato: 'aperto', ...params }; complaints.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_complaints/.test(text)) { const n = complaints.find((x) => x.id === params.id); if (n) { if (params.testo != null) n.testo = params.testo; if (params.stato != null) n.stato = params.stato; if (params.periodo !== undefined) n.periodo = params.periodo; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_complaints/.test(text)) { const i = complaints.findIndex((x) => x.id === params.id); if (i >= 0) { const id = complaints[i].id; complaints.splice(i, 1); return [{ id }]; } return []; }
@@ -83,6 +87,7 @@ async function makeApp() {
       if (/FROM Anagra a\b/.test(text)) { if (params && params.codCli === 999) return []; return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', Telefono: '', Cellulare: '', email: 'a@b.it', Citta: 'TRANI', CodNaz: 'I', dtNascita: '1964-10-17', CodFis: 'X', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' }]; }
       if (/StorAddebitiComanda/.test(text)) return [{ codArt: 'COCAZ', nome: 'COCA COLA ZERO', fb: 'B', grp: 'BEV.BI', volte: 5, qta: 5, eur: 30 }];
       if (/codgrpmerCAT LIKE 'SPA/.test(text)) return [{ nome: 'SERENITY', grp: 'SPA', volte: 12, qta: 12, eur: 1200 }];
+      if (/AS nShared/.test(text)) return opts.coOcc || []; // co-occupanti nucleo (auto-popolamento)
       // soggiorni (arrangiamento/extra da camereJson)
       return [{ codpratica: 1, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2, camere: '109', stato: 'Concluso', source: 'OTA', mercato: 'LEISURE INDIVIDUALI', arrangiamento: 855, extra: 0 },
               { codpratica: 2, dtarrivo: '2026-07-07', dtpartenza: '2026-07-19', notti: 12, camere: '102', stato: 'Confermato', source: 'DIRETTI', mercato: 'MEETING', arrangiamento: 2300, extra: 0 }];
@@ -330,4 +335,29 @@ test('nucleo: crea/elenca/elimina + validazioni', async () => {
   assert.strictEqual(l.body.nucleo[0].tipo_relazione, 'Coniuge');
   const del = await ag.delete(`/api/nucleo/${c.body.membro.id}`);
   assert.strictEqual(del.status, 200);
+});
+
+test('nucleo: auto-popolamento one-shot dai co-occupanti; badge auto; non si ripete', async () => {
+  const app = await makeApp({ coOcc: [{ codCli: 900, Cognome: 'BEBIE', Nome: 'ADRIAN', nShared: 1, totPrat: 2 }] });
+  const ag = await agente(app);
+  const l = await ag.get('/api/clienti/47186/nucleo'); // prima apertura → auto-popola
+  assert.strictEqual(l.body.nucleo.length, 1);
+  assert.strictEqual(l.body.nucleo[0].nome, 'ADRIAN');
+  assert.strictEqual(l.body.nucleo[0].tipo_relazione, 'Altro');
+  assert.strictEqual(l.body.nucleo[0].pms_occupant_id, 900); // provenienza PMS → badge "auto"
+  const l2 = await ag.get('/api/clienti/47186/nucleo'); // seconda apertura → NON raddoppia
+  assert.strictEqual(l2.body.nucleo.length, 1);
+});
+
+test('nucleo: PATCH modifica la relazione (e 404 su id inesistente)', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/nucleo').send({ tipoRelazione: 'Altro', nome: 'Luca' });
+  const upd = await ag.patch(`/api/nucleo/${c.body.membro.id}`).send({ tipoRelazione: 'Figlio-a', nota: 'celiaco' });
+  assert.strictEqual(upd.status, 200);
+  const l = await ag.get('/api/clienti/47186/nucleo');
+  const m = l.body.nucleo.find((x) => x.id === c.body.membro.id);
+  assert.strictEqual(m.tipo_relazione, 'Figlio-a');
+  const bad = await ag.patch('/api/nucleo/999').send({ tipoRelazione: 'Coniuge' });
+  assert.strictEqual(bad.status, 404);
 });
