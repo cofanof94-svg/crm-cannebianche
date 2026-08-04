@@ -538,11 +538,12 @@ $('#lingua-form').addEventListener('submit', async (e) => {
   if (status === 200) { const b = $('#lingua-form').querySelector('button'); const t = b.textContent; b.textContent = 'Salvato ✓'; setTimeout(() => { b.textContent = t; }, 1200); }
 });
 
-// --- Preferenze (reparto + categoria + testo) ---
+// --- Preferenze (reparto + categoria + testo + ambito) ---
 async function caricaPreferenze(codCli) {
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/preferenze`);
   const pref = body.preferenze || [];
-  $('#cli-preferenze').innerHTML = pref.map((p) => {
+  const cond = body.condivise || [];
+  const proprie = pref.map((p) => {
     const amb = p.ambito || 'nucleo';
     return `
     <li data-pref="${p.id}">
@@ -554,6 +555,13 @@ async function caricaPreferenze(codCli) {
       </div>
     </li>`;
   }).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
+  // Preferenze 'nucleo' di altri membri del nucleo: sola lettura, con provenienza.
+  const condivise = cond.length ? `<li class="pref-cond-head">👪 Condivise dal nucleo <span class="cell-muted">(sola lettura, si modificano sulla scheda del proprietario)</span></li>` + cond.map((p) => `
+    <li class="pref-condivisa">
+      <div class="nota-testo"><span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>${esc(p.testo)}</div>
+      <div class="nota-meta"><span>👪 dal nucleo · ${esc(p.proprietario || '?')}</span></div>
+    </li>`).join('') : '';
+  $('#cli-preferenze').innerHTML = proprie + condivise;
 }
 
 $('#pref-form').addEventListener('submit', async (e) => {

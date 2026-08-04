@@ -68,10 +68,11 @@ async function makeApp(opts = {}) {
       if (/INSERT INTO customer_preferences/.test(text)) { const n = { id: preferenze.length + 1, ...params }; preferenze.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_preferences/.test(text)) { const n = preferenze.find((x) => x.id === params.id); if (n) { if (params.ambito !== undefined) n.ambito = params.ambito; if (params.testo !== undefined) n.testo = params.testo; if (params.reparto !== undefined) n.reparto = params.reparto; if (params.categoria !== undefined) n.categoria = params.categoria; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_preferences/.test(text)) { const i = preferenze.findIndex((x) => x.id === params.id); if (i >= 0) { const id = preferenze[i].id; preferenze.splice(i, 1); return [{ id }]; } return []; }
-      if (/FROM customer_preferences/.test(text)) return preferenze.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, reparto: n.reparto, categoria: n.categoria, testo: n.testo, ambito: n.ambito || 'nucleo', autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
+      if (/FROM customer_preferences/.test(text)) { const soloNucleo = /ambito = 'nucleo'/.test(text); return preferenze.filter((n) => ids.includes(n.pmsCustomerId) && (!soloNucleo || (n.ambito || 'nucleo') === 'nucleo')).map((n) => ({ id: n.id, reparto: n.reparto, categoria: n.categoria, testo: n.testo, ambito: n.ambito || 'nucleo', autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId })); }
       if (/INSERT INTO customer_travel_party/.test(text)) { const n = { id: nucleo.length + 1, ...params }; nucleo.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_travel_party/.test(text)) { const n = nucleo.find((x) => x.id === params.id); if (n) { if (params.tipoRelazione !== undefined) n.tipoRelazione = params.tipoRelazione; if (params.nome !== undefined) n.nome = params.nome; if (params.cognome !== undefined) n.cognome = params.cognome; if (params.nota !== undefined) n.nota = params.nota; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_travel_party/.test(text)) { const i = nucleo.findIndex((x) => x.id === params.id); if (i >= 0) { const id = nucleo[i].id; nucleo.splice(i, 1); return [{ id }]; } return []; }
+      if (/pms_occupant_id AS c/.test(text)) { const s = new Set(); nucleo.forEach((n) => { if (n.pmsCustomerId === params.codCli && n.pmsOccupantId != null) s.add(n.pmsOccupantId); if (n.pmsOccupantId === params.codCli) s.add(n.pmsCustomerId); }); return [...s].map((c) => ({ c })); }
       if (/FROM customer_travel_party/.test(text)) return nucleo.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, tipo_relazione: n.tipoRelazione, nome: n.nome, cognome: n.cognome, nota: n.nota, pms_occupant_id: n.pmsOccupantId != null ? n.pmsOccupantId : null, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_complaints/.test(text)) { const n = { id: complaints.length + 1, stato: 'aperto', ...params }; complaints.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_complaints/.test(text)) { const n = complaints.find((x) => x.id === params.id); if (n) { if (params.testo != null) n.testo = params.testo; if (params.stato != null) n.stato = params.stato; if (params.periodo !== undefined) n.periodo = params.periodo; return [{ id: n.id }]; } return []; }
@@ -335,6 +336,19 @@ test('preferenze: ambito default nucleo, PATCH lo cambia, validazione ambito', a
   assert.strictEqual(l.body.preferenze[0].ambito, 'personale');
   const bad = await ag.patch(`/api/preferenze/${c.body.preferenza.id}`).send({ ambito: 'globale' });
   assert.strictEqual(bad.status, 400); // ambito non valido
+});
+
+test('preferenze: le "nucleo" di un altro membro compaiono come condivise (sola lettura); le "personale" no', async () => {
+  const app = await makeApp({ coOcc: [{ codCli: 55491, Cognome: 'BEBIE', Nome: 'ADRIAN', nShared: 1, totPrat: 2 }] });
+  const ag = await agente(app);
+  await ag.get('/api/clienti/47186/nucleo'); // auto-popola → lega 55491 nel nucleo di 47186
+  await ag.post('/api/clienti/55491/preferenze').send({ reparto: 'Rooms', categoria: 'Camera', testo: 'Vista mare', ambito: 'nucleo' });
+  await ag.post('/api/clienti/55491/preferenze').send({ reparto: 'F&B', categoria: 'Persona', testo: 'vegetariana', ambito: 'personale' });
+  const l = await ag.get('/api/clienti/47186/preferenze');
+  assert.strictEqual(l.body.preferenze.length, 0);           // 47186 non ha preferenze proprie
+  assert.strictEqual(l.body.condivise.length, 1);            // solo la 'nucleo' di 55491
+  assert.strictEqual(l.body.condivise[0].testo, 'Vista mare');
+  assert.ok(l.body.condivise[0].proprietario);              // proprietario risolto (nome)
 });
 
 test('nucleo: crea/elenca/elimina + validazioni', async () => {

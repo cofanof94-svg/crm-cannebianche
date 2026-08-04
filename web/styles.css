@@ -487,6 +487,8 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .scope-personale { background: var(--brand-050); color: var(--brand); }
 .scope-toggle { cursor: pointer; border: none; font-family: inherit; margin-left: 6px; }
 .scope-toggle:hover { filter: brightness(0.95); }
+.pref-cond-head { list-style: none; font-size: 12px; font-weight: 700; color: var(--sea-700); margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--accent); }
+.pref-condivisa { background: var(--sea-050); border-radius: var(--radius-sm); }
 .compl-top { display: flex; align-items: baseline; gap: 10px; }
 .compl-top .pill { flex: none; }
 .compl-risolto .compl-testo { color: var(--muted); text-decoration: line-through; }

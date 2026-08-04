@@ -40,6 +40,18 @@ async function updateMembro(db, id, { tipoRelazione, nome, cognome, nota }) {
   return rows.length > 0;
 }
 
+// Gruppo-nucleo di un ospite: sé stesso + i membri del suo nucleo (con
+// pms_occupant_id) + chi lo elenca nel proprio nucleo (un livello, bidirezionale).
+// Serve a condividere le preferenze 'nucleo' tra i familiari.
+async function getNucleoGroup(db, codCli) {
+  const rows = await db.query(
+    `SELECT pms_occupant_id AS c FROM customer_travel_party WHERE pms_customer_id = @codCli AND pms_occupant_id IS NOT NULL
+     UNION SELECT pms_customer_id FROM customer_travel_party WHERE pms_occupant_id = @codCli`,
+    { codCli }
+  );
+  return [...new Set([codCli, ...rows.map((r) => r.c)])];
+}
+
 // Marker one-shot dell'auto-popolamento (evita di rifarlo ad ogni apertura).
 async function nucleoInizializzato(db, pmsCustomerId) {
   const rows = await db.query('SELECT 1 AS x FROM customer_nucleo_init WHERE pms_customer_id = @pmsCustomerId', { pmsCustomerId });
@@ -56,4 +68,4 @@ async function markNucleoInit(db, pmsCustomerId) {
 const { deleteById } = require('./helpers');
 const deleteMembro = (db, id) => deleteById(db, 'customer_travel_party', id);
 
-module.exports = { listNucleo, createMembro, updateMembro, deleteMembro, nucleoInizializzato, markNucleoInit, RELAZIONI };
+module.exports = { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI };

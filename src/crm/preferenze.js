@@ -19,6 +19,17 @@ async function listPreferenze(db, ids) {
   );
 }
 
+// Preferenze condivise: solo quelle 'nucleo' dei membri indicati (per mostrarle,
+// in sola lettura, sugli altri familiari). ids = codici degli ALTRI membri.
+async function listCondivise(db, ids) {
+  return db.query(
+    `SELECT p.id, p.pms_customer_id, p.reparto, p.categoria, p.testo, p.ambito, p.created_at
+     FROM customer_preferences p
+     WHERE p.pms_customer_id IN ${inClause(ids)} AND p.ambito = 'nucleo'
+     ORDER BY p.created_at DESC`
+  );
+}
+
 async function createPreferenza(db, { pmsCustomerId, autoreUserId, reparto, categoria, testo, ambito = 'nucleo' }) {
   const rows = await db.query(
     `INSERT INTO customer_preferences (pms_customer_id, autore_user_id, reparto, categoria, testo, ambito, created_at)
@@ -45,4 +56,4 @@ async function updatePreferenza(db, id, { ambito, testo, reparto, categoria }) {
 const { deleteById } = require('./helpers');
 const deletePreferenza = (db, id) => deleteById(db, 'customer_preferences', id);
 
-module.exports = { listPreferenze, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI };
+module.exports = { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI };

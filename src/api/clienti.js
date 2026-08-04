@@ -6,8 +6,8 @@ const { getTrattamentiSpa } = require('../pms/spa');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
 const { getProfilo, upsertLingua } = require('../crm/profilo');
-const { listPreferenze, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../crm/preferenze');
-const { listNucleo, createMembro, updateMembro, deleteMembro, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
+const { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../crm/preferenze');
+const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
 const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
 const { aggregaCumulativi } = require('../stats');
 const { getAiClient } = require('../ai/client');
@@ -228,7 +228,21 @@ function createClientiRouter(pmsDb, crmDb) {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
-    res.json({ preferenze: await listPreferenze(crmDb, membri) });
+    const preferenze = await listPreferenze(crmDb, membri);
+    // Preferenze 'nucleo' degli ALTRI membri del nucleo familiare → in sola lettura.
+    const altri = (await getNucleoGroup(crmDb, codCli)).filter((c) => !membri.includes(c));
+    let condivise = [];
+    if (altri.length) {
+      const rows = await listCondivise(crmDb, altri);
+      if (rows.length) {
+        const owners = [...new Set(rows.map((r) => r.pms_customer_id))];
+        const anags = await Promise.all(owners.map((c) => getCliente(pmsDb, c)));
+        const nome = {};
+        anags.filter(Boolean).forEach((a) => { nome[a.codCli] = a.nominativo; });
+        condivise = rows.map((r) => ({ ...r, proprietario: nome[r.pms_customer_id] || `#${r.pms_customer_id}` }));
+      }
+    }
+    res.json({ preferenze, condivise });
   });
 
   router.post('/clienti/:codCli/preferenze', async (req, res) => {
