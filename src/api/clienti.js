@@ -61,7 +61,14 @@ function createClientiRouter(pmsDb, crmDb) {
         anagrafiche: anags.filter(Boolean).map((a) => ({ codCli: a.codCli, nominativo: a.nominativo })),
       };
     }
-    res.json({ anagrafica, statistiche: calcolaStatistiche(soggiorni), soggiorni, merge });
+    // Note PMS degli altri membri del nucleo (condivise, "del soggiorno").
+    const altriNucleo = (await getNucleoGroup(crmDb, codCli)).filter((c) => !membri.includes(c));
+    let noteNucleo = [];
+    if (altriNucleo.length) {
+      const anags = await Promise.all(altriNucleo.map((c) => getCliente(pmsDb, c)));
+      noteNucleo = anags.filter((a) => a && a.note).map((a) => ({ codCli: a.codCli, nominativo: a.nominativo, nota: a.note }));
+    }
+    res.json({ anagrafica, statistiche: calcolaStatistiche(soggiorni), soggiorni, merge, noteNucleo });
   });
 
   // Gusti F&B (Fase 3 A): endpoint separato, query più pesante → caricata a parte.

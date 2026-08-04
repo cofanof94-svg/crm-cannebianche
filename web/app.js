@@ -454,7 +454,11 @@ async function loadCliente(codCli) {
   $('#cli-prima').textContent = fmtData(s.primaVisita);
   $('#cli-ultima').textContent = fmtData(s.ultimaVisita);
   const anBox = $('#cli-anagnote-box');
-  if (a.note) { anBox.hidden = false; $('#cli-anagnote').innerHTML = esc(a.note); } else { anBox.hidden = true; }
+  const noteNucleo = (d.noteNucleo || []).map((n) => `<div class="an-nucleo">👪 <b>${esc(n.nominativo)}</b> — ${esc(n.nota)}</div>`).join('');
+  if (a.note || noteNucleo) {
+    anBox.hidden = false;
+    $('#cli-anagnote').innerHTML = (a.note ? `<div>${esc(a.note)}</div>` : '') + noteNucleo;
+  } else { anBox.hidden = true; }
   clienteNSogg = (d.soggiorni || []).length;
   renderMergeBanner(codCli, d.merge);
   $('#cli-soggiorni').innerHTML = (d.soggiorni || []).map(rigaSoggiorno).join('')

@@ -376,7 +376,9 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .stat-l { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-top: 9px; }
 
 .cli-anagnote { background: var(--accent-050); border: 1px solid #f0dcc0; border-radius: var(--radius); padding: 12px 16px; font-size: 13.5px; color: #6b5124; margin-bottom: 22px; }
-.cli-anagnote b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+.cli-anagnote b { font-size: inherit; text-transform: none; letter-spacing: 0; }
+.an-nucleo { margin-top: 7px; padding-top: 7px; border-top: 1px dashed #e6d4b8; font-size: 13px; }
+.an-nucleo b { color: var(--brand-700); }
 
 .sez { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 26px 0 12px; }
 .cli-sogg-tab .cell-num { font-variant-numeric: tabular-nums; }
