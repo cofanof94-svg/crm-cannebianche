@@ -12,7 +12,29 @@ test('cercaClienti passa il termine come LIKE e mappa', async () => {
   assert.strictEqual(r.codCli, 47186);
   assert.strictEqual(r.nominativo, 'DI BARI ANTONELLA');
   assert.strictEqual(r.citta, 'TRANI');
-  assert.strictEqual(pms.calls[0].params.q, '%bari%');
+  assert.strictEqual(pms.calls[0].params.t0, '%bari%');
+});
+
+test('cercaClienti tokenizza: multi-parola in AND, ordine-indipendente, accent-insensitive', async () => {
+  const pms = fakePms([]);
+  await cercaClienti(pms, 'mar ros');
+  assert.strictEqual(pms.calls[0].params.t0, '%mar%');
+  assert.strictEqual(pms.calls[0].params.t1, '%ros%');
+  assert.match(pms.calls[0].text, /hs\.h LIKE @t0 AND hs\.h LIKE @t1/);
+  assert.match(pms.calls[0].text, /COLLATE Latin1_General_CI_AI/);
+});
+
+test('cercaClienti: rimuove separatori e jolly; input vuoto → nessuna query', async () => {
+  const pms = fakePms([]);
+  await cercaClienti(pms, "d'ia.co-x");        // apostrofo/punto/trattino rimossi
+  assert.strictEqual(pms.calls[0].params.t0, '%diacox%');
+  const pmsJolly = fakePms([]);
+  await cercaClienti(pmsJolly, '50%');          // il jolly % viene escapato
+  assert.strictEqual(pmsJolly.calls[0].params.t0, '%50[%]%');
+  const pmsVuoto = fakePms([]);
+  const r = await cercaClienti(pmsVuoto, '   '); // solo spazi → nessun token
+  assert.deepStrictEqual(r, []);
+  assert.strictEqual(pmsVuoto.calls.length, 0);
 });
 
 test('getCliente mappa anagrafica e consensi', async () => {

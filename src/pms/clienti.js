@@ -2,7 +2,11 @@ const { importiExpr } = require('../import/estrai');
 const { inClause } = require('../db/query');
 
 // cameraInCasa: camera(e) se l'ospite è in casa alla data di lavoro (Persona.Dataggio), altrimenti NULL.
-const SQL_CERCA = `
+// Ricerca stile rubrica: ogni parola digitata (token) deve comparire nel testo
+// dell'ospite, in QUALSIASI ordine (Nome Cognome o Cognome Nome), con match
+// parziale. hs.h è un "haystack" normalizzato: cognome+nome+email+telefoni senza
+// spazi/apostrofi/trattini/punti e COLLATE ..._CI_AI → case- e accent-insensitive.
+const SQL_CERCA_HEAD = `
 DECLARE @dlav date = (SELECT TOP 1 Dataggio FROM Persona);
 SELECT TOP 20 a.CodCli, a.Cognome, a.Nome, a.email, a.Cellulare, a.Telefono, a.Citta,
   (SELECT STUFF((SELECT DISTINCT ', ' + ad.codcam
@@ -15,10 +19,16 @@ SELECT TOP 20 a.CodCli, a.Cognome, a.Nome, a.email, a.Cellulare, a.Telefono, a.C
         AND @dlav >= CAST(ad.dtarrivo AS date) AND @dlav <= CAST(ad.dtpartenza AS date)
       FOR XML PATH('')), 1, 2, '')) AS cameraInCasa
 FROM Anagra a
-WHERE (a.Cognome LIKE @q OR a.Nome LIKE @q OR a.email LIKE @q OR a.Cellulare LIKE @q
-   OR (ISNULL(a.Cognome,'') + ' ' + ISNULL(a.Nome,'')) LIKE @q)
-  AND (ISNULL(a.Cognome,'') <> '' OR ISNULL(a.Nome,'') <> '')
-ORDER BY a.Cognome, a.Nome`;
+CROSS APPLY (SELECT REPLACE(REPLACE(REPLACE(REPLACE(
+  ISNULL(a.Cognome,'') + ISNULL(a.Nome,'') + ISNULL(a.email,'') + ISNULL(a.Cellulare,'') + ISNULL(a.Telefono,'')
+  , ' ', ''), CHAR(39), ''), '-', ''), '.', '') COLLATE Latin1_General_CI_AI AS h) hs
+WHERE (ISNULL(a.Cognome,'') <> '' OR ISNULL(a.Nome,'') <> '')`;
+
+// Compone la WHERE: un LIKE per token, tutti in AND (ordine-indipendente).
+function sqlCerca(nToken) {
+  const conds = Array.from({ length: nToken }, (_, i) => `hs.h LIKE @t${i}`).join(' AND ');
+  return `${SQL_CERCA_HEAD}\n  AND ${conds}\nORDER BY a.Cognome, a.Nome`;
+}
 
 // VIP: CodVip è una classificazione (non un livello gerarchico) decodificata da
 // TabVip.desvip (es. 'V1'→'BOLLICINE + FRUTTA FRESCA', 'IN'→'OSPITE INDESIDERATO').
@@ -113,8 +123,23 @@ function vipInfo(codVip, desVip) {
   return { cod, descrizione, indesiderato: /indesiderat/i.test(descrizione) };
 }
 
+// Spezza il testo in token: toglie separatori (apostrofi/punti/trattini) e fa
+// l'escape dei caratteri jolly di LIKE (% _ [). Max 6 token.
+function normalizeTokens(termine) {
+  return String(termine || '')
+    .split(/\s+/)
+    .map((t) => t.replace(/['’.\-]/g, '').trim())
+    .filter(Boolean)
+    .map((t) => t.replace(/[%_[]/g, (c) => `[${c}]`))
+    .slice(0, 6);
+}
+
 async function cercaClienti(pmsDb, termine) {
-  const rows = await pmsDb.query(SQL_CERCA, { q: `%${(termine || '').trim()}%` });
+  const tokens = normalizeTokens(termine);
+  if (!tokens.length) return [];
+  const params = {};
+  tokens.forEach((t, i) => { params[`t${i}`] = `%${t}%`; });
+  const rows = await pmsDb.query(sqlCerca(tokens.length), params);
   return rows.map((r) => ({
     codCli: r.CodCli,
     nominativo: nominativo(r.Cognome, r.Nome),
