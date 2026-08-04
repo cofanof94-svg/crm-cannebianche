@@ -408,6 +408,20 @@ $('#logout-btn').addEventListener('click', async () => {
 // --- Scheda ospite 360° ---
 let clienteCorrente = null;
 
+// Badge VIP: "★ VIP" + classificazione (letta da TabVip); badge rosso di avviso
+// per gli ospiti indesiderati. Solo informativo.
+function renderVip(v) {
+  const el = $('#cli-vip');
+  if (!v) { el.innerHTML = ''; return; }
+  if (v.indesiderato) {
+    el.innerHTML = `<span class="pill pill-warning" title="${esc(v.descrizione)}">⚠ Ospite indesiderato</span>`;
+    return;
+  }
+  const classe = (v.descrizione && v.descrizione !== v.cod)
+    ? ` <span class="vip-class">${esc(v.descrizione)}</span>` : '';
+  el.innerHTML = `<span class="pill pill-vip" title="Classificazione VIP: ${esc(v.descrizione)} (${esc(v.cod)})">★ VIP</span>${classe}`;
+}
+
 async function loadCliente(codCli) {
   const body = $('#cliente-body');
   const msg = $('#cliente-msg');
@@ -426,7 +440,7 @@ async function loadCliente(codCli) {
     contattoCard('Cellulare', a.cellulare, a.cellulare ? `tel:${a.cellulare}` : null),
     contattoCard('Provenienza', [a.citta, a.nazione].filter(Boolean).join(', ')),
   ].filter(Boolean).join('') || '<div class="cc cc-empty">Nessun contatto</div>';
-  $('#cli-vip').hidden = !a.vip;
+  renderVip(a.vip);
   $('#cli-nsogg').textContent = s.nSoggiorni;
   $('#cli-notti').textContent = s.nottiTotali != null ? s.nottiTotali : '–';
   $('#cli-ltv').textContent = euro(s.ltv || 0);

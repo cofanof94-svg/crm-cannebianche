@@ -20,11 +20,15 @@ WHERE (a.Cognome LIKE @q OR a.Nome LIKE @q OR a.email LIKE @q OR a.Cellulare LIK
   AND (ISNULL(a.Cognome,'') <> '' OR ISNULL(a.Nome,'') <> '')
 ORDER BY a.Cognome, a.Nome`;
 
+// VIP: CodVip è una classificazione (non un livello gerarchico) decodificata da
+// TabVip.desvip (es. 'V1'→'BOLLICINE + FRUTTA FRESCA', 'IN'→'OSPITE INDESIDERATO').
 const SQL_CLIENTE = `
-SELECT CodCli, Cognome, Nome, Telefono, Cellulare, email, Citta, CodNaz,
-       CONVERT(varchar(10), dtNascita, 23) AS dtNascita, CodFis, CodVip, Annotazioni,
-       Privacy, Privacy2, PrivacyConservaDati, PrivacyCessioneDati
-FROM Anagra WHERE CodCli = @codCli`;
+SELECT a.CodCli, a.Cognome, a.Nome, a.Telefono, a.Cellulare, a.email, a.Citta, a.CodNaz,
+       CONVERT(varchar(10), a.dtNascita, 23) AS dtNascita, a.CodFis, a.CodVip, tv.desvip AS DesVip, a.Annotazioni,
+       a.Privacy, a.Privacy2, a.PrivacyConservaDati, a.PrivacyCessioneDati
+FROM Anagra a
+LEFT JOIN TabVip tv ON LTRIM(RTRIM(tv.codvip)) = LTRIM(RTRIM(a.CodVip)) AND ISNULL(a.CodVip,'') <> ''
+WHERE a.CodCli = @codCli`;
 
 // Storico soggiorni: correnti (Prenota) UNION storici (StorPrenota).
 // Importi arr/extra calcolati PER PRATICA con importiExpr (STESSA logica dell'import
@@ -99,6 +103,16 @@ function nominativo(cognome, nome) {
   return [cognome, nome].map((s) => (s == null ? '' : String(s)).trim()).filter(Boolean).join(' ') || null;
 }
 
+// Info VIP: cod = classificazione (TabVip), descrizione = testo leggibile (fallback
+// al codice). indesiderato = flag negativo riconosciuto dalla DESCRIZIONE
+// ("OSPITE INDESIDERATO"), non da un elenco hardcoded di codici → robusto ai cambi.
+function vipInfo(codVip, desVip) {
+  const cod = pulisci(codVip);
+  if (!cod) return null;
+  const descrizione = pulisci(desVip) || cod;
+  return { cod, descrizione, indesiderato: /indesiderat/i.test(descrizione) };
+}
+
 async function cercaClienti(pmsDb, termine) {
   const rows = await pmsDb.query(SQL_CERCA, { q: `%${(termine || '').trim()}%` });
   return rows.map((r) => ({
@@ -128,7 +142,7 @@ async function getCliente(pmsDb, codCli) {
     nazione: pulisci(r.CodNaz),
     dtNascita: pulisci(r.dtNascita),
     codiceFiscale: pulisci(r.CodFis),
-    vip: pulisci(r.CodVip) != null,
+    vip: vipInfo(r.CodVip, r.DesVip),
     note: pulisci(r.Annotazioni),
     // Nel PMS la logica è invertita: 'S' = NON autorizzato. Quindi il consenso
     // è concesso quando il valore è diverso da 'S' (es. 'N' o vuoto).

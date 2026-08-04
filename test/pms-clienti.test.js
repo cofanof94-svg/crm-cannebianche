@@ -22,7 +22,7 @@ test('getCliente mappa anagrafica e consensi', async () => {
   const a = await getCliente(pms, 47186);
   assert.strictEqual(a.nominativo, 'DI BARI ANTONELLA');
   assert.strictEqual(a.nazione, 'I');
-  assert.strictEqual(a.vip, false);
+  assert.strictEqual(a.vip, null); // CodVip vuoto → non VIP
   // 'S' = NON autorizzato → consenso false; 'N'/vuoto = consenso true
   assert.deepStrictEqual(a.consensi, { marketing: false, telefonate: false, conservazione: true, cessione: true });
 });
@@ -30,6 +30,22 @@ test('getCliente mappa anagrafica e consensi', async () => {
 test('getCliente restituisce null se non trovato', async () => {
   const pms = fakePms([]);
   assert.strictEqual(await getCliente(pms, 1), null);
+});
+
+test('getCliente mappa il VIP (classificazione da TabVip) e il flag indesiderato', async () => {
+  const base = { CodCli: 1, Cognome: 'X', Nome: 'Y', Privacy: '', Privacy2: '', PrivacyConservaDati: '', PrivacyCessioneDati: '' };
+  // VIP con descrizione
+  const c = await getCliente(fakePms([{ ...base, CodVip: 'V5', DesVip: 'PROSECCO IN CAMERA' }]), 1);
+  assert.deepStrictEqual(c.vip, { cod: 'V5', descrizione: 'PROSECCO IN CAMERA', indesiderato: false });
+  // Ospite indesiderato → riconosciuto dalla descrizione (non dal codice)
+  const ind = await getCliente(fakePms([{ ...base, CodVip: 'IN', DesVip: 'OSPITE INDESIDERATO' }]), 1);
+  assert.strictEqual(ind.vip.indesiderato, true);
+  // Codice senza descrizione in TabVip → fallback al codice
+  const fb = await getCliente(fakePms([{ ...base, CodVip: 'ZZ', DesVip: null }]), 1);
+  assert.deepStrictEqual(fb.vip, { cod: 'ZZ', descrizione: 'ZZ', indesiderato: false });
+  // CodVip vuoto → non VIP
+  const no = await getCliente(fakePms([{ ...base, CodVip: '', DesVip: null }]), 1);
+  assert.strictEqual(no.vip, null);
 });
 
 test('getSoggiorniCliente mappa le righe', async () => {

@@ -308,6 +308,9 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .cli-header h1 { margin: 0; }
 .cli-ident > div:not(.cli-avatar) { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .pill-vip { background: var(--accent-050); color: var(--accent-700); font-size: 12px; padding: 4px 12px; }
+.cli-vip-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pill-warning { background: #f6e4e2; color: var(--danger); font-size: 12px; padding: 4px 12px; font-weight: 600; }
+.vip-class { font-size: 12px; color: var(--muted); font-style: italic; }
 
 /* Contatti in mini-card */
 .cli-contacts { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 22px; }

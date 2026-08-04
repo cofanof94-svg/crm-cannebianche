@@ -80,7 +80,7 @@ async function makeApp() {
       if (/a\.CodCli <> @codCli/.test(text)) return [{ codCli: 55491, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: '', match: 'anagrafica', nPrenotazioni: 0 }];
       if (/STRING_AGG/.test(text)) return [{ tipo: 'CF', cognome: 'DI BARI', nome: 'ANNA', chiave: 'X', n: 2, membri: '47186,55491' }];
       if (/cameraInCasa/.test(text)) return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Telefono: '080123', Citta: 'TRANI', cameraInCasa: null }];
-      if (/FROM Anagra WHERE CodCli/.test(text)) { if (params && params.codCli === 999) return []; return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', Telefono: '', Cellulare: '', email: 'a@b.it', Citta: 'TRANI', CodNaz: 'I', dtNascita: '1964-10-17', CodFis: 'X', CodVip: '', Annotazioni: '', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' }]; }
+      if (/FROM Anagra a\b/.test(text)) { if (params && params.codCli === 999) return []; return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', Telefono: '', Cellulare: '', email: 'a@b.it', Citta: 'TRANI', CodNaz: 'I', dtNascita: '1964-10-17', CodFis: 'X', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' }]; }
       if (/StorAddebitiComanda/.test(text)) return [{ codArt: 'COCAZ', nome: 'COCA COLA ZERO', fb: 'B', grp: 'BEV.BI', volte: 5, qta: 5, eur: 30 }];
       if (/codgrpmerCAT LIKE 'SPA/.test(text)) return [{ nome: 'SERENITY', grp: 'SPA', volte: 12, qta: 12, eur: 1200 }];
       // soggiorni (arrangiamento/extra da camereJson)
