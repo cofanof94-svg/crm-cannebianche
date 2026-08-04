@@ -247,10 +247,14 @@
               <div class="stat"><span class="stat-n" id="cli-nsogg">–</span><span class="stat-l">Soggiorni <span class="info" data-tip="Tutte le prenotazioni valide del cliente, inclusi i day-use (0 notti: ristorante/SPA). Escluse Eliminate e No-show.">i</span></span></div>
               <div class="stat"><span class="stat-n" id="cli-notti">–</span><span class="stat-l">Notti totali <span class="info" data-tip="Somma delle notti dei soggiorni validi. I day-use contano 0 notti.">i</span></span></div>
               <div class="stat stat-hl"><span class="stat-n" id="cli-ltv">–</span><span class="stat-l">Valore storico (LTV) <span class="info" data-tip="Totale realmente speso dal cliente nel tempo (arrangiamenti + extra maturati). City tax esclusa.">i</span></span><span class="stat-sub" id="cli-ltv-media"></span></div>
+              <div class="stat"><span class="stat-n" id="cli-arr">–</span><span class="stat-l">Arrangiamenti <span class="info" data-tip="Totale maturato per pensione/trattamento (righe con arrangiamento).">i</span></span><span class="stat-sub" id="cli-arr-media"></span></div>
+              <div class="stat"><span class="stat-n" id="cli-extra">–</span><span class="stat-l">Extra <span class="stat-note">(city tax esclusa)</span> <span class="info" data-tip="Consumi extra maturati (ristorante, spiaggia, ecc.). City tax esclusa dal totale.">i</span></span><span class="stat-sub" id="cli-extra-media"></span></div>
               <div class="stat stat-visite">
                 <div class="visita-riga"><span class="visita-l">Prima visita <span class="info" data-tip="Data del primo e dell'ultimo soggiorno valido del cliente (esclusi Eliminate e No-show).">i</span></span><span class="visita-d" id="cli-prima">–</span></div>
                 <div class="visita-riga"><span class="visita-l">Ultima visita</span><span class="visita-d" id="cli-ultima">–</span></div>
               </div>
+              <div class="stat"><span class="stat-n stat-sm" id="cli-source">–</span><span class="stat-l">Ultima Source <span class="info" data-tip="Canale di vendita dell'ultima prenotazione: Diretti, OTA, Agenzie, T.O., GDS…">i</span></span></div>
+              <div class="stat"><span class="stat-n stat-sm" id="cli-mercato">–</span><span class="stat-l">Tipologia viaggio <span class="info" data-tip="Segmento/mercato dell'ultima prenotazione: Leisure, Group, MICE, SPA, Evento…">i</span></span></div>
             </div>
 
             <!-- SICUREZZA -->
@@ -314,30 +318,9 @@
             </div>
 
             <!-- ============ DETTAGLI (collassabili) ============ -->
-            <details class="sez-collapse">
-              <summary class="sez sez-sum">Dettaglio commerciale ed economico <span class="sez-hint">arrangiamenti, extra, canale, mercato — apri</span></summary>
-              <div class="cli-stats">
-                <div class="stat"><span class="stat-n" id="cli-arr">–</span><span class="stat-l">Arrangiamenti <span class="info" data-tip="Totale maturato per pensione/trattamento (righe con arrangiamento).">i</span></span><span class="stat-sub" id="cli-arr-media"></span></div>
-                <div class="stat"><span class="stat-n" id="cli-extra">–</span><span class="stat-l">Extra <span class="stat-note">(city tax esclusa)</span> <span class="info" data-tip="Consumi extra maturati (ristorante, spiaggia, ecc.). City tax esclusa dal totale.">i</span></span><span class="stat-sub" id="cli-extra-media"></span></div>
-                <div class="stat"><span class="stat-n stat-sm" id="cli-source">–</span><span class="stat-l">Ultima Source <span class="info" data-tip="Canale di vendita dell'ultima prenotazione: Diretti, OTA, Agenzie, T.O., GDS…">i</span></span></div>
-                <div class="stat"><span class="stat-n stat-sm" id="cli-mercato">–</span><span class="stat-l">Tipologia viaggio <span class="info" data-tip="Segmento/mercato dell'ultima prenotazione: Leisure, Group, MICE, SPA, Evento…">i</span></span></div>
-              </div>
-            </details>
-
             <details class="sez-collapse" id="cli-anagnote-box" hidden>
               <summary class="sez sez-sum">Note anagrafica (PMS) <span class="sez-hint">annotazioni dal gestionale — apri</span></summary>
               <div id="cli-anagnote" class="cli-anagnote"></div>
-            </details>
-
-            <details class="sez-collapse">
-              <summary class="sez sez-sum">Note CRM <span class="sez-hint">note interne del team — apri</span> <span class="info" data-tip="Note interne libere del team sul cliente. Non provengono dal gestionale.">i</span></summary>
-              <div class="card note-box">
-                <form id="nota-form" class="nota-form">
-                  <input name="testo" placeholder="Aggiungi una nota…" required autocomplete="off" />
-                  <button type="submit" class="btn btn-primary">Aggiungi</button>
-                </form>
-                <ul id="cli-note" class="note-list"></ul>
-              </div>
             </details>
 
             <details class="sez-collapse">

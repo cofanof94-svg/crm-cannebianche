@@ -455,7 +455,7 @@ async function loadCliente(codCli) {
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
     caricaGusti(codCli), caricaSpa(codCli), caricaDuplicati(codCli), caricaLingua(codCli), caricaIntolleranze(codCli),
-    caricaPreferenze(codCli), caricaNucleo(codCli), caricaNote(codCli), caricaComplaints(codCli),
+    caricaPreferenze(codCli), caricaNucleo(codCli), caricaComplaints(codCli),
   ]);
   msg.hidden = true; body.hidden = false;
 }
@@ -497,49 +497,6 @@ function rigaSoggiorno(x) {
     <td><span class="pill ${statoSoggPill(x.stato)}">${esc(x.stato)}</span></td>
   </tr>`;
 }
-
-async function caricaNote(codCli) {
-  const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/note`);
-  const note = body.note || [];
-  $('#cli-note').innerHTML = note.map((n) => `
-    <li data-nota="${n.id}">
-      <div class="nota-testo">${esc(n.testo)}</div>
-      <div class="nota-meta">
-        <span>${esc(n.autore || '?')} · ${new Date(n.created_at).toLocaleString('it-IT')}</span>
-        <span class="nota-az">
-          <button class="btn-icon" data-edit-nota="${n.id}">Modifica</button>
-          <button class="btn-icon danger" data-del-nota="${n.id}">Elimina</button>
-        </span>
-      </div>
-    </li>`).join('') || '<li class="nota-vuota">Nessuna nota. Aggiungine una qui sopra.</li>';
-}
-
-$('#nota-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const f = e.target;
-  const testo = f.testo.value.trim();
-  if (!testo || !clienteCorrente) return;
-  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/note`, {
-    method: 'POST', body: JSON.stringify({ testo }),
-  });
-  if (status === 201) { f.reset(); caricaNote(clienteCorrente); }
-});
-
-$('#cli-note').addEventListener('click', async (e) => {
-  const del = e.target.closest('[data-del-nota]');
-  const edit = e.target.closest('[data-edit-nota]');
-  if (del) {
-    await api(`/api/note/${del.dataset.delNota}`, { method: 'DELETE' });
-    caricaNote(clienteCorrente);
-  } else if (edit) {
-    const li = edit.closest('[data-nota]');
-    const nuovo = prompt('Modifica nota:', li.querySelector('.nota-testo').textContent);
-    if (nuovo != null && nuovo.trim()) {
-      await api(`/api/note/${edit.dataset.editNota}`, { method: 'PATCH', body: JSON.stringify({ testo: nuovo.trim() }) });
-      caricaNote(clienteCorrente);
-    }
-  }
-});
 
 // Liste chiuse (allineate ai CHECK del DB e alla validazione API)
 const REPARTI = ['Rooms', 'F&B', 'SPA', 'Front office'];
