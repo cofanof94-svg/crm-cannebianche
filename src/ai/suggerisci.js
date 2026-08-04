@@ -130,7 +130,9 @@ function haFatti(fatti) {
   return typeof fatti === 'string' && fatti.trim().length > 0;
 }
 
-function buildRequest(fatti, { model = 'claude-sonnet-5', maxTokens = 2000 } = {}) {
+// maxTokens generoso: l'adaptive thinking condivide il budget con l'output, e con
+// note lunghe + molti consumi un tetto basso troncava il JSON (→ 0 proposte).
+function buildRequest(fatti, { model = 'claude-sonnet-5', maxTokens = 8000 } = {}) {
   const req = {
     model,
     max_tokens: maxTokens,
