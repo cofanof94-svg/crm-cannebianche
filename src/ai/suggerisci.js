@@ -52,8 +52,7 @@ const SYSTEM = [
   'FONTI e AFFIDABILITÀ:',
   '- NOTE PMS = fonte DIRETTA e altamente affidabile. Se una nota PMS contiene chiaramente una preferenza, proponila subito → affidabilità "alta" (basta anche una sola nota esplicita).',
   '- CONSUMI (F&B, Bar, SPA) = fonte INDIRETTA. Proponi una preferenza solo con almeno 3-4 evidenze coerenti (il conteggio "Nx"; se disponibile, meglio se distribuite su soggiorni diversi) → affidabilità "media". Un singolo episodio NON basta.',
-  '- NOTE CRM = fonte INDIRETTA: una preferenza chiaramente espressa in una nota CRM → affidabilità "media".',
-  '- Se una preferenza è confermata SIA da nota PMS SIA dai consumi (o da nota CRM concorde) → affidabilità "molto alta".',
+  '- Se una preferenza è confermata SIA da nota PMS SIA dai consumi → affidabilità "molto alta".',
   '- PREFERENZE/INTOLLERANZE già registrate: servono solo a NON riproporre.',
   '',
   'REGOLE:',
@@ -72,7 +71,7 @@ const SYSTEM = [
 
 // Costruisce il blocco FATTI testuale, minimizzando i dati inviati: niente
 // identificativi/cognomi, solo i segnali utili alle preferenze.
-function costruisciFatti({ gusti, spa, note, notePms, intolleranze, preferenze, giaMostrate } = {}) {
+function costruisciFatti({ gusti, spa, notePms, intolleranze, preferenze, giaMostrate } = {}) {
   const parti = [];
 
   const items = (gusti && gusti.items) || [];
@@ -93,15 +92,10 @@ function costruisciFatti({ gusti, spa, note, notePms, intolleranze, preferenze, 
     parti.push(`TRATTAMENTI SPA / BENESSERE (dagli extra):\n${righe}`);
   }
 
-  // Note anagrafica dal PMS (pari peso con le note CRM).
+  // Note anagrafica dal PMS (fonte diretta ad alta affidabilità).
   const testoPms = (notePms == null ? '' : String(notePms)).trim();
   if (testoPms) {
     parti.push(`NOTE ANAGRAFICA (PMS):\n${testoPms}`);
-  }
-
-  const testiNote = (note || []).map((n) => (n.testo || '').trim()).filter(Boolean);
-  if (testiNote.length) {
-    parti.push(`NOTE CRM:\n${testiNote.map((t) => `- ${t}`).join('\n')}`);
   }
 
   const testiInt = (intolleranze || []).map((i) => (i.testo || '').trim()).filter(Boolean);

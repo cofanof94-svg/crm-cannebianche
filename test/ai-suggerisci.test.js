@@ -16,13 +16,13 @@ function clientConTesto(text) {
 test('costruisciFatti compone i blocchi e minimizza (nessun id/cognome)', () => {
   const fatti = costruisciFatti({
     gusti: { items: [{ nome: 'COCA COLA ZERO', categoria: 'Bevande', volte: 88 }] },
-    note: [{ testo: 'Ama il piano alto' }, { testo: '  ' }],
+    notePms: 'Ama il piano alto',
     intolleranze: [{ testo: 'Lattosio' }],
     preferenze: [{ reparto: 'Rooms', categoria: 'Camera', testo: 'Vista mare' }],
   });
   assert.match(fatti, /CONSUMI F&B/);
   assert.match(fatti, /COCA COLA ZERO — 88x/);
-  assert.match(fatti, /NOTE CRM/);
+  assert.match(fatti, /NOTE ANAGRAFICA \(PMS\)/);
   assert.match(fatti, /Ama il piano alto/);
   assert.match(fatti, /INTOLLERANZE GIÀ REGISTRATE/);
   assert.match(fatti, /Lattosio/);
@@ -33,7 +33,6 @@ test('costruisciFatti compone i blocchi e minimizza (nessun id/cognome)', () => 
 test('costruisciFatti include note PMS e le proposte già mostrate in sessione', () => {
   const fatti = costruisciFatti({
     notePms: 'Ospite abituale, ama la vista mare',
-    note: [{ testo: 'Chiede sempre il tavolo in veranda' }],
     giaMostrate: ['Predilige la vista mare', 'Caffè leccese'],
   });
   assert.match(fatti, /NOTE ANAGRAFICA \(PMS\)/);

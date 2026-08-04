@@ -3,7 +3,6 @@ const { requireAuth } = require('../auth/middleware');
 const { cercaClienti, getCliente, getSoggiorniCliente } = require('../pms/clienti');
 const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
-const { listNote, createNota, updateNota, deleteNota } = require('../crm/note');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
 const { getProfilo, upsertLingua } = require('../crm/profilo');
@@ -132,51 +131,22 @@ function createClientiRouter(pmsDb, crmDb) {
     const b = req.body || {};
     const giaMostrate = Array.isArray(b.giaMostrate) ? b.giaMostrate.map((t) => String(t)).slice(0, 50) : [];
     const { membri } = await getGruppo(crmDb, codCli);
-    const [gusti, spa, note, intolleranze, preferenze, anags] = await Promise.all([
+    const [gusti, spa, intolleranze, preferenze, anags] = await Promise.all([
       getGustiFB(pmsDb, membri),
       getTrattamentiSpa(pmsDb, membri),
-      listNote(crmDb, membri),
       listIntolleranze(crmDb, membri),
       listPreferenze(crmDb, membri),
       Promise.all(membri.map((id) => getCliente(pmsDb, id))),
     ]);
     // Note anagrafica dal PMS (Annotazioni), unite su tutti i codici del gruppo.
     const notePms = anags.filter(Boolean).map((a) => a.note).filter(Boolean).join('\n');
-    const fatti = costruisciFatti({ gusti, spa, note, notePms, intolleranze, preferenze, giaMostrate });
+    const fatti = costruisciFatti({ gusti, spa, notePms, intolleranze, preferenze, giaMostrate });
     if (!haFatti(fatti)) return res.json({ suggerimenti: [], motivo: 'dati insufficienti' });
     const suggerimenti = await suggerisci(ai.client, fatti, { model: ai.model });
     // Audit minimale (Fase 3 privacy): chi ha generato suggerimenti, per chi, quanti.
     console.log(`[AI suggerimenti] cliente=${codCli} utente=${req.session.user.username} n=${suggerimenti.length}`);
     res.json({ suggerimenti });
   });
-
-  router.get('/clienti/:codCli/note', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    const { membri } = await getGruppo(crmDb, codCli);
-    res.json({ note: await listNote(crmDb, membri) });
-  });
-
-  router.post('/clienti/:codCli/note', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    const testo = (req.body && req.body.testo ? String(req.body.testo) : '').trim();
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    if (!testo) return res.status(400).json({ error: 'Testo mancante' });
-    const nota = await createNota(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo });
-    res.status(201).json({ nota });
-  });
-
-  router.patch('/note/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    const testo = (req.body && req.body.testo ? String(req.body.testo) : '').trim();
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
-    if (!testo) return res.status(400).json({ error: 'Testo mancante' });
-    const ok = await updateNota(crmDb, id, testo);
-    if (!ok) return res.status(404).json({ error: 'Nota non trovata' });
-    res.json({ ok: true });
-  });
-
-  delRoute('/note/:id', deleteNota, 'Nota non trovata');
 
   // --- Complaints (reclami) ---
   router.get('/clienti/:codCli/complaints', async (req, res) => {
