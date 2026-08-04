@@ -37,8 +37,9 @@ const SCHEMA = {
           fonte: { type: 'string' },
           motivo: { type: 'string' },
           affidabilita: { type: 'string', enum: ['media', 'alta', 'molto alta'] },
+          ambito: { type: 'string', enum: ['personale', 'nucleo'] },
         },
-        required: ['tipo', 'reparto', 'categoria', 'testo', 'fonte', 'motivo', 'affidabilita'],
+        required: ['tipo', 'reparto', 'categoria', 'testo', 'fonte', 'motivo', 'affidabilita', 'ambito'],
       },
     },
   },
@@ -66,6 +67,7 @@ const SYSTEM = [
   "- Per le preferenze scegli reparto (destinatario) e categoria coerenti; il testo è breve e operativo.",
   "- I trattamenti SPA ricorrenti sono preferenze reparto 'SPA' (es. 'Predilige il massaggio Serenity').",
   '- Per ogni suggerimento indica "fonte" in modo breve (es. "nota PMS", "consumi SPA 24x", "nota PMS + consumi") e "motivo" sintetico.',
+  "- Indica l'AMBITO di ogni preferenza: 'nucleo' = condivisa dal gruppo (camera, F&B, occasioni, gusti generali del soggiorno) — è il caso più frequente; 'personale' = specifica del singolo (es. dieta 'vegetariana', un trattamento o un gusto chiaramente individuale). Le intolleranze sono sempre personali.",
   '- Massimo 8 suggerimenti. Se non ci sono nuove preferenze solide, restituisci una lista VUOTA. Non inventare.',
 ].join('\n');
 
@@ -163,14 +165,15 @@ function parseSuggerimenti(resp) {
     const motivo = (s && s.motivo != null ? String(s.motivo) : '').trim();
     const fonte = (s && s.fonte != null ? String(s.fonte) : '').trim();
     const affidabilita = ['media', 'alta', 'molto alta'].includes(s && s.affidabilita) ? s.affidabilita : 'media';
+    const ambito = ['personale', 'nucleo'].includes(s && s.ambito) ? s.ambito : 'nucleo';
     if (tipo === 'intolleranza') {
-      out.push({ tipo, reparto: null, categoria: null, testo: testoS, fonte, motivo, affidabilita });
+      out.push({ tipo, reparto: null, categoria: null, testo: testoS, fonte, motivo, affidabilita, ambito: 'personale' });
       continue;
     }
     const reparto = s && REPARTI.includes(s.reparto) ? s.reparto : null;
     const categoria = s && CATEGORIE.includes(s.categoria) ? s.categoria : null;
     if (!reparto || !categoria) continue; // preferenza non salvabile → scartata
-    out.push({ tipo, reparto, categoria, testo: testoS, fonte, motivo, affidabilita });
+    out.push({ tipo, reparto, categoria, testo: testoS, fonte, motivo, affidabilita, ambito });
   }
   return out;
 }

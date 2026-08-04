@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { listPreferenze, createPreferenza, deletePreferenza, REPARTI, CATEGORIE } = require('../src/crm/preferenze');
+const { listPreferenze, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../src/crm/preferenze');
 
 function fakeDb(recordset = []) {
   return { calls: [], async query(text, params) { this.calls.push({ text, params }); return recordset; } };
@@ -18,6 +18,20 @@ test('createPreferenza passa reparto/categoria/testo', async () => {
   assert.match(db.calls[0].text, /INSERT INTO customer_preferences/);
   assert.strictEqual(db.calls[0].params.reparto, 'F&B');
   assert.strictEqual(db.calls[0].params.testo, 'Amarone');
+});
+
+test('AMBITI esposti; createPreferenza default nucleo, updatePreferenza cambia ambito', async () => {
+  assert.deepStrictEqual(AMBITI, ['personale', 'nucleo']);
+  const db = fakeDb([{ id: 5 }]);
+  await createPreferenza(db, { pmsCustomerId: 1, autoreUserId: 2, reparto: 'F&B', categoria: 'F&B', testo: 'Amarone' });
+  assert.strictEqual(db.calls[0].params.ambito, 'nucleo');   // default
+  assert.match(db.calls[0].text, /ambito/);
+  const db2 = fakeDb([{ id: 5 }]);
+  const ok = await updatePreferenza(db2, 5, { ambito: 'personale' });
+  assert.strictEqual(ok, true);
+  assert.match(db2.calls[0].text, /UPDATE customer_preferences SET ambito = @ambito/);
+  assert.strictEqual(db2.calls[0].params.ambito, 'personale');
+  assert.strictEqual(await updatePreferenza(fakeDb([]), 5, {}), false); // niente campi → no query
 });
 
 test('listPreferenze filtra per cliente; delete true/false', async () => {

@@ -66,8 +66,9 @@ async function makeApp(opts = {}) {
       if (/MERGE customer_profile/.test(text)) { profilo = { pms_customer_id: params.pmsCustomerId, lingua: params.lingua }; return []; }
       if (/FROM customer_profile/.test(text)) return profilo && ids.includes(profilo.pms_customer_id) ? [profilo] : [];
       if (/INSERT INTO customer_preferences/.test(text)) { const n = { id: preferenze.length + 1, ...params }; preferenze.push(n); return [{ id: n.id }]; }
+      if (/UPDATE customer_preferences/.test(text)) { const n = preferenze.find((x) => x.id === params.id); if (n) { if (params.ambito !== undefined) n.ambito = params.ambito; if (params.testo !== undefined) n.testo = params.testo; if (params.reparto !== undefined) n.reparto = params.reparto; if (params.categoria !== undefined) n.categoria = params.categoria; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_preferences/.test(text)) { const i = preferenze.findIndex((x) => x.id === params.id); if (i >= 0) { const id = preferenze[i].id; preferenze.splice(i, 1); return [{ id }]; } return []; }
-      if (/FROM customer_preferences/.test(text)) return preferenze.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, reparto: n.reparto, categoria: n.categoria, testo: n.testo, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
+      if (/FROM customer_preferences/.test(text)) return preferenze.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, reparto: n.reparto, categoria: n.categoria, testo: n.testo, ambito: n.ambito || 'nucleo', autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_travel_party/.test(text)) { const n = { id: nucleo.length + 1, ...params }; nucleo.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_travel_party/.test(text)) { const n = nucleo.find((x) => x.id === params.id); if (n) { if (params.tipoRelazione !== undefined) n.tipoRelazione = params.tipoRelazione; if (params.nome !== undefined) n.nome = params.nome; if (params.cognome !== undefined) n.cognome = params.cognome; if (params.nota !== undefined) n.nota = params.nota; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_travel_party/.test(text)) { const i = nucleo.findIndex((x) => x.id === params.id); if (i >= 0) { const id = nucleo[i].id; nucleo.splice(i, 1); return [{ id }]; } return []; }
@@ -319,6 +320,21 @@ test('preferenze: crea/elenca/elimina + validazione liste chiuse', async () => {
   assert.strictEqual(l.body.preferenze[0].testo, 'Amarone');
   const del = await ag.delete(`/api/preferenze/${c.body.preferenza.id}`);
   assert.strictEqual(del.status, 200);
+});
+
+test('preferenze: ambito default nucleo, PATCH lo cambia, validazione ambito', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/preferenze').send({ reparto: 'F&B', categoria: 'F&B', testo: 'Coca Zero' });
+  assert.strictEqual(c.status, 201);
+  let l = await ag.get('/api/clienti/47186/preferenze');
+  assert.strictEqual(l.body.preferenze[0].ambito, 'nucleo'); // default
+  const upd = await ag.patch(`/api/preferenze/${c.body.preferenza.id}`).send({ ambito: 'personale' });
+  assert.strictEqual(upd.status, 200);
+  l = await ag.get('/api/clienti/47186/preferenze');
+  assert.strictEqual(l.body.preferenze[0].ambito, 'personale');
+  const bad = await ag.patch(`/api/preferenze/${c.body.preferenza.id}`).send({ ambito: 'globale' });
+  assert.strictEqual(bad.status, 400); // ambito non valido
 });
 
 test('nucleo: crea/elenca/elimina + validazioni', async () => {

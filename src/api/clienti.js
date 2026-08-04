@@ -6,7 +6,7 @@ const { getTrattamentiSpa } = require('../pms/spa');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
 const { getProfilo, upsertLingua } = require('../crm/profilo');
-const { listPreferenze, createPreferenza, deletePreferenza, REPARTI, CATEGORIE } = require('../crm/preferenze');
+const { listPreferenze, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../crm/preferenze');
 const { listNucleo, createMembro, updateMembro, deleteMembro, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
 const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
 const { aggregaCumulativi } = require('../stats');
@@ -237,12 +237,33 @@ function createClientiRouter(pmsDb, crmDb) {
     const reparto = b.reparto != null ? String(b.reparto).trim() : '';
     const categoria = b.categoria != null ? String(b.categoria).trim() : '';
     const testo = b.testo != null ? String(b.testo).trim() : '';
+    const ambito = b.ambito != null ? String(b.ambito).trim() : 'nucleo';
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     if (!testo) return res.status(400).json({ error: 'Testo mancante' });
     if (!REPARTI.includes(reparto)) return res.status(400).json({ error: 'Reparto non valido' });
     if (!CATEGORIE.includes(categoria)) return res.status(400).json({ error: 'Categoria non valida' });
-    const preferenza = await createPreferenza(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, reparto, categoria, testo });
+    if (!AMBITI.includes(ambito)) return res.status(400).json({ error: 'Ambito non valido' });
+    const preferenza = await createPreferenza(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, reparto, categoria, testo, ambito });
     res.status(201).json({ preferenza });
+  });
+
+  // Cambia l'ambito (o testo/reparto/categoria) di una preferenza.
+  router.patch('/preferenze/:id', async (req, res) => {
+    const id = intParam(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'ID non valido' });
+    const b = req.body || {};
+    const fields = {};
+    if (b.ambito !== undefined) {
+      const a = String(b.ambito).trim();
+      if (!AMBITI.includes(a)) return res.status(400).json({ error: 'Ambito non valido' });
+      fields.ambito = a;
+    }
+    if (b.testo !== undefined) { const t = String(b.testo).trim(); if (!t) return res.status(400).json({ error: 'Testo mancante' }); fields.testo = t; }
+    if (b.reparto !== undefined) { if (!REPARTI.includes(String(b.reparto).trim())) return res.status(400).json({ error: 'Reparto non valido' }); fields.reparto = String(b.reparto).trim(); }
+    if (b.categoria !== undefined) { if (!CATEGORIE.includes(String(b.categoria).trim())) return res.status(400).json({ error: 'Categoria non valida' }); fields.categoria = String(b.categoria).trim(); }
+    if (!Object.keys(fields).length) return res.status(400).json({ error: 'Niente da aggiornare' });
+    if (!(await updatePreferenza(crmDb, id, fields))) return res.status(404).json({ error: 'Preferenza non trovata' });
+    res.json({ ok: true });
   });
 
   delRoute('/preferenze/:id', deletePreferenza, 'Preferenza non trovata');

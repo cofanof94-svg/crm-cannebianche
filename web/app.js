@@ -542,14 +542,18 @@ $('#lingua-form').addEventListener('submit', async (e) => {
 async function caricaPreferenze(codCli) {
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/preferenze`);
   const pref = body.preferenze || [];
-  $('#cli-preferenze').innerHTML = pref.map((p) => `
+  $('#cli-preferenze').innerHTML = pref.map((p) => {
+    const amb = p.ambito || 'nucleo';
+    return `
     <li data-pref="${p.id}">
-      <div class="nota-testo"><span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>${esc(p.testo)}</div>
+      <div class="nota-testo"><span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>${esc(p.testo)}
+        <button type="button" class="badge-scope scope-toggle scope-${esc(amb)}" data-toggle-ambito="${p.id}" data-ambito="${esc(amb)}" title="Ambito: ${amb === 'nucleo' ? 'condivisa dal nucleo' : 'personale'} — clic per cambiare">${esc(amb)}</button></div>
       <div class="nota-meta">
         <span>${esc(p.autore || '?')} · ${new Date(p.created_at).toLocaleString('it-IT')}</span>
         <span class="nota-az"><button class="btn-icon danger" data-del-pref="${p.id}">Elimina</button></span>
       </div>
-    </li>`).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
+    </li>`;
+  }).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
 }
 
 $('#pref-form').addEventListener('submit', async (e) => {
@@ -566,7 +570,13 @@ $('#pref-form').addEventListener('submit', async (e) => {
 
 $('#cli-preferenze').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-pref]');
-  if (del) { await api(`/api/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); }
+  if (del) { await api(`/api/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); return; }
+  const tog = e.target.closest('[data-toggle-ambito]');
+  if (tog) {
+    const nuovo = tog.dataset.ambito === 'nucleo' ? 'personale' : 'nucleo';
+    await api(`/api/preferenze/${tog.dataset.toggleAmbito}`, { method: 'PATCH', body: JSON.stringify({ ambito: nuovo }) });
+    caricaPreferenze(clienteCorrente);
+  }
 });
 
 // --- Suggerimenti AI (Fase 3 C): proposte on-demand, l'operatore conferma ---
@@ -581,9 +591,11 @@ function renderSuggerimenti(msg) {
     const afClass = 'aff-' + af.replace(/\s+/g, '-');
     const fonteMot = [s.fonte, s.motivo].filter(Boolean).map(esc).join(' — ');
     const safety = s.tipo === 'intolleranza' ? '<span class="ai-tag ai-intolleranza">Intolleranza · sicurezza</span> ' : '';
+    const scope = s.tipo === 'preferenza' ? `<span class="badge-scope scope-${esc(s.ambito || 'nucleo')}">${esc(s.ambito || 'nucleo')}</span>` : '';
     return `<li class="ai-item">
       <label><input type="checkbox" data-sugg="${i}" checked />
         <span class="ai-testo">${safety}${esc(s.testo)}</span>
+        ${scope}
         <span class="ai-conf ${afClass}">${esc(af)}</span>
       </label>
       ${fonteMot ? `<span class="ai-motivo">${fonteMot}</span>` : ''}
@@ -629,7 +641,7 @@ $('#cli-suggerimenti').addEventListener('click', async (e) => {
       await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/intolleranze`, { method: 'POST', body: JSON.stringify({ testo: s.testo }) });
       salvaIntol = true;
     } else {
-      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, { method: 'POST', body: JSON.stringify({ reparto: s.reparto, categoria: s.categoria, testo: s.testo }) });
+      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, { method: 'POST', body: JSON.stringify({ reparto: s.reparto, categoria: s.categoria, testo: s.testo, ambito: s.ambito || 'nucleo' }) });
       salvaPref = true;
     }
   }
