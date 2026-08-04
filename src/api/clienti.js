@@ -128,15 +128,21 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     const ai = getAiClient();
     if (!ai) return res.status(503).json({ error: 'AI non configurata (manca @anthropic-ai/sdk o ANTHROPIC_API_KEY)' });
+    // Proposte già mostrate in questa sessione (dal client), da non riproporre.
+    const b = req.body || {};
+    const giaMostrate = Array.isArray(b.giaMostrate) ? b.giaMostrate.map((t) => String(t)).slice(0, 50) : [];
     const { membri } = await getGruppo(crmDb, codCli);
-    const [gusti, spa, note, intolleranze, preferenze] = await Promise.all([
+    const [gusti, spa, note, intolleranze, preferenze, anags] = await Promise.all([
       getGustiFB(pmsDb, membri),
       getTrattamentiSpa(pmsDb, membri),
       listNote(crmDb, membri),
       listIntolleranze(crmDb, membri),
       listPreferenze(crmDb, membri),
+      Promise.all(membri.map((id) => getCliente(pmsDb, id))),
     ]);
-    const fatti = costruisciFatti({ gusti, spa, note, intolleranze, preferenze });
+    // Note anagrafica dal PMS (Annotazioni), unite su tutti i codici del gruppo.
+    const notePms = anags.filter(Boolean).map((a) => a.note).filter(Boolean).join('\n');
+    const fatti = costruisciFatti({ gusti, spa, note, notePms, intolleranze, preferenze, giaMostrate });
     if (!haFatti(fatti)) return res.json({ suggerimenti: [], motivo: 'dati insufficienti' });
     const suggerimenti = await suggerisci(ai.client, fatti, { model: ai.model });
     // Audit minimale (Fase 3 privacy): chi ha generato suggerimenti, per chi, quanti.

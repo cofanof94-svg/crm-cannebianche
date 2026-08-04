@@ -451,7 +451,7 @@ async function loadCliente(codCli) {
   popolaSelect($('#pref-form').reparto, REPARTI, 'Reparto');
   popolaSelect($('#pref-form').categoria, CATEGORIE, 'Categoria');
   popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
-  suggerimentiCorrenti = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
+  suggerimentiCorrenti = []; suggerimentiMostrati = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
     caricaGusti(codCli), caricaSpa(codCli), caricaDuplicati(codCli), caricaLingua(codCli), caricaIntolleranze(codCli),
@@ -599,10 +599,11 @@ $('#cli-preferenze').addEventListener('click', async (e) => {
 
 // --- Suggerimenti AI (Fase 3 C): proposte on-demand, l'operatore conferma ---
 let suggerimentiCorrenti = [];
+let suggerimentiMostrati = []; // testi già proposti in questa sessione (dedup lato AI)
 function renderSuggerimenti(msg) {
   const box = $('#cli-suggerimenti');
   if (typeof msg === 'string') { box.innerHTML = `<div class="ai-msg">${esc(msg)}</div>`; return; }
-  if (!suggerimentiCorrenti.length) { box.innerHTML = '<div class="ai-msg">Nessun suggerimento: dati insufficienti o già tutto registrato.</div>'; return; }
+  if (!suggerimentiCorrenti.length) { box.innerHTML = '<div class="ai-msg">Non sono state trovate nuove preferenze da suggerire.</div>'; return; }
   const righe = suggerimentiCorrenti.map((s, i) => {
     const tag = s.tipo === 'intolleranza' ? 'Intolleranza · sicurezza' : `${esc(s.reparto)} · ${esc(s.categoria)}`;
     const motivo = s.motivo ? `<span class="ai-motivo">${esc(s.motivo)}</span>` : '';
@@ -630,10 +631,14 @@ $('#btn-suggerisci').addEventListener('click', async (e) => {
   suggerimentiCorrenti = [];
   renderSuggerimenti('Analisi dei consumi e delle note in corso…');
   try {
-    const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/suggerimenti`, { method: 'POST' });
+    const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/suggerimenti`, {
+      method: 'POST', body: JSON.stringify({ giaMostrate: suggerimentiMostrati }),
+    });
     if (status === 503) { renderSuggerimenti('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); return; }
     if (status !== 200) { renderSuggerimenti('Errore durante la generazione dei suggerimenti.'); return; }
     suggerimentiCorrenti = body.suggerimenti || [];
+    // memorizzo i testi proposti così una nuova richiesta non li ripropone
+    suggerimentiMostrati.push(...suggerimentiCorrenti.map((s) => s.testo));
     renderSuggerimenti();
   } catch { renderSuggerimenti('Errore di rete durante la generazione.'); }
   finally { btn.disabled = false; btn.textContent = orig; }

@@ -46,22 +46,24 @@ const SCHEMA = {
 
 const SYSTEM = [
   "Sei l'assistente CRM di un hotel 5 stelle (Canne Bianche Lifestyle Hotel, Torre Canne).",
-  "Dai FATTI di un ospite proponi poche preferenze SENSATE e utili per personalizzare il servizio.",
+  'Dai FATTI di un ospite proponi SOLO NUOVE preferenze, utili a personalizzare il servizio.',
   'Regole:',
+  '- Considera TUTTE le fonti con pari peso: note anagrafica (PMS), note CRM, consumi F&B, trattamenti SPA, dati CRM. Nessuna fonte prevale sulle altre.',
   '- Sintetizza il TRATTO, non il singolo consumo: "Caffè: preferisce leccese", non "ha ordinato 3 caffè leccese".',
-  '- Una forte prevalenza vale come segnale anche se vista in un solo soggiorno.',
+  '- Proponi solo preferenze NUOVE: non riproporre nulla già presente fra preferenze/intolleranze registrate, né fra quelle già proposte in questa sessione.',
+  '- Il confronto è SEMANTICO, non testuale: se una proposta esprime lo stesso concetto di una già presente/proposta è un duplicato e va OMESSA (es. "Adora la Coca-Cola Zero" ≡ "Piace molto la Coca-Cola Zero").',
+  '- Inferenze equilibrate: deduci una preferenza solo se sostenuta da evidenze RIPETUTE o comunque solide (prevalenza netta, nota esplicita). Evita affermazioni eccessive o basate su un singolo indizio debole.',
   '- Includi anche i tratti NEGATIVI se emergono dalle note (es. "Non gradisce il piano terra").',
-  '- NON riproporre cose già presenti fra intolleranze/preferenze registrate.',
   "- Le intolleranze/allergie sono un dato di SICUREZZA: proponile come tipo 'intolleranza' (reparto/categoria vuoti) solo se esplicite nelle note.",
   "- Per le preferenze scegli reparto (destinatario) e categoria coerenti; il testo è breve e operativo.",
   "- I trattamenti SPA ricorrenti sono preferenze reparto 'SPA' (es. 'Predilige il massaggio Serenity', 'Abituale del percorso benessere').",
-  '- Massimo 8 suggerimenti. Se i fatti non bastano, restituisci una lista vuota. Non inventare.',
-  '- confidenza: "alta" solo con evidenza forte (prevalenza netta o nota esplicita).',
+  '- Massimo 8 suggerimenti. Se non ci sono nuove preferenze solide, restituisci una lista VUOTA. Non inventare.',
+  '- confidenza: "alta" solo con evidenza forte e ripetuta; "bassa" per indizi deboli.',
 ].join('\n');
 
 // Costruisce il blocco FATTI testuale, minimizzando i dati inviati: niente
 // identificativi/cognomi, solo i segnali utili alle preferenze.
-function costruisciFatti({ gusti, spa, note, intolleranze, preferenze } = {}) {
+function costruisciFatti({ gusti, spa, note, notePms, intolleranze, preferenze, giaMostrate } = {}) {
   const parti = [];
 
   const items = (gusti && gusti.items) || [];
@@ -82,6 +84,12 @@ function costruisciFatti({ gusti, spa, note, intolleranze, preferenze } = {}) {
     parti.push(`TRATTAMENTI SPA / BENESSERE (dagli extra):\n${righe}`);
   }
 
+  // Note anagrafica dal PMS (pari peso con le note CRM).
+  const testoPms = (notePms == null ? '' : String(notePms)).trim();
+  if (testoPms) {
+    parti.push(`NOTE ANAGRAFICA (PMS):\n${testoPms}`);
+  }
+
   const testiNote = (note || []).map((n) => (n.testo || '').trim()).filter(Boolean);
   if (testiNote.length) {
     parti.push(`NOTE CRM:\n${testiNote.map((t) => `- ${t}`).join('\n')}`);
@@ -97,6 +105,12 @@ function costruisciFatti({ gusti, spa, note, intolleranze, preferenze } = {}) {
     .filter((s) => s.trim().endsWith(':') === false);
   if (testiPref.length) {
     parti.push(`PREFERENZE GIÀ REGISTRATE (non riproporre):\n${testiPref.map((t) => `- ${t}`).join('\n')}`);
+  }
+
+  // Proposte già mostrate in questa sessione: da NON riproporre (confronto semantico).
+  const testiGia = (giaMostrate || []).map((t) => (t == null ? '' : String(t)).trim()).filter(Boolean);
+  if (testiGia.length) {
+    parti.push(`GIÀ PROPOSTE IN QUESTA SESSIONE (non riproporre):\n${testiGia.map((t) => `- ${t}`).join('\n')}`);
   }
 
   return parti.join('\n\n');

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  costruisciFatti, haFatti, buildRequest, parseSuggerimenti, suggerisci, SCHEMA,
+  costruisciFatti, haFatti, buildRequest, parseSuggerimenti, suggerisci, SCHEMA, SYSTEM,
 } = require('../src/ai/suggerisci');
 
 // Client mock: ritorna una risposta con un blocco text contenente il JSON dato.
@@ -28,6 +28,26 @@ test('costruisciFatti compone i blocchi e minimizza (nessun id/cognome)', () => 
   assert.match(fatti, /Lattosio/);
   assert.match(fatti, /PREFERENZE GIÀ REGISTRATE/);
   assert.match(fatti, /Rooms\/Camera: Vista mare/);
+});
+
+test('costruisciFatti include note PMS e le proposte già mostrate in sessione', () => {
+  const fatti = costruisciFatti({
+    notePms: 'Ospite abituale, ama la vista mare',
+    note: [{ testo: 'Chiede sempre il tavolo in veranda' }],
+    giaMostrate: ['Predilige la vista mare', 'Caffè leccese'],
+  });
+  assert.match(fatti, /NOTE ANAGRAFICA \(PMS\)/);
+  assert.match(fatti, /ama la vista mare/);
+  assert.match(fatti, /GIÀ PROPOSTE IN QUESTA SESSIONE/);
+  assert.match(fatti, /Predilige la vista mare/);
+  assert.match(fatti, /Caffè leccese/);
+});
+
+test('SYSTEM impone pari peso, dedup semantico e solo nuove', () => {
+  assert.match(SYSTEM, /pari peso/);
+  assert.match(SYSTEM, /SEMANTICO/);
+  assert.match(SYSTEM, /NUOVE/);
+  assert.match(SYSTEM, /note anagrafica \(PMS\)/);
 });
 
 test('costruisciFatti senza dati → stringa vuota, haFatti false', () => {
