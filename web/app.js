@@ -466,6 +466,7 @@ async function loadCliente(codCli) {
   popolaSelect($('#pref-form').categoria, CATEGORIE, 'Categoria');
   popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
   suggerimentiCorrenti = []; suggerimentiMostrati = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
+  nucleoEditId = null; // esci da eventuale edit-mode del nucleo
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
     caricaGusti(codCli), caricaSpa(codCli), caricaDuplicati(codCli), caricaLingua(codCli), caricaIntolleranze(codCli),
@@ -638,22 +639,38 @@ $('#cli-suggerimenti').addEventListener('click', async (e) => {
 });
 
 // --- Nucleo di viaggio / accompagnatori ---
-// Righe completamente editabili: relazione, nome, cognome, nota (salva → PATCH).
-// I membri precompilati dalle prenotazioni portano il badge "auto".
+// Righe in SOLA LETTURA (= dato salvato). La matita ✎ entra in edit-mode; con
+// Salva il dato viene persistito e la riga torna alla vista pulita (ricaricata dal
+// server → conferma del salvataggio). I membri precompilati portano il badge "auto".
+let nucleoEditId = null;
 async function caricaNucleo(codCli) {
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/nucleo`);
   const membri = body.nucleo || [];
   $('#cli-nucleo').innerHTML = membri.map((m) => {
-    const opts = RELAZIONI.map((r) => `<option${r === m.tipo_relazione ? ' selected' : ''}>${esc(r)}</option>`).join('');
     const auto = m.pms_occupant_id ? '<span class="nucleo-auto" title="Precompilato automaticamente dalle prenotazioni">auto</span>' : '';
+    if (m.id === nucleoEditId) {
+      const opts = RELAZIONI.map((r) => `<option${r === m.tipo_relazione ? ' selected' : ''}>${esc(r)}</option>`).join('');
+      return `<li class="nucleo-item nucleo-editing" data-nucleo="${m.id}">
+        <select class="nucleo-rel" data-field="tipoRelazione">${opts}</select>
+        <input class="nucleo-in" data-field="nome" value="${esc(m.nome || '')}" placeholder="Nome" autocomplete="off" />
+        <input class="nucleo-in" data-field="cognome" value="${esc(m.cognome || '')}" placeholder="Cognome" autocomplete="off" />
+        <input class="nucleo-in nucleo-nota" data-field="nota" value="${esc(m.nota || '')}" placeholder="Nota" autocomplete="off" />
+        <button type="button" class="btn btn-sm btn-primary" data-save-nucleo="${m.id}">Salva</button>
+        <button type="button" class="btn btn-sm" data-cancel-nucleo="${m.id}">Annulla</button>
+      </li>`;
+    }
+    const nomeCompl = [m.nome, m.cognome].filter(Boolean).join(' ') || '—';
     return `<li class="nucleo-item" data-nucleo="${m.id}">
-      <select class="nucleo-rel" data-field="tipoRelazione">${opts}</select>
-      <input class="nucleo-in" data-field="nome" value="${esc(m.nome || '')}" placeholder="Nome" autocomplete="off" />
-      <input class="nucleo-in" data-field="cognome" value="${esc(m.cognome || '')}" placeholder="Cognome" autocomplete="off" />
-      <input class="nucleo-in nucleo-nota" data-field="nota" value="${esc(m.nota || '')}" placeholder="Nota" autocomplete="off" />
-      ${auto}
-      <button type="button" class="btn btn-sm" data-save-nucleo="${m.id}">Salva</button>
-      <button type="button" class="btn-icon danger" data-del-nucleo="${m.id}">Elimina</button>
+      <div class="nucleo-view">
+        <span class="pref-tag">${esc(m.tipo_relazione)}</span>
+        <span class="nucleo-nome">${esc(nomeCompl)}</span>
+        ${m.nota ? `<span class="cell-muted">— ${esc(m.nota)}</span>` : ''}
+        ${auto}
+      </div>
+      <span class="nucleo-az">
+        <button type="button" class="btn-icon" data-edit-nucleo="${m.id}" title="Modifica">✎</button>
+        <button type="button" class="btn-icon danger" data-del-nucleo="${m.id}" title="Elimina">🗑</button>
+      </span>
     </li>`;
   }).join('') || '<li class="nota-vuota">Nessun componente. Aggiungine uno qui sopra.</li>';
 }
@@ -672,17 +689,25 @@ $('#nucleo-form').addEventListener('submit', async (e) => {
 });
 
 $('#cli-nucleo').addEventListener('click', async (e) => {
+  const edit = e.target.closest('[data-edit-nucleo]');
+  if (edit) { nucleoEditId = Number(edit.dataset.editNucleo); caricaNucleo(clienteCorrente); return; }
+  const cancel = e.target.closest('[data-cancel-nucleo]');
+  if (cancel) { nucleoEditId = null; caricaNucleo(clienteCorrente); return; }
   const del = e.target.closest('[data-del-nucleo]');
-  if (del) { await api(`/api/nucleo/${del.dataset.delNucleo}`, { method: 'DELETE' }); caricaNucleo(clienteCorrente); return; }
+  if (del) {
+    if (nucleoEditId === Number(del.dataset.delNucleo)) nucleoEditId = null;
+    await api(`/api/nucleo/${del.dataset.delNucleo}`, { method: 'DELETE' });
+    caricaNucleo(clienteCorrente); return;
+  }
   const save = e.target.closest('[data-save-nucleo]');
   if (save) {
     const li = save.closest('[data-nucleo]');
     const payload = {};
     li.querySelectorAll('[data-field]').forEach((el) => { payload[el.dataset.field] = el.value.trim(); });
-    save.disabled = true; const t = save.textContent;
+    save.disabled = true; save.textContent = 'Salvataggio…';
     const { status } = await api(`/api/nucleo/${save.dataset.saveNucleo}`, { method: 'PATCH', body: JSON.stringify(payload) });
-    save.textContent = status === 200 ? 'Salvato ✓' : 'Errore';
-    setTimeout(() => { save.disabled = false; save.textContent = t; }, 1000);
+    if (status === 200) { nucleoEditId = null; caricaNucleo(clienteCorrente); } // ricarica dal server = conferma
+    else { save.disabled = false; save.textContent = 'Errore'; }
   }
 });
 
