@@ -242,30 +242,18 @@
             <div id="cli-merge-banner" class="merge-banner" hidden></div>
             <div id="cli-duplicati" class="dup-box" hidden></div>
 
+            <!-- RELAZIONE: metriche chiave, sempre visibili -->
             <div class="cli-stats">
               <div class="stat"><span class="stat-n" id="cli-nsogg">–</span><span class="stat-l">Soggiorni <span class="info" data-tip="Tutte le prenotazioni valide del cliente, inclusi i day-use (0 notti: ristorante/SPA). Escluse Eliminate e No-show.">i</span></span></div>
               <div class="stat"><span class="stat-n" id="cli-notti">–</span><span class="stat-l">Notti totali <span class="info" data-tip="Somma delle notti dei soggiorni validi. I day-use contano 0 notti.">i</span></span></div>
               <div class="stat stat-hl"><span class="stat-n" id="cli-ltv">–</span><span class="stat-l">Valore storico (LTV) <span class="info" data-tip="Totale realmente speso dal cliente nel tempo (arrangiamenti + extra maturati). City tax esclusa.">i</span></span><span class="stat-sub" id="cli-ltv-media"></span></div>
-              <div class="stat"><span class="stat-n" id="cli-arr">–</span><span class="stat-l">Arrangiamenti <span class="info" data-tip="Totale maturato per pensione/trattamento (righe con arrangiamento).">i</span></span><span class="stat-sub" id="cli-arr-media"></span></div>
-              <div class="stat"><span class="stat-n" id="cli-extra">–</span><span class="stat-l">Extra <span class="stat-note">(city tax esclusa)</span> <span class="info" data-tip="Consumi extra maturati (ristorante, spiaggia, ecc.). City tax esclusa dal totale.">i</span></span><span class="stat-sub" id="cli-extra-media"></span></div>
               <div class="stat stat-visite">
                 <div class="visita-riga"><span class="visita-l">Prima visita <span class="info" data-tip="Data del primo e dell'ultimo soggiorno valido del cliente (esclusi Eliminate e No-show).">i</span></span><span class="visita-d" id="cli-prima">–</span></div>
                 <div class="visita-riga"><span class="visita-l">Ultima visita</span><span class="visita-d" id="cli-ultima">–</span></div>
               </div>
-              <div class="stat"><span class="stat-n stat-sm" id="cli-source">–</span><span class="stat-l">Ultima Source <span class="info" data-tip="Canale di vendita dell'ultima prenotazione: Diretti, OTA, Agenzie, T.O., GDS…">i</span></span></div>
-              <div class="stat"><span class="stat-n stat-sm" id="cli-mercato">–</span><span class="stat-l">Tipologia viaggio <span class="info" data-tip="Segmento/mercato dell'ultima prenotazione: Leisure, Group, MICE, SPA, Evento…">i</span></span></div>
             </div>
 
-            <div id="cli-anagnote" class="cli-anagnote" hidden></div>
-
-            <h2 class="sez">Lingua preferita <span class="info" data-tip="Lingua preferita del cliente per le comunicazioni. Dato interno CRM, inserito dal team.">i</span></h2>
-            <div class="card note-box lingua-box">
-              <form id="lingua-form" class="lingua-form">
-                <input id="cli-lingua" name="lingua" placeholder="Es. IT, EN, DE…" autocomplete="off" maxlength="40" />
-                <button type="submit" class="btn btn-primary">Salva</button>
-              </form>
-            </div>
-
+            <!-- SICUREZZA -->
             <h2 class="sez">Intolleranze / allergie <span class="sez-safety">sicurezza</span> <span class="info" data-tip="Intolleranze e allergie alimentari del cliente. Dato di sicurezza, inserito dal team.">i</span></h2>
             <div class="card note-box note-box-safety">
               <form id="intol-form" class="nota-form">
@@ -275,6 +263,7 @@
               <ul id="cli-intolleranze" class="note-list"></ul>
             </div>
 
+            <!-- PREFERENZE + AI -->
             <h2 class="sez">Preferenze <span class="info" data-tip="Preferenze del cliente per reparto (Rooms/F&B/SPA/Front office) e categoria. Dato interno CRM.">i</span></h2>
             <div class="card note-box">
               <form id="pref-form" class="pref-form">
@@ -291,6 +280,27 @@
               <ul id="cli-preferenze" class="note-list"></ul>
             </div>
 
+            <!-- RECLAMI / informazioni importanti -->
+            <h2 class="sez">Complaints <span class="info" data-tip="Reclami e criticità segnalati dal cliente, con periodo e stato aperto/risolto. Dato interno CRM.">i</span></h2>
+            <div class="card note-box">
+              <form id="compl-form" class="pref-form">
+                <input name="testo" placeholder="Aggiungi un complaint…" required autocomplete="off" />
+                <input name="periodo" placeholder="Periodo (es. ago 2025)" autocomplete="off" maxlength="60" />
+                <button type="submit" class="btn btn-primary">Aggiungi</button>
+              </form>
+              <ul id="cli-complaints" class="note-list"></ul>
+            </div>
+
+            <!-- LINGUA -->
+            <h2 class="sez">Lingua preferita <span class="info" data-tip="Lingua preferita del cliente per le comunicazioni. Dato interno CRM, inserito dal team.">i</span></h2>
+            <div class="card note-box lingua-box">
+              <form id="lingua-form" class="lingua-form">
+                <input id="cli-lingua" name="lingua" placeholder="Es. IT, EN, DE…" autocomplete="off" maxlength="40" />
+                <button type="submit" class="btn btn-primary">Salva</button>
+              </form>
+            </div>
+
+            <!-- NUCLEO -->
             <h2 class="sez">Nucleo di viaggio <span class="info" data-tip="Accompagnatori del cliente: relazione (coniuge/figlio/…), nome e note. Dato interno CRM.">i</span></h2>
             <div class="card note-box">
               <form id="nucleo-form" class="pref-form">
@@ -303,6 +313,33 @@
               <ul id="cli-nucleo" class="note-list"></ul>
             </div>
 
+            <!-- ============ DETTAGLI (collassabili) ============ -->
+            <details class="sez-collapse">
+              <summary class="sez sez-sum">Dettaglio commerciale ed economico <span class="sez-hint">arrangiamenti, extra, canale, mercato — apri</span></summary>
+              <div class="cli-stats">
+                <div class="stat"><span class="stat-n" id="cli-arr">–</span><span class="stat-l">Arrangiamenti <span class="info" data-tip="Totale maturato per pensione/trattamento (righe con arrangiamento).">i</span></span><span class="stat-sub" id="cli-arr-media"></span></div>
+                <div class="stat"><span class="stat-n" id="cli-extra">–</span><span class="stat-l">Extra <span class="stat-note">(city tax esclusa)</span> <span class="info" data-tip="Consumi extra maturati (ristorante, spiaggia, ecc.). City tax esclusa dal totale.">i</span></span><span class="stat-sub" id="cli-extra-media"></span></div>
+                <div class="stat"><span class="stat-n stat-sm" id="cli-source">–</span><span class="stat-l">Ultima Source <span class="info" data-tip="Canale di vendita dell'ultima prenotazione: Diretti, OTA, Agenzie, T.O., GDS…">i</span></span></div>
+                <div class="stat"><span class="stat-n stat-sm" id="cli-mercato">–</span><span class="stat-l">Tipologia viaggio <span class="info" data-tip="Segmento/mercato dell'ultima prenotazione: Leisure, Group, MICE, SPA, Evento…">i</span></span></div>
+              </div>
+            </details>
+
+            <details class="sez-collapse" id="cli-anagnote-box" hidden>
+              <summary class="sez sez-sum">Note anagrafica (PMS) <span class="sez-hint">annotazioni dal gestionale — apri</span></summary>
+              <div id="cli-anagnote" class="cli-anagnote"></div>
+            </details>
+
+            <details class="sez-collapse">
+              <summary class="sez sez-sum">Note CRM <span class="sez-hint">note interne del team — apri</span> <span class="info" data-tip="Note interne libere del team sul cliente. Non provengono dal gestionale.">i</span></summary>
+              <div class="card note-box">
+                <form id="nota-form" class="nota-form">
+                  <input name="testo" placeholder="Aggiungi una nota…" required autocomplete="off" />
+                  <button type="submit" class="btn btn-primary">Aggiungi</button>
+                </form>
+                <ul id="cli-note" class="note-list"></ul>
+              </div>
+            </details>
+
             <details class="sez-collapse">
               <summary class="sez sez-sum">Gusti F&amp;B <span class="sez-hint">consumi ristorante/bar — apri per il dettaglio</span> <span class="info" data-tip="Consumi ristorante/bar dell'ospite aggregati dai dati reali. Attribuiti per camera + data del soggiorno (con famiglie sono del nucleo). Voci omaggio/interne escluse.">i</span></summary>
               <div class="card note-box" id="cli-gusti"></div>
@@ -313,32 +350,15 @@
               <div class="card note-box" id="cli-spa"></div>
             </details>
 
-            <h2 class="sez">Note CRM <span class="info" data-tip="Note interne libere del team sul cliente. Non provengono dal gestionale.">i</span></h2>
-            <div class="card note-box">
-              <form id="nota-form" class="nota-form">
-                <input name="testo" placeholder="Aggiungi una nota…" required autocomplete="off" />
-                <button type="submit" class="btn btn-primary">Aggiungi</button>
-              </form>
-              <ul id="cli-note" class="note-list"></ul>
-            </div>
-
-            <h2 class="sez">Complaints <span class="info" data-tip="Reclami e criticità segnalati dal cliente, con periodo e stato aperto/risolto. Dato interno CRM.">i</span></h2>
-            <div class="card note-box">
-              <form id="compl-form" class="pref-form">
-                <input name="testo" placeholder="Aggiungi un complaint…" required autocomplete="off" />
-                <input name="periodo" placeholder="Periodo (es. ago 2025)" autocomplete="off" maxlength="60" />
-                <button type="submit" class="btn btn-primary">Aggiungi</button>
-              </form>
-              <ul id="cli-complaints" class="note-list"></ul>
-            </div>
-
-            <h2 class="sez">Storico prenotazioni <span class="info" data-tip="Tutte le prenotazioni del cliente (correnti e archiviate): periodo, camere, importi e stato. Una riga per pratica.">i</span></h2>
-            <div class="card table-wrap">
-              <table class="cli-sogg-tab">
-                <thead><tr><th>Pratica</th><th>Periodo</th><th class="num">Notti</th><th>Camere</th><th class="num">Arrangiamenti</th><th class="num">Extra</th><th>Stato <span class="info info-pop info-left">i<span class="info-pop-body"><span class="info-pop-row"><b>Pianificata</b> — arrivo futuro</span><span class="info-pop-row"><b>Confermato</b> — arrivo oggi, check-in in attesa</span><span class="info-pop-row"><b>In casa</b> — ospite attualmente presente</span><span class="info-pop-row"><b>Partito</b> — check-out effettuato</span><span class="info-pop-row"><b>Concluso</b> — soggiorno archiviato</span><span class="info-pop-row"><b>No-show</b> — arrivo passato, mai arrivato</span><span class="info-pop-row"><b>Eliminata</b> — prenotazione annullata</span><span class="info-pop-note">No-show ed Eliminata non contano nei soggiorni.</span></span></span></th></tr></thead>
-                <tbody id="cli-soggiorni"></tbody>
-              </table>
-            </div>
+            <details class="sez-collapse">
+              <summary class="sez sez-sum">Storico prenotazioni <span class="sez-hint">tutte le prenotazioni — apri</span> <span class="info" data-tip="Tutte le prenotazioni del cliente (correnti e archiviate): periodo, camere, importi e stato. Una riga per pratica.">i</span></summary>
+              <div class="card table-wrap">
+                <table class="cli-sogg-tab">
+                  <thead><tr><th>Pratica</th><th>Periodo</th><th class="num">Notti</th><th>Camere</th><th class="num">Arrangiamenti</th><th class="num">Extra</th><th>Stato <span class="info info-pop info-left">i<span class="info-pop-body"><span class="info-pop-row"><b>Pianificata</b> — arrivo futuro</span><span class="info-pop-row"><b>Confermato</b> — arrivo oggi, check-in in attesa</span><span class="info-pop-row"><b>In casa</b> — ospite attualmente presente</span><span class="info-pop-row"><b>Partito</b> — check-out effettuato</span><span class="info-pop-row"><b>Concluso</b> — soggiorno archiviato</span><span class="info-pop-row"><b>No-show</b> — arrivo passato, mai arrivato</span><span class="info-pop-row"><b>Eliminata</b> — prenotazione annullata</span><span class="info-pop-note">No-show ed Eliminata non contano nei soggiorni.</span></span></span></th></tr></thead>
+                  <tbody id="cli-soggiorni"></tbody>
+                </table>
+              </div>
+            </details>
 
             <h2 class="sez sez-minor">Consensi privacy <span class="info" data-tip="Consensi GDPR dal gestionale: marketing, telefonate in camera, conservazione, cessione. Sola lettura.">i</span></h2>
             <div class="consensi consensi-minor" id="cli-consensi"></div>

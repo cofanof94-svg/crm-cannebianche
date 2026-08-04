@@ -439,8 +439,8 @@ async function loadCliente(codCli) {
   $('#cli-mercato').textContent = s.ultimoMercato || '—';
   $('#cli-prima').textContent = fmtData(s.primaVisita);
   $('#cli-ultima').textContent = fmtData(s.ultimaVisita);
-  const an = $('#cli-anagnote');
-  if (a.note) { an.hidden = false; an.innerHTML = `<b>Note anagrafica (PMS)</b>${esc(a.note)}`; } else an.hidden = true;
+  const anBox = $('#cli-anagnote-box');
+  if (a.note) { anBox.hidden = false; $('#cli-anagnote').innerHTML = esc(a.note); } else { anBox.hidden = true; }
   clienteNSogg = (d.soggiorni || []).length;
   renderMergeBanner(codCli, d.merge);
   $('#cli-soggiorni').innerHTML = (d.soggiorni || []).map(rigaSoggiorno).join('')
