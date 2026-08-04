@@ -9,17 +9,20 @@
 
 const { inClause } = require('../db/query');
 
+// F&B/Bar sono consumi di CAMERA (per camera+data): dato DEL SOGGIORNO, condiviso
+// tra tutti gli occupanti. Aggancio la prenotazione sia via intestatario
+// (codclinterm) sia via occupante (Alberg.codcli) → visibile su tutti i membri.
 const sqlGusti = (inl) => `
 WITH stays AS (
   SELECT DISTINCT ad.codcam AS cam, CAST(sp.dtarrivo AS date) AS arr, CAST(sp.dtpartenza AS date) AS par
   FROM StorPrenota sp JOIN StorAlberg al ON al.codpratica = sp.codpratica
     JOIN StorAlbergDay ad ON ad.codalb = al.codalb
-  WHERE sp.codclinterm IN ${inl} AND ISNULL(ad.codcam,'') <> '' AND sp.DataEliminazione IS NULL
+  WHERE (sp.codclinterm IN ${inl} OR al.codcli IN ${inl}) AND ISNULL(ad.codcam,'') <> '' AND sp.DataEliminazione IS NULL
   UNION
   SELECT DISTINCT ad.codcam, CAST(p.dtarrivo AS date), CAST(p.dtpartenza AS date)
   FROM Prenota p JOIN Alberg al ON al.codpratica = p.codpratica
     JOIN AlbergDay ad ON ad.codalb = al.codalb
-  WHERE p.codclinterm IN ${inl} AND ISNULL(ad.codcam,'') <> '' AND p.DataEliminazione IS NULL
+  WHERE (p.codclinterm IN ${inl} OR al.codcli IN ${inl}) AND ISNULL(ad.codcam,'') <> '' AND p.DataEliminazione IS NULL
 )
 SELECT TOP 40 ac.CodArt AS codArt,
   LEFT(ISNULL(ma.desart, MAX(ac.desaggiunte)), 60) AS nome,

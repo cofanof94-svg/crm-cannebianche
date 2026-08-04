@@ -12,13 +12,14 @@
 
 const { inClause } = require('../db/query');
 
+// La SPA è un trattamento PERSONALE: addebitata sulla linea del singolo occupante
+// (Alberg/StorAlberg.codcli → codalb). Filtro per codalb dell'ospite stesso, non
+// per tutte le pratiche del gruppo → resta attribuita a chi l'ha ricevuto.
 const sqlSpa = (inl) => `
 WITH alb AS (
-  SELECT al.codalb FROM StorAlberg al JOIN StorPrenota sp ON sp.codpratica = al.codpratica
-  WHERE sp.codclinterm IN ${inl} AND sp.DataEliminazione IS NULL
+  SELECT al.codalb FROM StorAlberg al WHERE al.codcli IN ${inl}
   UNION
-  SELECT al.codalb FROM Alberg al JOIN Prenota p ON p.codpratica = al.codpratica
-  WHERE p.codclinterm IN ${inl} AND p.DataEliminazione IS NULL
+  SELECT al.codalb FROM Alberg al WHERE al.codcli IN ${inl}
 ),
 mov AS (
   SELECT codalb, codart, impoeur, qta FROM Matura

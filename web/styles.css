@@ -480,6 +480,11 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .nucleo-view { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 0; }
 .nucleo-nome { font-weight: 600; }
 .nucleo-az { display: inline-flex; gap: 4px; margin-left: auto; }
+
+/* --- Badge ambito: personale vs del soggiorno/nucleo --- */
+.badge-scope { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-radius: 6px; padding: 1px 7px; vertical-align: 1px; }
+.scope-nucleo { background: var(--sea-050); color: var(--sea-700); }
+.scope-personale { background: var(--brand-050); color: var(--brand); }
 .compl-top { display: flex; align-items: baseline; gap: 10px; }
 .compl-top .pill { flex: none; }
 .compl-risolto .compl-testo { color: var(--muted); text-decoration: line-through; }
