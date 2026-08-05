@@ -470,6 +470,7 @@ async function loadCliente(codCli) {
   popolaSelect($('#pref-form').categoria, CATEGORIE, 'Categoria');
   popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
   suggerimentiCorrenti = []; suggerimentiMostrati = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
+  resetAiButton(); // pulsante "Suggerisci AI" di nuovo disponibile all'apertura della scheda
   nucleoEditId = null; // esci da eventuale edit-mode del nucleo
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
@@ -594,6 +595,17 @@ $('#cli-preferenze').addEventListener('click', async (e) => {
 // --- Suggerimenti AI (Fase 3 C): proposte on-demand, l'operatore conferma ---
 let suggerimentiCorrenti = [];
 let suggerimentiMostrati = []; // testi già proposti in questa sessione (dedup lato AI)
+let aiEseguito = false;        // "Suggerisci AI" già lanciato su QUESTA scheda → pulsante disabilitato
+const AI_BTN_LABEL = '✨ Suggerisci preferenze (AI)';
+
+// Riabilita il pulsante AI (chiamato all'apertura/cambio scheda).
+function resetAiButton() {
+  aiEseguito = false;
+  const btn = $('#btn-suggerisci');
+  btn.disabled = false;
+  btn.textContent = AI_BTN_LABEL;
+  btn.removeAttribute('title');
+}
 function renderSuggerimenti(msg) {
   const box = $('#cli-suggerimenti');
   if (typeof msg === 'string') { box.innerHTML = `<div class="ai-msg">${esc(msg)}</div>`; return; }
@@ -618,25 +630,28 @@ function renderSuggerimenti(msg) {
     </div>`;
 }
 
-$('#btn-suggerisci').addEventListener('click', async (e) => {
-  if (!clienteCorrente) return;
-  const btn = e.target;
-  const orig = btn.textContent;
+$('#btn-suggerisci').addEventListener('click', async () => {
+  if (!clienteCorrente || aiEseguito) return; // già eseguito su questa scheda → no doppie chiamate
+  const btn = $('#btn-suggerisci');
   btn.disabled = true; btn.textContent = 'Analisi in corso…';
   suggerimentiCorrenti = [];
   renderSuggerimenti('Analisi dei consumi e delle note in corso…');
+  // errore/non configurato → si può riprovare (riabilito); esecuzione OK → resta disabilitato.
+  const riabilita = () => { btn.disabled = false; btn.textContent = AI_BTN_LABEL; };
   try {
     const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/suggerimenti`, {
       method: 'POST', body: JSON.stringify({ giaMostrate: suggerimentiMostrati }),
     });
-    if (status === 503) { renderSuggerimenti('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); return; }
-    if (status !== 200) { renderSuggerimenti('Errore durante la generazione dei suggerimenti.'); return; }
+    if (status === 503) { renderSuggerimenti('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); riabilita(); return; }
+    if (status !== 200) { renderSuggerimenti('Errore durante la generazione dei suggerimenti.'); riabilita(); return; }
     suggerimentiCorrenti = body.suggerimenti || [];
     // memorizzo i testi proposti così una nuova richiesta non li ripropone
     suggerimentiMostrati.push(...suggerimentiCorrenti.map((s) => s.testo));
     renderSuggerimenti();
-  } catch { renderSuggerimenti('Errore di rete durante la generazione.'); }
-  finally { btn.disabled = false; btn.textContent = orig; }
+    aiEseguito = true; // eseguito → resta disabilitato per tutta la permanenza sulla scheda
+    btn.textContent = '✨ Già suggerito su questa scheda';
+    btn.title = 'Riapri la scheda per rigenerare i suggerimenti';
+  } catch { renderSuggerimenti('Errore di rete durante la generazione.'); riabilita(); }
 });
 
 $('#cli-suggerimenti').addEventListener('click', async (e) => {
