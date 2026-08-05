@@ -635,7 +635,7 @@ $('#btn-suggerisci').addEventListener('click', async () => {
   const btn = $('#btn-suggerisci');
   btn.disabled = true; btn.textContent = 'Analisi in corso…';
   suggerimentiCorrenti = [];
-  $('#cli-suggerimenti').innerHTML = '<div class="ai-msg ai-loading"><span class="spinner"></span>Analisi dei consumi e delle note in corso…</div>';
+  $('#cli-suggerimenti').innerHTML = '<div class="ai-msg ai-loading"><span class="spinner"></span>L\'AI sta analizzando lo storico del cliente e generando nuove preferenze…</div>';
   // errore/non configurato → si può riprovare (riabilito); esecuzione OK → resta disabilitato.
   const riabilita = () => { btn.disabled = false; btn.textContent = AI_BTN_LABEL; };
   try {
