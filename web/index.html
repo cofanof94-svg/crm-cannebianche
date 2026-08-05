@@ -118,11 +118,15 @@
             </div>
             <div class="toolbar">
               <input type="search" id="arrivi-search" class="search" placeholder="Cerca camera, prenotazione o cliente…" />
-              <label class="date-field">Data
-                <input type="date" id="arrivi-data" />
-              </label>
+              <div class="date-nav">
+                <button type="button" id="arrivi-prev" class="date-btn" title="Giorno precedente" aria-label="Giorno precedente">‹</button>
+                <input type="date" id="arrivi-data" class="date-input" />
+                <button type="button" id="arrivi-next" class="date-btn" title="Giorno successivo" aria-label="Giorno successivo">›</button>
+                <button type="button" id="arrivi-oggi" class="date-today">Oggi</button>
+              </div>
             </div>
           </div>
+          <div id="arrivi-briefing" class="briefing" hidden></div>
           <div class="card-list" id="arrivi-cards" hidden></div>
           <div id="arrivi-msg" class="state" hidden></div>
         </section>

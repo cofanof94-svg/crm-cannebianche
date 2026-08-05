@@ -16,12 +16,14 @@ async function makeApp() {
     async query(text) {
       if (/FROM Persona/.test(text)) return [{ data: '2026-07-07' }];
       if (/AS arrivi/.test(text)) return [{ arrivi: 8, partenze: 3, presenti: 21 }];
-      if (/statoPartenza/.test(text)) return [{ codpratica: 5, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
+      if (/statoPartenza/.test(text)) return [{ codpratica: 5, codCliente: 77, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
         paxAdulti: 2, paxBambini: 0, dtarrivo: '2026-04-20', dtpartenza: '2026-04-25', notti: 5,
         oraArrivo: null, inCasa: 'S', statoPartenza: 'incasa', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }];
+      // anagrafica batch per l'arricchimento arrivi
+      if (/FROM Anagra a/.test(text)) return [{ CodCli: 42, Cognome: 'ROSSI', Nome: 'MARIO', dtNascita: null, CodVip: 'V1', DesVip: 'BOLLICINE' }];
       // query arrivi
-      return [{ codpratica: 1, cognome: 'ROSSI', nome: 'MARIO', camere: '101',
-        paxAdulti: 2, paxBambini: 0, dtpartenza: '2026-07-10', notti: 4,
+      return [{ codpratica: 1, codCliente: 42, cognome: 'ROSSI', nome: 'MARIO', camere: '101',
+        paxAdulti: 2, paxBambini: 0, dtarrivo: '2026-07-06', dtpartenza: '2026-07-10', notti: 4,
         oraArrivo: '15:00', inCasa: 'N', provenienza: 'Diretto', trattamento: 'BB', note: null }];
     },
   };
@@ -47,6 +49,13 @@ test('GET /api/arrivi con data valida → 200 con lista', async () => {
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.body.data, '2026-07-06');
   assert.strictEqual(res.body.arrivi[0].nominativo, 'ROSSI MARIO');
+  // arricchimento: briefing giornaliero + snapshot per arrivo
+  assert.ok(res.body.briefing, 'manca il briefing');
+  assert.strictEqual(res.body.briefing.arrivi, 1);
+  assert.strictEqual(res.body.briefing.vip, 1); // ROSSI MARIO è VIP (BOLLICINE)
+  const snap = res.body.arrivi[0].snapshot;
+  assert.ok(snap, 'manca lo snapshot');
+  assert.strictEqual(snap.vip.descrizione, 'BOLLICINE');
 });
 
 test('GET /api/arrivi con data non valida → 400', async () => {

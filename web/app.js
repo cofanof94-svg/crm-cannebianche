@@ -98,12 +98,82 @@ function matchRicerca(a, term) {
 // --- Arrivi ---
 let arriviInit = false;
 let arriviAll = [];
+let arriviBriefing = null;
+let arriviData = null;
+let filtroBriefing = 'all';
+
+// Chip dell'Arrival Briefing: etichetta, campo del conteggio e predicato di filtro
+// sullo snapshot dell'arrivo. "Mostrare prima le informazioni giuste".
+const BRIEF_CHIPS = [
+  { key: 'all', label: 'Arrivi', field: 'arrivi', pred: () => true },
+  { key: 'vip', label: 'VIP', field: 'vip', pred: (a) => !!(a.snapshot && a.snapshot.vip) },
+  { key: 'compleanni', label: 'Compleanni', field: 'compleanni', pred: (a) => !!(a.snapshot && a.snapshot.compleanno) },
+  { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (a) => !!(a.snapshot && a.snapshot.reclami && a.snapshot.reclami.totali > 0) },
+  { key: 'alert', label: 'Alert', field: 'alert', pred: (a) => !!(a.snapshot && ((a.snapshot.intolleranze && a.snapshot.intolleranze.length) || a.snapshot.indesiderato)) },
+];
+
 function initArrivi() {
   if (!arriviInit) {
     $('#arrivi-data').addEventListener('change', loadArrivi);
     $('#arrivi-search').addEventListener('input', renderArrivi);
+    $('#arrivi-prev').addEventListener('click', () => shiftArriviData(-1));
+    $('#arrivi-next').addEventListener('click', () => shiftArriviData(1));
+    $('#arrivi-oggi').addEventListener('click', () => { $('#arrivi-data').value = ''; loadArrivi(); });
+    // Filtro dai chip del briefing (toggle: riclic sullo stesso chip torna a "tutti").
+    $('#arrivi-briefing').addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-brief]');
+      if (!chip) return;
+      const key = chip.dataset.brief;
+      filtroBriefing = (filtroBriefing === key || key === 'all') ? 'all' : key;
+      renderArrivi();
+    });
+    // Guest Briefing AI (on-demand) dai pulsanti nelle card.
+    $('#arrivi-cards').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-brief-cli]');
+      if (btn) eseguiBriefing(btn);
+    });
     arriviInit = true;
   }
+  loadArrivi();
+}
+
+async function eseguiBriefing(btn) {
+  const cli = btn.dataset.briefCli;
+  const box = btn.closest('.arr-card').querySelector('.arr-brief-result');
+  btn.disabled = true;
+  box.hidden = false;
+  box.innerHTML = '<div class="ai-msg ai-loading"><span class="spinner"></span>Ricerca su fonti pubbliche in corso…</div>';
+  try {
+    const { status, body } = await api(`/api/clienti/${encodeURIComponent(cli)}/briefing`, { method: 'POST', body: JSON.stringify({}) });
+    btn.disabled = false;
+    if (status === 503) { box.innerHTML = briefMsg('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); return; }
+    if (status !== 200) { box.innerHTML = briefMsg('Errore durante la generazione del briefing.'); return; }
+    box.innerHTML = renderBriefResult(body);
+  } catch {
+    btn.disabled = false;
+    box.innerHTML = briefMsg('Errore di rete durante la generazione del briefing.');
+  }
+}
+
+function briefMsg(t) { return `<div class="brief-card"><div class="ai-msg">${esc(t)}</div></div>`; }
+
+function renderBriefResult(b) {
+  const fonti = (b.fonti || [])
+    .map((f) => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.titolo || f.url)}</a></li>`)
+    .join('');
+  const fontiBlock = fonti ? `<div class="brief-fonti"><span class="brief-fonti-l">Fonti</span><ul>${fonti}</ul></div>` : '';
+  return `<div class="brief-card">
+    <div class="brief-testo">${esc(b.testo || '')}</div>
+    ${fontiBlock}
+    <div class="brief-disclaimer">⚠ Generato dall'AI su fonti pubbliche — verificare prima dell'uso.</div>
+  </div>`;
+}
+
+function shiftArriviData(giorni) {
+  const input = $('#arrivi-data');
+  const base = input.value ? new Date(input.value + 'T00:00:00') : new Date();
+  base.setDate(base.getDate() + giorni);
+  input.value = base.toISOString().slice(0, 10);
   loadArrivi();
 }
 
@@ -111,24 +181,49 @@ async function loadArrivi() {
   const input = $('#arrivi-data');
   const tab = $('#arrivi-cards');
   const msg = $('#arrivi-msg');
-  const stato = $('#arrivi-stato');
-  tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
+  tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…';
+  $('#arrivi-briefing').hidden = true; $('#arrivi-stato').textContent = '';
+  filtroBriefing = 'all';
   const q = input.value ? `?data=${encodeURIComponent(input.value)}` : '';
   const { status, body } = await api(`/api/arrivi${q}`);
   if (status !== 200) { msg.textContent = 'Errore nel leggere gli arrivi dal PMS.'; return; }
   if (!input.value && body.data) input.value = body.data; // data di lavoro dal server
   arriviAll = body.arrivi || [];
+  arriviBriefing = body.briefing || null;
+  arriviData = body.data || input.value || null;
   renderArrivi();
+}
+
+function renderBriefing() {
+  const bar = $('#arrivi-briefing');
+  const b = arriviBriefing;
+  if (!b) { bar.hidden = true; return; }
+  const chips = BRIEF_CHIPS.map((c) => {
+    const n = b[c.field] || 0;
+    const spento = c.key !== 'all' && n === 0 ? ' brief-chip-off' : '';
+    const attivo = filtroBriefing === c.key ? ' brief-chip-on' : '';
+    return `<button type="button" class="brief-chip brief-${c.key}${attivo}${spento}" data-brief="${c.key}">
+      <span class="brief-n">${n}</span><span class="brief-l">${c.label}</span></button>`;
+  }).join('');
+  bar.innerHTML = `<div class="briefing-inner">
+    <span class="briefing-date">${esc(dataEstesa(arriviData))}</span>
+    <div class="briefing-chips">${chips}</div>
+  </div>`;
+  bar.hidden = false;
 }
 
 function renderArrivi() {
   const cards = $('#arrivi-cards');
   const msg = $('#arrivi-msg');
   const stato = $('#arrivi-stato');
-  const lista = arriviAll.filter((a) => matchRicerca(a, $('#arrivi-search').value));
+  renderBriefing();
+  const chip = BRIEF_CHIPS.find((c) => c.key === filtroBriefing) || BRIEF_CHIPS[0];
+  const lista = arriviAll
+    .filter((a) => matchRicerca(a, $('#arrivi-search').value))
+    .filter(chip.pred);
   if (lista.length === 0) {
     cards.hidden = true; msg.hidden = false;
-    msg.textContent = arriviAll.length === 0 ? 'Nessun arrivo per questa data.' : 'Nessun risultato per la ricerca.';
+    msg.textContent = arriviAll.length === 0 ? 'Nessun arrivo per questa data.' : 'Nessun risultato per il filtro.';
     stato.textContent = `${arriviAll.length} ${arriviAll.length === 1 ? 'arrivo' : 'arrivi'}`;
     return;
   }
@@ -202,11 +297,113 @@ function scheda(a, pill) {
     </article>`;
 }
 
+// Badge VIP compatto per le card (l'indesiderato ha priorità come warning).
+function badgeVip(v) {
+  if (!v) return '';
+  if (v.indesiderato) return `<span class="pill pill-warning" title="${esc(v.descrizione)}">⚠ Ospite indesiderato</span>`;
+  const cl = (v.descrizione && v.descrizione !== v.cod) ? `<span class="vip-class">${esc(v.descrizione)}</span>` : '';
+  return `<span class="pill pill-vip" title="Classificazione VIP: ${esc(v.descrizione)} (${esc(v.cod)})">★ VIP</span>${cl}`;
+}
+
+// Banda snapshot: le informazioni per l'accoglienza, in evidenza. Vuota → non renderizza.
+function snapshotBand(s) {
+  if (!s) return '';
+  const flags = [];
+  if (s.indesiderato) flags.push('<span class="arr-flag flag-danger">⚠ Ospite indesiderato</span>');
+  if (s.compleanno) {
+    const chi = s.compleanno.nome ? ` · ${esc(s.compleanno.nome)}` : '';
+    flags.push(`<span class="arr-flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);
+  }
+  if (s.intolleranze && s.intolleranze.length) {
+    flags.push(`<span class="arr-flag flag-safety" title="Allergie / intolleranze — sicurezza">⚠ ${s.intolleranze.map(esc).join(', ')}</span>`);
+  }
+  if (s.reclami && s.reclami.totali) {
+    const ap = s.reclami.aperti ? `${s.reclami.aperti} aperti / ` : '';
+    flags.push(`<span class="arr-flag flag-warning">⚑ Reclami: ${ap}${s.reclami.totali}</span>`);
+  }
+  const prefs = (s.preferenzeTop || [])
+    .map((p) => `<span class="arr-pref" title="${esc(p.reparto || '')}${p.categoria ? ' / ' + esc(p.categoria) : ''}">${esc(p.testo)}</span>`)
+    .join('');
+  const prefBlock = prefs ? `<div class="arr-prefs"><span class="arr-lbl">Preferenze</span>${prefs}</div>` : '';
+  if (!flags.length && !prefBlock) return '';
+  const flagBlock = flags.length ? `<div class="arr-flags">${flags.join('')}</div>` : '';
+  return `<div class="arr-snap">${flagBlock}${prefBlock}</div>`;
+}
+
+// Occupanti in camera con l'eventuale relazione col referente (dallo snapshot).
+function renderOspitiArrivo(a) {
+  const rel = (a.snapshot && a.snapshot.relazioni) || {};
+  const ospiti = a.ospiti || [];
+  const rooms = [];
+  (a.camere ? a.camere.split(',').map((c) => c.trim()).filter(Boolean) : []).forEach((c) => { if (!rooms.includes(c)) rooms.push(c); });
+  ospiti.forEach((o) => { const c = o.camera ? String(o.camera) : ''; if (c && !rooms.includes(c)) rooms.push(c); });
+  const nomeOspite = (o) => {
+    const r = rel[o.codCli] ? `<span class="arr-rel">${esc(rel[o.codCli])}</span>` : '';
+    const nome = o.codCli
+      ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
+      : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`;
+    return `${nome}${r}`;
+  };
+  if (!rooms.length) {
+    if (!ospiti.length) return '';
+    return `<div class="ospiti">${ospiti.map((o) => `<div class="ospite-row">${nomeOspite(o)}</div>`).join('')}</div>`;
+  }
+  const rows = rooms.map((cam) => {
+    const occ = ospiti.filter((o) => String(o.camera || '') === cam);
+    if (occ.length) return occ.map((o) => `<div class="ospite-row"><span class="room">${esc(cam)}</span>${nomeOspite(o)}</div>`).join('');
+    return `<div class="ospite-row"><span class="room">${esc(cam)}</span><span class="ospite-x">nessun ospite assegnato</span></div>`;
+  }).join('');
+  return `<div class="ospiti">${rows}</div>`;
+}
+
+// Card arrivo ridisegnata: in alto ciò che serve all'accoglienza (referente, VIP,
+// snapshot); i dati operativi PMS e le Note sono collassati/attenuati.
 function schedaArrivo(a) {
-  const pill = a.inCasa
-    ? '<span class="pill pill-incasa">In casa</span>'
-    : '<span class="pill pill-atteso">Atteso</span>';
-  return scheda(a, pill);
+  const s = a.snapshot || null;
+  const pill = a.inCasa ? '<span class="pill pill-incasa">In casa</span>' : '<span class="pill pill-atteso">Atteso</span>';
+  const nome = a.nominativo
+    ? (a.codCliente ? `<a class="arr-name-link" href="#cliente/${a.codCliente}">${esc(a.nominativo)}</a>` : esc(a.nominativo))
+    : '(senza nominativo)';
+  const ora = a.oraArrivo ? `<span class="arr-ora">🕒 ${esc(a.oraArrivo)}</span>` : '';
+  const notti = a.notti != null ? ` · ${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}` : '';
+  const camere = a.camere ? a.camere.split(',').map((c) => `<span class="room">${esc(c.trim())}</span>`).join('') : '';
+  const tratt = [a.trattamento, a.tariffa].filter(Boolean).map(esc).join(' / ') || '—';
+  const tot = a.importo != null ? euro(a.importo) : '—';
+  const ospiti = renderOspitiArrivo(a);
+  const accento = s && s.indesiderato ? ' arr-card-danger' : (s && s.vip ? ' arr-card-vip' : '');
+  const briefBtn = a.codCliente
+    ? `<button type="button" class="arr-brief-btn${s && s.vip ? ' arr-brief-vip' : ''}" data-brief-cli="${a.codCliente}" title="Cerca informazioni pubbliche su questo ospite">✨ Briefing AI</button>`
+    : '';
+  const note = a.note
+    ? `<details class="arr-note"><summary>Note PMS</summary><div class="arr-note-body">${esc(a.note)}</div></details>`
+    : '';
+  return `
+    <article class="arr-card${accento}">
+      <header class="arr-head">
+        <div class="arr-title">
+          <span class="arr-name">${nome}</span>
+          ${badgeVip(s && s.vip)}
+        </div>
+        <div class="arr-meta">${ora}${pill}${briefBtn}</div>
+      </header>
+      ${snapshotBand(s)}
+      <div class="arr-brief-result" hidden></div>
+      <div class="arr-stay">
+        <span class="arr-rooms">${camere || '<span class="dash">—</span>'}</span>
+        <span class="arr-dates">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${notti}</span>
+      </div>
+      ${ospiti ? `<div class="arr-ospiti">${ospiti}</div>` : ''}
+      <details class="arr-details">
+        <summary>Dettagli prenotazione</summary>
+        <div class="arr-op">
+          <span><i>Pratica</i> ${esc(a.codpratica)}</span>
+          <span><i>Creata</i> ${fmtData(a.dtPrenota)}</span>
+          <span><i>Trattamento</i> ${tratt}</span>
+          <span><i>Importo</i> ${tot}</span>
+        </div>
+      </details>
+      ${note}
+    </article>`;
 }
 
 // --- Clienti in casa (sempre alla data di lavoro del PMS: nessun selettore data) ---

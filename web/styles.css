@@ -254,6 +254,84 @@ tbody tr:hover { background: var(--surface-2); }
 .bcard-note { padding: 10px 18px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 .bcard-note b { color: var(--faint); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; margin-right: 8px; font-weight: 700; }
 
+/* ===== Dashboard Arrivi 2.0 ===== */
+/* Navigazione data */
+.date-nav { display: flex; align-items: center; gap: 6px; }
+.date-btn { font: inherit; font-size: 18px; line-height: 1; cursor: pointer; background: var(--surface); border: 1px solid var(--border-strong); color: var(--brand); border-radius: 8px; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; }
+.date-btn:hover { background: var(--surface-2); }
+.date-input { font: inherit; font-size: 13.5px; padding: 6px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); }
+.date-today { font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; background: var(--brand-050); border: 1px solid var(--border-strong); color: var(--brand); border-radius: 8px; padding: 7px 12px; }
+.date-today:hover { background: var(--sand-050); }
+
+/* Arrival Briefing bar */
+.briefing { margin-bottom: 16px; }
+.briefing-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; box-shadow: var(--shadow-sm); }
+.briefing-date { font-family: var(--font-display); font-size: 16px; color: var(--brand); font-weight: 600; }
+.briefing-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.brief-chip { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font: inherit; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 5px 14px 5px 10px; color: var(--text); transition: border-color .15s, background .15s; }
+.brief-chip:hover { border-color: var(--border-strong); }
+.brief-chip .brief-n { font-family: var(--font-display); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.brief-chip .brief-l { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.brief-chip-on { background: var(--brand); border-color: var(--brand); }
+.brief-chip-on .brief-n, .brief-chip-on .brief-l { color: #fff; }
+.brief-chip-off { opacity: .5; }
+.brief-vip .brief-n { color: var(--accent-700); }
+.brief-reclami .brief-n, .brief-alert .brief-n { color: var(--danger); }
+.brief-chip-on.brief-vip .brief-n, .brief-chip-on.brief-reclami .brief-n, .brief-chip-on.brief-alert .brief-n { color: #fff; }
+
+/* Card arrivo ridisegnata */
+.arr-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 14px; padding: 14px 18px; box-shadow: var(--shadow-sm); transition: box-shadow .15s; }
+.arr-card:hover { box-shadow: var(--shadow-md); }
+.arr-card-vip { border-left-color: var(--accent); }
+.arr-card-danger { border-left-color: var(--danger); }
+.arr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.arr-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.arr-name { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--brand); }
+.arr-name-link { color: var(--brand); text-decoration: none; }
+.arr-name-link:hover { text-decoration: underline; }
+.arr-meta { display: flex; align-items: center; gap: 10px; flex: none; }
+.arr-ora { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+
+.arr-snap { margin: 12px 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.arr-flags { display: flex; flex-wrap: wrap; gap: 8px; }
+.arr-flag { display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 600; border-radius: 8px; padding: 4px 10px; }
+.flag-danger { background: #f6e4e2; color: var(--danger); }
+.flag-safety { background: #fbeee0; color: #a5581a; }
+.flag-warning { background: #f3ead9; color: #8a6d2f; }
+.flag-birthday { background: var(--sea-050); color: var(--sea-700); }
+.arr-prefs { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.arr-lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; color: var(--accent-700); }
+.arr-pref { display: inline-block; background: var(--accent-050); color: var(--accent-700); border-radius: 7px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; }
+
+.arr-stay { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.arr-dates { font-size: 13px; color: var(--text); font-weight: 500; }
+.arr-ospiti { margin-top: 10px; }
+.arr-rel { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--accent-700); background: var(--accent-050); border-radius: 5px; padding: 1px 7px; margin-left: 8px; }
+
+.arr-details, .arr-note { margin-top: 10px; }
+.arr-details > summary, .arr-note > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); list-style: none; user-select: none; }
+.arr-details > summary::-webkit-details-marker, .arr-note > summary::-webkit-details-marker { display: none; }
+.arr-details > summary::before, .arr-note > summary::before { content: "▸ "; color: var(--faint); }
+.arr-details[open] > summary::before, .arr-note[open] > summary::before { content: "▾ "; }
+.arr-op { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.arr-op i { font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 700; margin-right: 5px; }
+.arr-note-body { margin-top: 8px; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+
+/* Guest Briefing AI */
+.arr-brief-btn { font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--brand); border-radius: 999px; padding: 5px 12px; white-space: nowrap; }
+.arr-brief-btn:hover { background: var(--brand-050); }
+.arr-brief-btn:disabled { opacity: .55; cursor: default; }
+.arr-brief-vip { background: var(--accent-050); border-color: var(--accent); color: var(--accent-700); }
+.arr-brief-result { margin-top: 12px; }
+.brief-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.brief-testo { font-size: 13.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+.brief-fonti { margin-top: 10px; }
+.brief-fonti-l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; color: var(--accent-700); }
+.brief-fonti ul { margin: 4px 0 0; padding-left: 18px; }
+.brief-fonti li { font-size: 12.5px; line-height: 1.5; }
+.brief-fonti a { color: var(--accent-700); }
+.brief-disclaimer { margin-top: 10px; font-size: 11.5px; color: var(--muted); font-style: italic; border-top: 1px dashed var(--border-strong); padding-top: 8px; }
+
 /* ===== Utenti ===== */
 .role-tag { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--brand); background: var(--brand-050); border-radius: 6px; padding: 2px 8px; }
 

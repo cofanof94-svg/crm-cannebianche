@@ -44,6 +44,33 @@ test('getGruppo: principale → include i suoi membri', async () => {
   assert.deepStrictEqual([...g.membri].sort((a, b) => a - b), [31355, 48758]);
 });
 
+// --- getGruppiByIds (batch): mock che risponde alle query IN(...) ---
+const { getGruppiByIds } = require('../src/crm/merge');
+function crmMergeBatch(rows) {
+  return {
+    async query(text) {
+      // entrambe le query (pms_customer_id IN / canonical_id IN) leggono la stessa tabella:
+      // ritorno tutte le righe, la logica in memoria filtra correttamente.
+      if (/customer_merge WHERE (pms_customer_id|canonical_id) IN/.test(text)) {
+        return rows.map((r) => ({ pms_customer_id: r.pms_customer_id, canonical_id: r.canonical_id }));
+      }
+      return [];
+    },
+  };
+}
+
+test('getGruppiByIds: standalone e membro nello stesso batch', async () => {
+  const rows = [{ pms_customer_id: 48758, canonical_id: 31355 }, { pms_customer_id: 55491, canonical_id: 31355 }];
+  const map = await getGruppiByIds(crmMergeBatch(rows), [48758, 100]);
+  assert.deepStrictEqual(map.get(48758).sort((a, b) => a - b), [31355, 48758, 55491]);
+  assert.deepStrictEqual(map.get(100), [100]); // non nel merge → gruppo di sé stesso
+});
+
+test('getGruppiByIds: lista vuota → Map vuota', async () => {
+  const map = await getGruppiByIds(crmMergeBatch([]), []);
+  assert.strictEqual(map.size, 0);
+});
+
 test('mergeInto: rifiuta auto-fusione', async () => {
   const db = { async query() { return []; } };
   const r = await mergeInto(db, { memberId: 5, canonicalId: 5 });

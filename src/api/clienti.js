@@ -12,6 +12,7 @@ const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
 const { aggregaCumulativi } = require('../stats');
 const { getAiClient } = require('../ai/client');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
+const briefingAi = require('../ai/briefing');
 const { getGruppo, mergeInto, unmerge, listMappature } = require('../crm/merge');
 const { getDuplicatiCandidati, getTuttiGruppiDuplicati } = require('../pms/duplicati');
 
@@ -154,6 +155,26 @@ function createClientiRouter(pmsDb, crmDb) {
     // Audit minimale (Fase 3 privacy): chi ha generato suggerimenti, per chi, quanti.
     console.log(`[AI suggerimenti] cliente=${codCli} utente=${req.session.user.username} n=${suggerimenti.length}`);
     res.json({ suggerimenti });
+  });
+
+  // Guest Briefing (AI, Fase B). SOLO su richiesta operatore, mai automatico. Cerca
+  // su fonti web PUBBLICHE se l'ospite è un personaggio pubblico e ne sintetizza un
+  // briefing citando le fonti. NON persiste nulla. 503 se l'AI non è configurata.
+  router.post('/clienti/:codCli/briefing', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const ai = getAiClient();
+    if (!ai) return res.status(503).json({ error: 'AI non configurata (manca @anthropic-ai/sdk o ANTHROPIC_API_KEY)' });
+    const cliente = await getCliente(pmsDb, codCli);
+    if (!cliente) return res.status(404).json({ error: 'Ospite non trovato' });
+    const fatti = briefingAi.costruisciFatti({
+      nominativo: cliente.nominativo, citta: cliente.citta, nazione: cliente.nazione, vip: cliente.vip, note: cliente.note,
+    });
+    if (!briefingAi.haFatti(fatti)) return res.json({ testo: 'Nessuna informazione pubblica rilevante.', fonti: [], pubblico: false });
+    const out = await briefingAi.briefing(ai.client, fatti, { model: ai.model });
+    // Audit (privacy): chi ha richiesto un briefing pubblico, per chi, con quante fonti.
+    console.log(`[AI briefing] cliente=${codCli} utente=${req.session.user.username} pubblico=${out.pubblico} fonti=${out.fonti.length}`);
+    res.json(out);
   });
 
   // --- Complaints (reclami) ---

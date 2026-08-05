@@ -28,7 +28,7 @@ function createApp({ crmDb, pmsDb, sessionSecret }) {
   app.use('/api/auth', createAuthRouter(crmDb));
   app.use('/api/admin', createAdminRouter(crmDb));
   app.get('/api/me', requireAuth, (req, res) => res.json({ user: req.session.user }));
-  app.use('/api', createArriviRouter(pmsDb));
+  app.use('/api', createArriviRouter(pmsDb, crmDb));
   app.use('/api', createClientiRouter(pmsDb, crmDb));
 
   app.use(express.static(path.join(__dirname, '..', 'web')));

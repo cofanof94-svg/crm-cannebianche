@@ -206,4 +206,31 @@ async function getSoggiorniCliente(pmsDb, ids) {
   });
 }
 
-module.exports = { cercaClienti, getCliente, getSoggiorniCliente };
+// Anagrafica minima per una lista di codici (dashboard arrivi): nome, data di
+// nascita e VIP decodificato. Una sola query set-based. Ritorna Map codice → dati.
+const sqlAnagraByIds = (inl) => `
+SELECT a.CodCli, a.Cognome, a.Nome, CONVERT(varchar(10), a.dtNascita, 23) AS dtNascita,
+       a.CodVip, tv.desvip AS DesVip
+FROM Anagra a
+LEFT JOIN TabVip tv ON LTRIM(RTRIM(tv.codvip)) = LTRIM(RTRIM(a.CodVip)) AND ISNULL(a.CodVip,'') <> ''
+WHERE a.CodCli IN ${inl}`;
+
+async function getAnagraByIds(pmsDb, ids) {
+  const arr = [...new Set(Array.isArray(ids) ? ids : [ids])];
+  const map = new Map();
+  if (!arr.length) return map;
+  const rows = await pmsDb.query(sqlAnagraByIds(inClause(arr)), {});
+  for (const r of rows) {
+    map.set(r.CodCli, {
+      codCli: r.CodCli,
+      cognome: pulisci(r.Cognome),
+      nome: pulisci(r.Nome),
+      nominativo: nominativo(r.Cognome, r.Nome),
+      dtNascita: pulisci(r.dtNascita),
+      vip: vipInfo(r.CodVip, r.DesVip),
+    });
+  }
+  return map;
+}
+
+module.exports = { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, vipInfo };

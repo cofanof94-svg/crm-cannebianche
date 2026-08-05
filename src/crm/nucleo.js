@@ -52,6 +52,19 @@ async function getNucleoGroup(db, codCli) {
   return [...new Set([codCli, ...rows.map((r) => r.c)])];
 }
 
+// Relazioni note per una lista di referenti (dashboard arrivi): righe
+// { pms_customer_id (referente), pms_occupant_id (occupante), tipo_relazione }.
+// Batch set-based; solo righe con occupante PMS agganciato.
+async function getRelazioniByIds(db, ids) {
+  const arr = [...new Set(Array.isArray(ids) ? ids : [ids])];
+  if (!arr.length) return [];
+  return db.query(
+    `SELECT pms_customer_id, pms_occupant_id, tipo_relazione
+     FROM customer_travel_party
+     WHERE pms_customer_id IN ${inClause(arr)} AND pms_occupant_id IS NOT NULL`
+  );
+}
+
 // Marker one-shot dell'auto-popolamento (evita di rifarlo ad ogni apertura).
 async function nucleoInizializzato(db, pmsCustomerId) {
   const rows = await db.query('SELECT 1 AS x FROM customer_nucleo_init WHERE pms_customer_id = @pmsCustomerId', { pmsCustomerId });
@@ -68,4 +81,4 @@ async function markNucleoInit(db, pmsCustomerId) {
 const { deleteById } = require('./helpers');
 const deleteMembro = (db, id) => deleteById(db, 'customer_travel_party', id);
 
-module.exports = { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI };
+module.exports = { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, getRelazioniByIds, nucleoInizializzato, markNucleoInit, RELAZIONI };

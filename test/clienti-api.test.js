@@ -215,6 +215,16 @@ test('POST /api/clienti/:codCli/suggerimenti → 503 se AI non configurata', asy
   assert.match(res.body.error, /AI non configurata/);
 });
 
+test('POST /api/clienti/:codCli/briefing → 503 se AI non configurata', async () => {
+  delete process.env.ANTHROPIC_API_KEY;
+  require('../src/ai/client')._reset();
+  const app = await makeApp();
+  const ag = await agente(app);
+  const res = await ag.post('/api/clienti/47186/briefing');
+  assert.strictEqual(res.status, 503);
+  assert.match(res.body.error, /AI non configurata/);
+});
+
 test('GET /api/clienti/abc → 400', async () => {
   const app = await makeApp();
   const ag = await agente(app);
