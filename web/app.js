@@ -603,11 +603,9 @@ function renderSuggerimenti(msg) {
     const afClass = 'aff-' + af.replace(/\s+/g, '-');
     const fonteMot = [s.fonte, s.motivo].filter(Boolean).map(esc).join(' — ');
     const safety = s.tipo === 'intolleranza' ? '<span class="ai-tag ai-intolleranza">Intolleranza · sicurezza</span> ' : '';
-    const scope = s.tipo === 'preferenza' ? `<span class="badge-scope scope-${esc(s.ambito || 'nucleo')}">${esc(s.ambito || 'nucleo')}</span>` : '';
     return `<li class="ai-item">
       <label><input type="checkbox" data-sugg="${i}" checked />
         <span class="ai-testo">${safety}${esc(s.testo)}</span>
-        ${scope}
         <span class="ai-conf ${afClass}">${esc(af)}</span>
       </label>
       ${fonteMot ? `<span class="ai-motivo">${fonteMot}</span>` : ''}
@@ -653,7 +651,8 @@ $('#cli-suggerimenti').addEventListener('click', async (e) => {
       await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/intolleranze`, { method: 'POST', body: JSON.stringify({ testo: s.testo }) });
       salvaIntol = true;
     } else {
-      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, { method: 'POST', body: JSON.stringify({ reparto: s.reparto, categoria: s.categoria, testo: s.testo, ambito: s.ambito || 'nucleo' }) });
+      // Ambito non deciso dall'AI: default 'nucleo' (di gruppo). L'operatore lo toggla se serve.
+      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, { method: 'POST', body: JSON.stringify({ reparto: s.reparto, categoria: s.categoria, testo: s.testo, ambito: 'nucleo' }) });
       salvaPref = true;
     }
   }

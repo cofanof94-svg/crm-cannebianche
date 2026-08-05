@@ -76,8 +76,8 @@ test('parseSuggerimenti: valida, scarta preferenze con reparto/categoria fuori l
   ] }) }] };
   const out = parseSuggerimenti(resp);
   assert.strictEqual(out.length, 2);
-  assert.deepStrictEqual(out[0], { tipo: 'preferenza', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè: preferisce leccese', fonte: 'consumi F&B 4x', motivo: '4 evidenze', affidabilita: 'media', ambito: 'nucleo' });
-  assert.deepStrictEqual(out[1], { tipo: 'intolleranza', reparto: null, categoria: null, testo: 'Glutine', fonte: 'nota PMS', motivo: 'nota esplicita', affidabilita: 'alta', ambito: 'personale' });
+  assert.deepStrictEqual(out[0], { tipo: 'preferenza', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè: preferisce leccese', fonte: 'consumi F&B 4x', motivo: '4 evidenze', affidabilita: 'media' });
+  assert.deepStrictEqual(out[1], { tipo: 'intolleranza', reparto: null, categoria: null, testo: 'Glutine', fonte: 'nota PMS', motivo: 'nota esplicita', affidabilita: 'alta' });
 });
 
 test('parseSuggerimenti: JSON non valido o vuoto → []', () => {
