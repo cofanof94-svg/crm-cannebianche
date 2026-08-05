@@ -436,6 +436,9 @@ dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 .aff-media { background: #f0ebe4; color: #9a8467; }
 .ai-motivo { display: block; font-size: 12px; color: var(--muted); padding-left: 26px; margin-top: 2px; }
 .ai-actions { display: flex; gap: 8px; margin-top: 10px; }
+.ai-loading { display: flex; align-items: center; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--brand); border-radius: 50%; margin-right: 8px; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* --- Sezione collassabile (Gusti F&B) --- */
 .sez-collapse { margin: 0; }
