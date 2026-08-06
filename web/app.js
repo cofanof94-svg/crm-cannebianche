@@ -46,7 +46,9 @@ function route() {
     loadCliente(hash.split('/')[1]);
     return;
   }
-  const view = hash;
+  // "#arrivi/oggi" = link "Arrivi di oggi" dalla Home: apre gli arrivi sulla data odierna.
+  const forzaOggiArrivi = hash === 'arrivi/oggi';
+  const view = forzaOggiArrivi ? 'arrivi' : hash;
   const known = ['home', 'arrivi', 'incasa', 'ricerca', 'duplicati', 'utenti'];
   let v = known.includes(view) ? view : 'home';
   // Utenti è riservato agli admin: reindirizza gli altri alla home
@@ -61,7 +63,7 @@ function route() {
   $(`#view-${v}`).hidden = false;
   vistaPrecedente = v;
   if (v === 'home') loadHome();
-  else if (v === 'arrivi') initArrivi();
+  else if (v === 'arrivi') initArrivi(forzaOggiArrivi);
   else if (v === 'incasa') initInCasa();
   else if (v === 'ricerca') initRicerca();
   else if (v === 'duplicati') loadDuplicatiPage();
@@ -112,7 +114,7 @@ const BRIEF_CHIPS = [
   { key: 'alert', label: 'Alert', field: 'alert', pred: (a) => !!(a.snapshot && ((a.snapshot.intolleranze && a.snapshot.intolleranze.length) || a.snapshot.indesiderato)) },
 ];
 
-function initArrivi() {
+function initArrivi(forzaOggi) {
   if (!arriviInit) {
     $('#arrivi-data').addEventListener('change', loadArrivi);
     $('#arrivi-search').addEventListener('input', renderArrivi);
@@ -136,6 +138,8 @@ function initArrivi() {
     });
     arriviInit = true;
   }
+  // "Arrivi di oggi": azzero la data → loadArrivi usa la data di lavoro (oggi).
+  if (forzaOggi) $('#arrivi-data').value = '';
   loadArrivi();
 }
 
