@@ -21,7 +21,7 @@ const SYSTEM = [
   '- NON includere dati privati o sensibili: salute, vita sentimentale/familiare, orientamento, religione, opinioni politiche, patrimonio, indirizzi, recapiti.',
   '- Se la persona NON è chiaramente un personaggio pubblico, oppure non trovi fonti affidabili, rispondi ESATTAMENTE: "Nessuna informazione pubblica rilevante." e nient\'altro. Non inventare, non indovinare.',
   '- NON scrivere nel testo una sezione "Fonti"/riferimenti: le fonti sono gestite automaticamente a parte.',
-  '- NON scrivere frasi introduttive o di conferma identità (es. "Ho verificato l\'identità…", "L\'ospite corrisponde a…"): la PRIMA parola del testo deve essere l\'etichetta "Ruolo:".',
+  '- NON scrivere frasi introduttive, valutazioni della ricerca o conferme identità (es. "Buon match…", "personaggio pubblico", "fonti autorevoli", "Verifico…", "Ho verificato…", "L\'ospite corrisponde a…"): la PRIMISSIMA parola del testo deve essere l\'etichetta "Ruolo:".',
   '- In caso di omonimia o incertezza sull\'identità, NON attribuire informazioni: dichiara che non è possibile identificare l\'ospite con certezza.',
   '- FORMATO: SINTESI per PAROLE CHIAVE, non prosa. Massimo 4-5 righe, ognuna "Etichetta: poche parole chiave" (max ~10 parole per riga). VIETATI: frasi complete e verbi narrativi ("è stato", "ha ricevuto"), ripetere il nome dell\'ospite, il markdown/grassetto (**), qualsiasi riga di intestazione o titolo. INIZIA DIRETTAMENTE dalla prima etichetta (es. "Ruolo:"). Includi sempre una riga finale "Appellativo:". Esempio di STILE (adatta i contenuti all\'ospite reale):',
   'Ruolo: modella e socialite britannica',
@@ -93,19 +93,13 @@ function estraiFonti(blocchi) {
 // intestazione iniziale (es. "BRIEFING RECEPTION – Nome") che il modello a volte
 // aggiunge nonostante il vincolo, così restano solo le righe "Etichetta: keyword".
 function pulisciTesto(t) {
-  const s = String(t || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
+  let s = String(t || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
+  // Il briefing DEVE iniziare da "Ruolo:": taglio qualsiasi preambolo/ragionamento
+  // che il modello anteponga (es. "Buon match: …", "Verifico…", titoli).
+  const m = s.match(/\bruolo\s*:/i);
+  if (m && m.index > 0) s = s.slice(m.index);
   let righe = s.split('\n');
-  const isLabel = (r) => /^\s*[A-Za-zÀ-ù][^:\n]{1,24}:\s/.test(r);
-  if (righe.length && /^\s*briefing\b/i.test(righe[0])) righe.shift(); // via eventuale titolo
-  // Preambolo "incollato" nella prima riga ("…quotate.Ruolo: …"): tieni dal primo label inline.
-  if (righe.length && !isLabel(righe[0])) {
-    const g = righe[0].match(/\.\s*[A-ZÀ-Ù][^.:\n]{1,24}:/);
-    if (g) righe[0] = righe[0].slice(g.index + 1).trimStart();
-  }
-  // Scarta eventuali righe di preambolo prima della prima riga-etichetta.
-  const first = righe.findIndex(isLabel);
-  if (first > 0) righe = righe.slice(first);
-  // Taglia una eventuale coda "Fonti: …" (le fonti sono mostrate a parte).
+  // Taglio una eventuale coda "Fonti: …" nel testo (le fonti sono mostrate a parte).
   const iFonti = righe.findIndex((r) => /^\s*fonti\b/i.test(r));
   if (iFonti >= 0) righe = righe.slice(0, iFonti);
   return righe.join('\n').replace(/\n{3,}/g, '\n\n').trim();

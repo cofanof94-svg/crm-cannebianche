@@ -329,6 +329,10 @@ tbody tr:hover { background: var(--surface-2); }
 .brief-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
 .brief-testo { font-size: 13.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
 .brief-fonti { margin-top: 10px; }
+.brief-fonti > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; color: var(--accent-700); list-style: none; user-select: none; }
+.brief-fonti > summary::-webkit-details-marker { display: none; }
+.brief-fonti > summary::before { content: "▸ "; color: var(--faint); }
+.brief-fonti[open] > summary::before { content: "▾ "; }
 .brief-fonti-l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; color: var(--accent-700); }
 .brief-fonti ul { margin: 4px 0 0; padding-left: 18px; }
 .brief-fonti li { font-size: 12.5px; line-height: 1.5; }

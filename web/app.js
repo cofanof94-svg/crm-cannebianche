@@ -179,7 +179,10 @@ function renderBriefResult(b, cli) {
   const fonti = (b.fonti || [])
     .map((f) => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.titolo || f.url)}</a></li>`)
     .join('');
-  const fontiBlock = fonti ? `<div class="brief-fonti"><span class="brief-fonti-l">Fonti</span><ul>${fonti}</ul></div>` : '';
+  const nFonti = (b.fonti || []).length;
+  const fontiBlock = fonti
+    ? `<details class="brief-fonti"><summary>Fonti (${nFonti})</summary><ul>${fonti}</ul></details>`
+    : '';
   // Salvataggio nel profilo solo se l'ospite è stato riconosciuto (pubblico).
   const salva = b.pubblico && cli
     ? `<button type="button" class="brief-save" data-save-cli="${esc(cli)}" title="Aggiungi alle Note personali del profilo">💾 Salva nel profilo</button>`
