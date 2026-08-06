@@ -23,7 +23,8 @@ test('SYSTEM: tutele privacy, fonti autorevoli, formato asciutto, fallback espli
   assert.match(SYSTEM, /AUTOREVOLI/);
   assert.match(SYSTEM, /Nessuna informazione pubblica rilevante/);
   assert.match(SYSTEM, /omonimia/i);
-  assert.match(SYSTEM, /NIENTE intestazioni/i); // formato asciutto
+  assert.match(SYSTEM, /PAROLE CHIAVE/); // sintesi per parole chiave, non prosa
+  assert.match(SYSTEM, /Appellativo:/);  // riga finale su come rivolgersi
 });
 
 test('estraiFonti: scarta i domini non autorevoli (scraper di contatti/marketplace)', () => {
@@ -72,6 +73,26 @@ test('parseBriefing: non pubblico → nessuna fonte, pubblico=false', () => {
   ] });
   assert.strictEqual(out.pubblico, false);
   assert.deepStrictEqual(out.fonti, []);
+});
+
+test('parseBriefing: rimuove intestazione e grassetto, tiene le righe a etichetta', () => {
+  const out = parseBriefing({ content: [
+    { type: 'text', text: '**BRIEFING RECEPTION – Mario Rossi**\n\nRuolo: imprenditore\nAppellativo: "Dottore"', citations: [{ url: 'https://it.wikipedia.org/x', title: 'Wikipedia' }] },
+  ] });
+  assert.strictEqual(out.pubblico, true);
+  assert.doesNotMatch(out.testo, /BRIEFING/);
+  assert.doesNotMatch(out.testo, /\*\*/);
+  assert.match(out.testo, /^Ruolo: imprenditore/);
+  assert.match(out.testo, /Appellativo:/);
+});
+
+test('parseBriefing: rimuove preambolo incollato e coda "Fonti"', () => {
+  const testo = "L'ospite corrisponde a Mario Rossi, noto imprenditore.Ruolo: imprenditore\nAppellativo: \"Dottore\"\n\nFonti: sito ufficiale…";
+  const out = parseBriefing({ content: [{ type: 'text', text: testo, citations: [{ url: 'https://it.wikipedia.org/x', title: 'W' }] }] });
+  assert.match(out.testo, /^Ruolo: imprenditore/);
+  assert.match(out.testo, /Appellativo:/);
+  assert.doesNotMatch(out.testo, /L'ospite corrisponde/);
+  assert.doesNotMatch(out.testo, /Fonti:/);
 });
 
 test('parseBriefing: risposta vuota → fallback esplicito', () => {

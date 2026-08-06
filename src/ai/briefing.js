@@ -20,8 +20,14 @@ const SYSTEM = [
   "- Includi SOLO ciò che è utile all'accoglienza: ruolo/professione pubblica, cariche/ruoli pubblici, motivo di notorietà, come rivolgersi (titolo/appellativo).",
   '- NON includere dati privati o sensibili: salute, vita sentimentale/familiare, orientamento, religione, opinioni politiche, patrimonio, indirizzi, recapiti.',
   '- Se la persona NON è chiaramente un personaggio pubblico, oppure non trovi fonti affidabili, rispondi ESATTAMENTE: "Nessuna informazione pubblica rilevante." e nient\'altro. Non inventare, non indovinare.',
+  '- NON scrivere nel testo una sezione "Fonti"/riferimenti: le fonti sono gestite automaticamente a parte.',
+  '- NON scrivere frasi introduttive o di conferma identità (es. "Ho verificato l\'identità…", "L\'ospite corrisponde a…"): la PRIMA parola del testo deve essere l\'etichetta "Ruolo:".',
   '- In caso di omonimia o incertezza sull\'identità, NON attribuire informazioni: dichiara che non è possibile identificare l\'ospite con certezza.',
-  '- FORMATO: 2-4 frasi essenziali, in prosa. NIENTE intestazioni o titoli (es. "BRIEFING RECEPTION"), niente grassetti, niente elenchi, niente ripetizioni. Tono professionale e sobrio. Chiudi indicando come rivolgersi all\'ospite.',
+  '- FORMATO: SINTESI per PAROLE CHIAVE, non prosa. Massimo 4-5 righe, ognuna "Etichetta: poche parole chiave" (max ~10 parole per riga). VIETATI: frasi complete e verbi narrativi ("è stato", "ha ricevuto"), ripetere il nome dell\'ospite, il markdown/grassetto (**), qualsiasi riga di intestazione o titolo. INIZIA DIRETTAMENTE dalla prima etichetta (es. "Ruolo:"). Includi sempre una riga finale "Appellativo:". Esempio di STILE (adatta i contenuti all\'ospite reale):',
+  'Ruolo: modella e socialite britannica',
+  'Notorietà: nipote di Diana Spencer; cugina dei principi William e Harry',
+  'Ambito: ambasciatrice brand di lusso (Schiaparelli, Armani, Bvlgari)',
+  'Appellativo: "Lady Amelia"',
 ].join('\n');
 
 // Domini non autorevoli da scartare comunque dalle fonti (scraper di contatti,
@@ -83,9 +89,32 @@ function estraiFonti(blocchi) {
   return fonti;
 }
 
+// Ripulisce l'output: toglie il grassetto markdown e un'eventuale riga di
+// intestazione iniziale (es. "BRIEFING RECEPTION – Nome") che il modello a volte
+// aggiunge nonostante il vincolo, così restano solo le righe "Etichetta: keyword".
+function pulisciTesto(t) {
+  const s = String(t || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
+  let righe = s.split('\n');
+  const isLabel = (r) => /^\s*[A-Za-zÀ-ù][^:\n]{1,24}:\s/.test(r);
+  if (righe.length && /^\s*briefing\b/i.test(righe[0])) righe.shift(); // via eventuale titolo
+  // Preambolo "incollato" nella prima riga ("…quotate.Ruolo: …"): tieni dal primo label inline.
+  if (righe.length && !isLabel(righe[0])) {
+    const g = righe[0].match(/\.\s*[A-ZÀ-Ù][^.:\n]{1,24}:/);
+    if (g) righe[0] = righe[0].slice(g.index + 1).trimStart();
+  }
+  // Scarta eventuali righe di preambolo prima della prima riga-etichetta.
+  const first = righe.findIndex(isLabel);
+  if (first > 0) righe = righe.slice(first);
+  // Taglia una eventuale coda "Fonti: …" (le fonti sono mostrate a parte).
+  const iFonti = righe.findIndex((r) => /^\s*fonti\b/i.test(r));
+  if (iFonti >= 0) righe = righe.slice(0, iFonti);
+  return righe.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function parseBriefing(resp) {
   const blocchi = (resp && resp.content) || [];
-  const testo = blocchi.filter((b) => b && b.type === 'text').map((b) => b.text).join('').trim();
+  const grezzo = blocchi.filter((b) => b && b.type === 'text').map((b) => b.text).join('').trim();
+  const testo = pulisciTesto(grezzo);
   const fonti = estraiFonti(blocchi);
   const pubblico = !!testo && !/nessuna informazione pubblica/i.test(testo);
   return { testo: testo || 'Nessuna informazione pubblica rilevante.', fonti: pubblico ? fonti : [], pubblico };
