@@ -18,6 +18,16 @@ const COLONNE = `
        FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.codcam,'') <> ''
        FOR XML PATH('')), 1, 2, ''))
   ) AS camere,
+  (SELECT STUFF((SELECT DISTINCT ', ' + cm.codtip
+     FROM Camere cm
+     WHERE ISNULL(cm.codtip, '') <> '' AND cm.codcam IN (
+       SELECT ad.codcam FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
+         WHERE al.codpratica = p.codpratica AND ISNULL(ad.codcam, '') <> ''
+           AND CAST(@data AS date) >= CAST(ad.dtarrivo AS date) AND CAST(@data AS date) <= CAST(ad.dtpartenza AS date)
+       UNION
+       SELECT tp.codcam FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.codcam, '') <> ''
+     )
+     FOR XML PATH('')), 1, 2, '')) AS tipologie,
   p.paxadulti AS paxAdulti,
   p.paxbambini AS paxBambini,
   (SELECT MIN(NULLIF(LTRIM(RTRIM(tp.EstTimeArr)), '')) FROM TipoPre tp WHERE tp.codpratica = p.codpratica) AS oraArrivo,
@@ -127,6 +137,7 @@ function mapRiga(r) {
     nominativo,
     ospiti,
     camere: pulisci(r.camere),
+    tipologie: pulisci(r.tipologie),
     paxAdulti: r.paxAdulti,
     paxBambini: r.paxBambini,
     dtarrivo: r.dtarrivo,

@@ -390,6 +390,7 @@ function schedaArrivo(a) {
   const ora = a.oraArrivo ? `<span class="arr-ora">🕒 ${esc(a.oraArrivo)}</span>` : '';
   const notti = a.notti != null ? ` · ${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}` : '';
   const camere = a.camere ? a.camere.split(',').map((c) => `<span class="room">${esc(c.trim())}</span>`).join('') : '';
+  const tipologie = a.tipologie ? a.tipologie.split(',').map((t) => `<span class="tipo-chip">${esc(t.trim())}</span>`).join('') : '';
   const tratt = [a.trattamento, a.tariffa].filter(Boolean).map(esc).join(' / ') || '—';
   const tot = a.importo != null ? euro(a.importo) : '—';
   const ospiti = renderOspitiArrivo(a);
@@ -412,7 +413,7 @@ function schedaArrivo(a) {
       ${snapshotBand(s)}
       <div class="arr-brief-result" hidden></div>
       <div class="arr-stay">
-        <span class="arr-rooms">${camere || '<span class="dash">—</span>'}</span>
+        <span class="arr-rooms">${camere || '<span class="dash">—</span>'}${tipologie}</span>
         <span class="arr-dates">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${notti}</span>
       </div>
       ${ospiti ? `<div class="arr-ospiti">${ospiti}</div>` : ''}
