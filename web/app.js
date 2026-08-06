@@ -1127,27 +1127,112 @@ async function caricaDuplicati(codCli) {
       <span class="dup-match ${c.match === 'CF' ? 'm-cf' : 'm-an'}">${c.match === 'CF' ? 'stesso CF' : 'stesso nome+nascita'}</span>
       <span class="dup-nome">${esc(c.nominativo || ('#' + c.codCli))}</span>
       <span class="cell-muted">#${c.codCli}${c.dtNascita ? ' · ' + fmtData(c.dtNascita) : ''} · ${c.nPrenotazioni} pren.</span>
-      <button type="button" class="btn btn-sm" data-merge="${c.codCli}">Unisci</button>
+      <button type="button" class="btn btn-sm" data-merge="${c.codCli}">Confronta e unisci…</button>
     </li>`).join('');
   el.hidden = false;
   el.innerHTML = `<div class="dup-head">⚠️ Possibili duplicati di questo ospite <span class="info" data-tip="Anagrafiche che sembrano la stessa persona (stesso codice fiscale, o stesso cognome+nome+data di nascita). Unendole, la scheda aggrega soggiorni, consumi e note. Reversibile.">i</span></div><ul class="dup-list">${righe}</ul>`;
 }
 
-// Unisci: il principale è chi ha più prenotazioni (default), l'altro diventa membro.
-$('#cli-duplicati').addEventListener('click', async (e) => {
+// "Confronta e unisci…" dal box scheda: apre la schermata di confronto (niente merge immediato).
+$('#cli-duplicati').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-merge]');
   if (!btn || !clienteCorrente) return;
-  const cand = duplicatiCorrenti.find((c) => c.codCli === Number(btn.dataset.merge));
-  if (!cand) return;
-  const candPrincipale = cand.nPrenotazioni > clienteNSogg;
-  const canonicalId = candPrincipale ? cand.codCli : clienteCorrente;
-  const memberId = candPrincipale ? clienteCorrente : cand.codCli;
-  btn.disabled = true;
-  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/merge`, {
-    method: 'POST', body: JSON.stringify({ memberId, canonicalId }),
-  });
-  if (status === 201) loadCliente(clienteCorrente); // ricarica: aggregazione aggiornata
-  else btn.disabled = false;
+  const cand = Number(btn.dataset.merge);
+  mergeCoda = null;
+  mergeOnDone = () => loadCliente(clienteCorrente);
+  apriConfronto([clienteCorrente, cand]);
+});
+
+// ===== Merge guidato: schermata di confronto (modale) =====
+let mergeData = null;        // { anagrafiche, conflitti, suggerito }
+let mergePrincipale = null;  // codCli scelto come principale
+let mergeOnDone = null;      // callback dopo conferma (modalità singola)
+let mergeCoda = null;        // { gruppi:[[ids]...], idx } per la coda di revisione
+
+const CAMPI_MERGE = [
+  ['nominativo', 'Nominativo', null],
+  ['dtNascita', 'Data di nascita', fmtData],
+  ['codiceFiscale', 'Codice fiscale', null],
+  ['citta', 'Città', null],
+  ['email', 'Email', null],
+  ['telefono', 'Telefono', null],
+  ['cellulare', 'Cellulare', null],
+  ['vip', 'VIP', (v) => (v && v.descrizione ? v.descrizione : '')],
+  ['nPrenotazioni', 'N. prenotazioni', null],
+];
+const LABEL_CAMPO = { codiceFiscale: 'codice fiscale', email: 'email', telefono: 'telefono', cellulare: 'cellulare', citta: 'città', dtNascita: 'data di nascita' };
+
+async function apriConfronto(ids) {
+  const first = ids[0];
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(first)}/confronto?ids=${encodeURIComponent(ids.join(','))}`);
+  if (status !== 200) { $('#merge-dialog-body').innerHTML = `<div class="merge-body"><div class="modal-title">Confronto</div><p class="error">Impossibile aprire il confronto.</p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="merge-annulla">Chiudi</button></div></div>`; if (!$('#merge-dialog').open) $('#merge-dialog').showModal(); return; }
+  mergeData = body;
+  mergePrincipale = body.suggerito;
+  renderMerge();
+  if (!$('#merge-dialog').open) $('#merge-dialog').showModal();
+}
+
+function renderMerge() {
+  const d = mergeData;
+  const princ = mergePrincipale;
+  const conflSet = new Set((d.conflitti || []).map((c) => c.campo));
+  const cell = (v, fmt) => { const x = fmt ? fmt(v) : v; return (x == null || x === '') ? '<span class="dash">—</span>' : esc(String(x)); };
+  const head = d.anagrafiche.map((a) => `<th class="${a.codCli === princ ? 'merge-princ-col' : ''}">
+      <label class="merge-princ"><input type="radio" name="princ" value="${a.codCli}" ${a.codCli === princ ? 'checked' : ''}/> #${a.codCli}</label>
+      ${a.codCli === princ ? '<span class="merge-badge">principale</span>' : ''}</th>`).join('');
+  const rows = CAMPI_MERGE.map(([k, label, fmt]) => {
+    const conf = conflSet.has(k);
+    const tds = d.anagrafiche.map((a) => `<td class="${a.codCli === princ ? 'merge-princ-col' : ''}${conf ? ' merge-conf-cell' : ''}">${cell(a[k], fmt)}</td>`).join('');
+    return `<tr><td class="merge-lbl">${esc(label)}${conf ? ' <span class="merge-warn" title="Dati diversi tra le anagrafiche">⚠</span>' : ''}</td>${tds}</tr>`;
+  }).join('');
+  const avviso = conflSet.size
+    ? `<div class="merge-avviso">⚠ Dati in conflitto (${[...conflSet].map((c) => LABEL_CAMPO[c] || c).join(', ')}): assicurati che sia la stessa persona e scegli il principale prima di confermare.</div>`
+    : '';
+  const codaInfo = mergeCoda ? `<span class="merge-coda">Gruppo ${mergeCoda.idx + 1} di ${mergeCoda.gruppi.length}</span>` : '';
+  const azioni = mergeCoda
+    ? '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla tutto</button><button type="button" class="btn" id="merge-salta">Salta</button><button type="button" class="btn btn-primary" id="merge-conferma">Conferma unione</button>'
+    : '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla</button><button type="button" class="btn btn-primary" id="merge-conferma">Conferma unione</button>';
+  $('#merge-dialog-body').innerHTML = `<div class="merge-body">
+    <div class="merge-head"><span class="modal-title">Confronta e unisci anagrafiche</span>${codaInfo}</div>
+    <p class="merge-sub">Scegli l'anagrafica <b>principale</b>; le altre verranno collegate. Verranno aggregati soggiorni, consumi F&amp;B/SPA, preferenze, intolleranze, reclami e note. Operazione <b>reversibile</b>.</p>
+    ${avviso}
+    <div class="merge-tab-wrap"><table class="merge-tab"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="modal-actions">${azioni}</div>
+  </div>`;
+}
+
+async function confermaMerge() {
+  const btn = $('#merge-conferma'); if (btn) { btn.disabled = true; btn.textContent = 'Unione…'; }
+  const membri = mergeData.anagrafiche.map((a) => a.codCli).filter((id) => id !== mergePrincipale);
+  for (const m of membri) {
+    await api(`/api/clienti/${encodeURIComponent(mergePrincipale)}/merge`, {
+      method: 'POST', body: JSON.stringify({ memberId: m, canonicalId: mergePrincipale }),
+    });
+  }
+  avanzaMerge(true);
+}
+
+function avanzaMerge(fatto) {
+  if (mergeCoda) {
+    mergeCoda.idx += 1;
+    if (mergeCoda.idx < mergeCoda.gruppi.length) { apriConfronto(mergeCoda.gruppi[mergeCoda.idx]); return; }
+    mergeCoda = null; $('#merge-dialog').close(); loadDuplicatiPage(); return;
+  }
+  $('#merge-dialog').close();
+  if (fatto && mergeOnDone) mergeOnDone();
+}
+
+$('#merge-dialog-body').addEventListener('change', (e) => {
+  const r = e.target.closest('input[name="princ"]');
+  if (r) { mergePrincipale = Number(r.value); renderMerge(); }
+});
+$('#merge-dialog-body').addEventListener('click', (e) => {
+  if (e.target.closest('#merge-conferma')) { confermaMerge(); return; }
+  if (e.target.closest('#merge-salta')) { avanzaMerge(false); return; }
+  if (e.target.closest('#merge-annulla')) {
+    const inCoda = !!mergeCoda; mergeCoda = null; $('#merge-dialog').close();
+    if (inCoda) loadDuplicatiPage();
+  }
 });
 
 $('#cli-merge-banner').addEventListener('click', async (e) => {
@@ -1179,16 +1264,52 @@ function renderDuplicatiPage() {
     const codici = g.membri.map((id) => `<a href="#cliente/${id}">#${id}</a>`).join(', ');
     const crit = g.tipo === 'CF' ? 'stesso CF' : 'stesso nome+nascita';
     const fusi = g.fusiCount ? ` <span class="cell-muted">(${g.fusiCount} già fusi)</span>` : '';
+    const membriAttr = g.membri.join(',');
     return `<tr>
+      <td class="dup-check"><input type="checkbox" class="dup-row" data-membri="${membriAttr}" /></td>
       <td>${esc(g.nominativo || '—')}</td>
       <td><span class="dup-match ${g.tipo === 'CF' ? 'm-cf' : 'm-an'}">${crit}</span></td>
       <td>${codici}${fusi}</td>
       <td class="num">${g.n}</td>
-      <td><a class="btn btn-sm" href="#cliente/${g.membri[0]}">Apri e unisci</a></td>
+      <td><button type="button" class="btn btn-sm" data-confronta="${membriAttr}">Confronta e unisci…</button></td>
     </tr>`;
   }).join('');
+  const selall = $('#dup-selall'); if (selall) { selall.checked = false; selall.indeterminate = false; }
+  aggiornaDupSelezione();
 }
 document.querySelectorAll('input[name="dupf"]').forEach((r) => r.addEventListener('change', renderDuplicatiPage));
+
+// Multi-selezione + coda di revisione nella pagina Duplicati.
+function idsSelezionati() {
+  return [...document.querySelectorAll('.dup-row:checked')].map((c) => c.dataset.membri.split(',').map(Number).filter(Number.isInteger));
+}
+function aggiornaDupSelezione() {
+  const n = document.querySelectorAll('.dup-row:checked').length;
+  const tot = document.querySelectorAll('.dup-row').length;
+  $('#dup-actions').hidden = n === 0;
+  $('#dup-sel-count').textContent = `${n} ${n === 1 ? 'gruppo selezionato' : 'gruppi selezionati'}`;
+  const selall = $('#dup-selall'); if (selall) { selall.checked = n > 0 && n === tot; selall.indeterminate = n > 0 && n < tot; }
+}
+$('#dup-selall').addEventListener('change', (e) => {
+  document.querySelectorAll('.dup-row').forEach((c) => { c.checked = e.target.checked; });
+  aggiornaDupSelezione();
+});
+$('#duplicati-tbody').addEventListener('change', (e) => { if (e.target.closest('.dup-row')) aggiornaDupSelezione(); });
+$('#duplicati-tbody').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-confronta]');
+  if (!btn) return;
+  const ids = btn.dataset.confronta.split(',').map(Number).filter(Number.isInteger);
+  mergeCoda = null;
+  mergeOnDone = () => loadDuplicatiPage();
+  apriConfronto(ids);
+});
+$('#dup-rivedi').addEventListener('click', () => {
+  const gruppi = idsSelezionati();
+  if (!gruppi.length) return;
+  mergeOnDone = null;
+  mergeCoda = { gruppi, idx: 0 };
+  apriConfronto(gruppi[0]);
+});
 
 // --- Intolleranze / allergie (dato di sicurezza) ---
 async function caricaIntolleranze(codCli) {

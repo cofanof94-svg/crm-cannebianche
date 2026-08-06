@@ -92,6 +92,10 @@ async function makeApp(opts = {}) {
       if (/a\.CodCli <> @codCli/.test(text)) return [{ codCli: 55491, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: '', match: 'anagrafica', nPrenotazioni: 0 }];
       if (/STRING_AGG/.test(text)) return [{ tipo: 'CF', cognome: 'DI BARI', nome: 'ANNA', chiave: 'X', n: 2, membri: '47186,55491' }];
       if (/cameraInCasa/.test(text)) return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Telefono: '080123', Citta: 'TRANI', cameraInCasa: null }];
+      if (/AS nPrenotazioni[\s\S]*a\.CodCli IN/.test(text)) return [
+        { codCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: 'X', Citta: 'TRANI', CodNaz: 'I', email: 'a@b.it', Telefono: '080', Cellulare: '', CodVip: '', DesVip: null, nPrenotazioni: 5 },
+        { codCli: 55491, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: 'Y', Citta: 'TRANI', CodNaz: 'I', email: 'a@b.it', Telefono: '080', Cellulare: '', CodVip: '', DesVip: null, nPrenotazioni: 2 },
+      ];
       if (/FROM Anagra a\b/.test(text)) { if (params && params.codCli === 999) return []; return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', Telefono: '', Cellulare: '', email: 'a@b.it', Citta: 'TRANI', CodNaz: 'I', dtNascita: '1964-10-17', CodFis: 'X', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' }]; }
       if (/StorAddebitiComanda/.test(text)) return [{ codArt: 'COCAZ', nome: 'COCA COLA ZERO', fb: 'B', grp: 'BEV.BI', volte: 5, qta: 5, eur: 30 }];
       if (/codgrpmerCAT LIKE 'SPA/.test(text)) return [{ nome: 'SERENITY', grp: 'SPA', volte: 12, qta: 12, eur: 1200 }];
@@ -229,6 +233,16 @@ test('POST /api/clienti/:codCli/briefing → 503 se AI non configurata', async (
   const res = await ag.post('/api/clienti/47186/briefing');
   assert.strictEqual(res.status, 503);
   assert.match(res.body.error, /AI non configurata/);
+});
+
+test('GET /api/clienti/:codCli/confronto → anagrafiche, conflitti e principale suggerito', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const res = await ag.get('/api/clienti/47186/confronto?ids=47186,55491');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.anagrafiche.length, 2);
+  assert.strictEqual(res.body.suggerito, 47186); // più prenotazioni
+  assert.deepStrictEqual(res.body.conflitti.map((c) => c.campo), ['codiceFiscale']);
 });
 
 test('GET /api/clienti/abc → 400', async () => {

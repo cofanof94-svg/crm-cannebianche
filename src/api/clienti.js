@@ -14,7 +14,7 @@ const { getAiClient } = require('../ai/client');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
 const briefingAi = require('../ai/briefing');
 const { getGruppo, mergeInto, unmerge, listMappature } = require('../crm/merge');
-const { getDuplicatiCandidati, getTuttiGruppiDuplicati } = require('../pms/duplicati');
+const { getDuplicatiCandidati, getTuttiGruppiDuplicati, getAnagreConfronto, calcolaConflitti } = require('../pms/duplicati');
 
 // Eliminate e No-show restano nello storico ma non sono soggiorni reali:
 // escluse dai conteggi. L'aggregazione vera è nel modulo condiviso src/stats.js.
@@ -96,6 +96,20 @@ function createClientiRouter(pmsDb, crmDb) {
     const { membri } = await getGruppo(crmDb, codCli);
     const candidati = await getDuplicatiCandidati(pmsDb, codCli);
     res.json({ candidati: candidati.filter((c) => !membri.includes(c.codCli)) });
+  });
+
+  // Confronto anagrafiche per il merge guidato: dati a colonne, conflitti evidenziati,
+  // principale suggerito (più prenotazioni). Sola lettura, non fonde nulla.
+  router.get('/clienti/:codCli/confronto', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const richiesti = String(req.query.ids || '').split(',').map(intParam).filter((n) => n !== null);
+    const ids = [...new Set([codCli, ...richiesti])];
+    const anagrafiche = await getAnagreConfronto(pmsDb, ids);
+    if (anagrafiche.length < 2) return res.status(400).json({ error: 'Servono almeno due anagrafiche da confrontare' });
+    const conflitti = calcolaConflitti(anagrafiche);
+    const suggerito = anagrafiche.reduce((best, a) => (a.nPrenotazioni > best.nPrenotazioni ? a : best), anagrafiche[0]).codCli;
+    res.json({ anagrafiche, conflitti, suggerito });
   });
 
   // Fonde un codice (memberId) nel gruppo di un principale (canonicalId).

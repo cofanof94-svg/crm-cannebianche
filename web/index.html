@@ -217,14 +217,23 @@
             <label class="check"><input type="radio" name="dupf" value="anagrafica" /> Stesso nome+nascita</label>
             <span class="dup-count" id="dup-count"></span>
           </div>
+          <div class="dup-actions" id="dup-actions" hidden>
+            <span id="dup-sel-count">0 selezionati</span>
+            <button type="button" class="btn btn-primary btn-sm" id="dup-rivedi">Rivedi selezionati</button>
+          </div>
           <div id="duplicati-msg" class="state">Caricamento…</div>
           <div class="card table-wrap" id="duplicati-wrap" hidden>
             <table class="dup-tab">
-              <thead><tr><th>Nominativo</th><th>Criterio</th><th>Codici</th><th class="num">Anagrafiche</th><th></th></tr></thead>
+              <thead><tr><th class="dup-check"><input type="checkbox" id="dup-selall" title="Seleziona tutti" /></th><th>Nominativo</th><th>Criterio</th><th>Codici</th><th class="num">Anagrafiche</th><th></th></tr></thead>
               <tbody id="duplicati-tbody"></tbody>
             </table>
           </div>
         </section>
+
+        <!-- MODALE confronto/merge guidato -->
+        <dialog id="merge-dialog" class="modal modal-wide">
+          <div id="merge-dialog-body"></div>
+        </dialog>
 
         <!-- SCHEDA OSPITE 360° -->
         <section id="view-cliente" class="view" hidden>

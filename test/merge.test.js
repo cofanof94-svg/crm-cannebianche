@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { inClause } = require('../src/db/query');
 const { getGruppo, mergeInto, unmerge } = require('../src/crm/merge');
-const { getDuplicatiCandidati, getTuttiGruppiDuplicati } = require('../src/pms/duplicati');
+const { getDuplicatiCandidati, getTuttiGruppiDuplicati, getAnagreConfronto, calcolaConflitti } = require('../src/pms/duplicati');
 
 // --- inClause ---
 test('inClause: interi → lista, non-interi → throw', () => {
@@ -114,6 +114,31 @@ test('getDuplicatiCandidati: mappa match e conteggi', async () => {
   assert.strictEqual(out[1].match, 'anagrafica');
   assert.strictEqual(pms.calls[0].params.codCli, 48758);
   assert.match(pms.calls[0].text, /a\.CodCli <> @codCli/);
+});
+
+// --- confronto anagrafiche (merge guidato) ---
+test('calcolaConflitti: segnala solo i campi con valori diversi non nulli', () => {
+  const anagrafiche = [
+    { codCli: 1, codiceFiscale: 'AAA', email: 'x@a.it', telefono: '111', citta: 'Roma', dtNascita: '1980-01-01' },
+    { codCli: 2, codiceFiscale: 'BBB', email: null, telefono: '111', citta: 'roma', dtNascita: '1980-01-01' },
+  ];
+  const c = calcolaConflitti(anagrafiche);
+  const campi = c.map((x) => x.campo);
+  assert.deepStrictEqual(campi, ['codiceFiscale']); // email ha un solo valore; tel/citta(=case)/dob uguali
+  assert.deepStrictEqual(c[0].valori, { 1: 'AAA', 2: 'BBB' });
+});
+
+test('getAnagreConfronto: mappa i campi e nPrenotazioni, preserva l\'ordine', async () => {
+  const pms = fakePms([
+    { codCli: 20, Cognome: 'ROSSI', Nome: 'B', dtNascita: '1980-01-01', codiceFiscale: 'B', Citta: 'Bari', CodNaz: 'IT', email: 'b@x', Telefono: null, Cellulare: '2', CodVip: null, DesVip: null, nPrenotazioni: 3 },
+    { codCli: 10, Cognome: 'ROSSI', Nome: 'A', dtNascita: '1980-01-01', codiceFiscale: 'A', Citta: 'Bari', CodNaz: 'IT', email: 'a@x', Telefono: '1', Cellulare: null, CodVip: 'V1', DesVip: 'BOLLICINE', nPrenotazioni: 5 },
+  ]);
+  const out = await getAnagreConfronto(pms, [10, 20]);
+  assert.deepStrictEqual(out.map((a) => a.codCli), [10, 20]); // ordine richiesto
+  assert.strictEqual(out[0].nominativo, 'ROSSI A');
+  assert.strictEqual(out[0].vip.descrizione, 'BOLLICINE');
+  assert.strictEqual(out[1].nPrenotazioni, 3);
+  assert.match(pms.calls[0].text, /FROM Anagra a/);
 });
 
 test('getTuttiGruppiDuplicati: splitta i membri STRING_AGG', async () => {
