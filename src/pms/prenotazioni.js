@@ -3,14 +3,15 @@
 // Tipologia camera = Camere.codtip delle camere (assegnate o pianificate).
 // OSPITE = codclinterm (l'ospite reale); codcli è l'intestatario del conto/pagante.
 // Trattamento (codarr, es. BB) e Tariffa (CodConvenzione) presi con COALESCE(Alberg, TipoPre).
-// IMPORTO: stessa logica dello storico prenotazioni della scheda cliente (getSoggiorniCliente):
-//   maturato room (Matura, via importiExpr) come importo del soggiorno; se non ancora maturato
-//   si mostra il "previsto" (pianificato). Prima si usava MAX(Alberg.impoeur) per camera, che dava
-//   ~una sola notte per gli ospiti già in casa.
+// IMPORTO (BUG-006): totale PIANIFICATO della prenotazione dalla "pianificazione di
+//   soggiorno" (PianificazioneSogg), calcolato in src/pms/importo.js e coincidente col
+//   gestionale. Le prenotazioni correnti (Prenota) hanno la pianificazione; le concluse
+//   (StorPrenota) usano il maturato — gestito nello storico della scheda cliente.
 // Una riga per prenotazione.
 
 const { importiExpr } = require('../import/estrai');
-const _imp = importiExpr('Alberg', 'p'); // maturato room/extra (Matura + StorMatura)
+const { getImportiPrenotazioni } = require('./importo');
+const _imp = importiExpr('Alberg', 'p'); // extra maturato (Matura + StorMatura)
 
 // Totale PIANIFICATO (previsto) del soggiorno. TipoPre.ImpoEur è una tariffa A NOTTE:
 // il totale = SUM(ImpoEur × notti-della-riga × qta). Fallback su Alberg (impoeur a notte
@@ -64,10 +65,7 @@ const COLONNE = `
        FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.CodConvenzione, '') <> ''
        FOR XML PATH('')), 1, 2, ''))
   ) AS tariffa,
-  ${_imp.arrangiamento} AS arrangiamento,
   ${_imp.extra} AS extra,
-  ${pianificatoExpr('p')} AS pianificato,
-  (SELECT ISNULL(SUM(a.impoeur), 0) FROM Acconti a WHERE a.CodPratica = p.codpratica) AS acconto,
   CONVERT(varchar(10), p.dtprenota, 23) AS dtPrenota,
   (SELECT al.codcli AS codCli,
      LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo,
@@ -139,16 +137,6 @@ function normalizzaOra(v) {
   return s;
 }
 
-// Importo del soggiorno (room): maturato se presente, altrimenti il pianificato
-// ("previsto"). Stessa scelta della riga storico prenotazioni (rigaSoggiorno).
-function importoSoggiorno(r) {
-  const arrangiamento = r.arrangiamento == null ? 0 : Number(r.arrangiamento);
-  const extra = r.extra == null ? 0 : Number(r.extra);
-  const pianificato = r.pianificato == null ? 0 : Number(r.pianificato);
-  if (arrangiamento + extra === 0 && pianificato > 0) return pianificato;
-  return arrangiamento;
-}
-
 function mapRiga(r) {
   const nominativo = [r.cognome, r.nome]
     .map((s) => (s == null ? '' : String(s)).trim())
@@ -177,22 +165,27 @@ function mapRiga(r) {
     inCasa: r.inCasa === 'S',
     trattamento: pulisci(r.trattamento),
     tariffa: pulisci(r.tariffa),
-    // Importo del soggiorno come nello storico: maturato room; se non ancora maturato → previsto.
-    importo: importoSoggiorno(r),
+    importo: 0, // riempito da attaccaImporti (totale pianificato, BUG-006)
     extra: r.extra == null ? 0 : Number(r.extra),
-    acconto: r.acconto == null ? 0 : Number(r.acconto), // pagato/versato (tabella Acconti)
     note: pulisci(r.note),
   };
 }
 
+// Allega l'importo pianificato (totale prenotazione) a ogni riga, in batch.
+async function attaccaImporti(pmsDb, righe) {
+  const imp = await getImportiPrenotazioni(pmsDb, righe.map((x) => x.codpratica));
+  righe.forEach((x) => { x.importo = imp.get(x.codpratica) || 0; });
+  return righe;
+}
+
 async function getArriviByData(pmsDb, data) {
   const rows = await pmsDb.query(SQL_ARRIVI, { data });
-  return rows.map(mapRiga);
+  return attaccaImporti(pmsDb, rows.map(mapRiga));
 }
 
 async function getInCasaByData(pmsDb, data) {
   const rows = await pmsDb.query(SQL_INCASA, { data });
-  return rows.map(mapRiga);
+  return attaccaImporti(pmsDb, rows.map(mapRiga));
 }
 
 async function getRiepilogoGiorno(pmsDb, data) {

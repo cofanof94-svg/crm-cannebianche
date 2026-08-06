@@ -437,7 +437,6 @@ function schedaArrivo(a) {
       <div class="arr-op">
         <span class="arr-op-imp"><i>Importo soggiorno</i> ${tot}</span>
         ${a.extra ? `<span class="arr-op-imp"><i>Extra</i> ${euro(a.extra)}</span>` : ''}
-        <span class="arr-op-imp"><i>Acconto / Pagato</i> ${euro(a.acconto || 0)}</span>
         <span><i>Trattamento</i> ${tratt}</span>
         <span><i>Pratica</i> ${esc(a.codpratica)}</span>
         <span><i>Creata</i> ${fmtData(a.dtPrenota)}</span>
@@ -738,18 +737,16 @@ function contattoCard(label, value, href) {
 // Stati "in corso/futuri": se il maturato è ancora 0 ma c'è la tariffa pianificata,
 // mostriamo quest'ultima nella colonna Arrangiamenti (lo stato già segnala che è in
 // corso). LTV/cumulativi restano sul maturato reale.
-const STATI_PREVISTO = ['In casa', 'Confermato', 'Pianificata'];
 function rigaSoggiorno(x) {
-  const arr = x.arrangiamento || 0;
+  // Importo unico dal backend (BUG-006): pianificato per le correnti, maturato per le concluse.
+  const importo = x.importo || 0;
   const ext = x.extra || 0;
-  const usaPrevisto = arr + ext === 0 && (x.pianificato || 0) > 0 && STATI_PREVISTO.includes(x.stato);
-  const arrShown = usaPrevisto ? x.pianificato : arr;
   return `<tr>
     <td class="cell-num">${esc(x.codpratica)}</td>
     <td class="cell-muted">${fmtData(x.dtarrivo)} <span class="periodo-sep">→</span> ${fmtData(x.dtpartenza)}</td>
     <td class="cell-num">${x.notti != null ? esc(x.notti) : '—'}</td>
     <td>${x.camere ? chipCamere(x.camere) : dash}</td>
-    <td class="cell-num">${euro(arrShown)}</td>
+    <td class="cell-num">${euro(importo)}</td>
     <td class="cell-num sogg-extra">${euro(ext)}</td>
     <td><span class="pill ${statoSoggPill(x.stato)}">${esc(x.stato)}</span></td>
   </tr>`;

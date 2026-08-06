@@ -1,6 +1,7 @@
 const { importiExpr } = require('../import/estrai');
 const { inClause } = require('../db/query');
 const { pianificatoExpr } = require('./prenotazioni');
+const { getImportiPrenotazioni } = require('./importo');
 
 // cameraInCasa: camera(e) se l'ospite è in casa alla data di lavoro (Persona.Dataggio), altrimenti NULL.
 // Ricerca stile rubrica: ogni parola digitata (token) deve comparire nel testo
@@ -177,10 +178,13 @@ async function getCliente(pmsDb, codCli) {
   };
 }
 
+// Prenotazioni "concluse": nessuna pianificazione disponibile → si usa il maturato.
+const STATI_CONCLUSI = ['Concluso', 'Eliminata'];
+
 // ids: codice singolo o array di codici del gruppo (anagrafiche fuse).
 async function getSoggiorniCliente(pmsDb, ids) {
   const rows = await pmsDb.query(sqlSoggiorni(inClause(ids)), {});
-  return rows.map((r) => {
+  const soggiorni = rows.map((r) => {
     let ospiti = [];
     try { ospiti = r.ospitiJson ? JSON.parse(r.ospitiJson) : []; } catch (e) { ospiti = []; }
     const arrangiamento = r.arrangiamento == null ? 0 : Number(r.arrangiamento);
@@ -191,16 +195,21 @@ async function getSoggiorniCliente(pmsDb, ids) {
       dtpartenza: r.dtpartenza,
       notti: r.notti,
       camere: pulisci(r.camere),
-      importo: arrangiamento, // = arrangiamento (compat)
+      importo: arrangiamento, // riempito sotto (BUG-006)
       arrangiamento,
       extra,
-      pianificato: r.pianificato == null ? 0 : Number(r.pianificato), // tariffa pianificata (per "previsto" quando maturato=0)
       stato: r.stato,
       source: pulisci(r.source),
       mercato: pulisci(r.mercato),
       ospiti,
     };
   });
+  // Importo unico (BUG-006): correnti → totale PIANIFICATO (PianificazioneSogg);
+  // concluse → maturato (la pianificazione non è più disponibile in StorPrenota).
+  const correnti = soggiorni.filter((s) => !STATI_CONCLUSI.includes(s.stato)).map((s) => s.codpratica);
+  const imp = await getImportiPrenotazioni(pmsDb, correnti);
+  soggiorni.forEach((s) => { s.importo = STATI_CONCLUSI.includes(s.stato) ? s.arrangiamento : (imp.get(s.codpratica) || 0); });
+  return soggiorni;
 }
 
 // Anagrafica minima per una lista di codici (dashboard arrivi): nome, data di

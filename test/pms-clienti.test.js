@@ -78,11 +78,10 @@ test('getSoggiorniCliente mappa le righe', async () => {
   assert.strictEqual(s.camere, '109');
   assert.strictEqual(s.arrangiamento, 855);       // arrangiamento per pratica (Matura+StorMatura, codarr non nullo)
   assert.strictEqual(s.extra, 40);                // extra per pratica (city tax esclusa)
-  assert.strictEqual(s.importo, 855);             // = arrangiamento (compat)
+  assert.strictEqual(s.importo, 855);             // conclusa → maturato (arrangiamento)
   assert.strictEqual(s.stato, 'Concluso');
   assert.strictEqual(s.source, 'DIRETTI');
   assert.strictEqual(s.mercato, 'LEISURE INDIVIDUALI');
-  assert.strictEqual(s.pianificato, 900);          // tariffa pianificata (per il "previsto")
   assert.match(pms.calls[0].text, /IN \(47186\)/);
 });
 
