@@ -1252,11 +1252,14 @@ async function loadDuplicatiPage() {
   duplicatiGruppi = body.gruppi || [];
   renderDuplicatiPage();
 }
+const senzaAccenti = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 function renderDuplicatiPage() {
   const sel = document.querySelector('input[name="dupf"]:checked');
   const f = sel ? sel.value : 'tutti';
-  const lista = duplicatiGruppi.filter((g) => f === 'tutti' || g.tipo === f);
-  $('#dup-count').textContent = `${lista.length} gruppi`;
+  const q = senzaAccenti(($('#dup-search') && $('#dup-search').value) || '').trim();
+  const lista = duplicatiGruppi.filter((g) => (f === 'tutti' || g.tipo === f)
+    && (!q || senzaAccenti(g.nominativo).includes(q) || g.membri.some((id) => String(id).includes(q))));
+  $('#dup-count').textContent = `${lista.length} ${lista.length === 1 ? 'gruppo' : 'gruppi'}`;
   const msg = $('#duplicati-msg'); const wrap = $('#duplicati-wrap');
   if (!lista.length) { msg.hidden = false; msg.textContent = 'Nessun gruppo di duplicati.'; wrap.hidden = true; return; }
   msg.hidden = true; wrap.hidden = false;
@@ -1278,6 +1281,7 @@ function renderDuplicatiPage() {
   aggiornaDupSelezione();
 }
 document.querySelectorAll('input[name="dupf"]').forEach((r) => r.addEventListener('change', renderDuplicatiPage));
+$('#dup-search').addEventListener('input', renderDuplicatiPage);
 
 // Multi-selezione + coda di revisione nella pagina Duplicati.
 function idsSelezionati() {
