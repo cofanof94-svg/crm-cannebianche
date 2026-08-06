@@ -10,16 +10,20 @@ const { inClause } = require('../db/query');
 // non nullo del gruppo (più recente). La scrittura resta sul codice visualizzato.
 async function getProfilo(db, ids) {
   const rows = await db.query(
-    `SELECT pms_customer_id, lingua, note_personali, updated_at FROM customer_profile
-     WHERE pms_customer_id IN ${inClause(ids)}
-     ORDER BY updated_at DESC`
+    `SELECT p.pms_customer_id, p.lingua, p.note_personali, p.updated_at, u.username AS autore
+     FROM customer_profile p LEFT JOIN users u ON u.id = p.autore_user_id
+     WHERE p.pms_customer_id IN ${inClause(ids)}
+     ORDER BY p.updated_at DESC`
   );
   if (!rows.length) return null;
   const primo = (campo) => { const r = rows.find((x) => x[campo] != null); return r ? r[campo] : null; };
+  const rigaNota = rows.find((r) => r.note_personali != null) || null;
   return {
     pms_customer_id: rows[0].pms_customer_id,
     lingua: primo('lingua'),
-    note_personali: primo('note_personali'),
+    note_personali: rigaNota ? rigaNota.note_personali : null,
+    note_autore: rigaNota && rigaNota.autore != null ? rigaNota.autore : null,
+    note_updated_at: rigaNota ? rigaNota.updated_at : null,
     updated_at: rows[0].updated_at,
   };
 }

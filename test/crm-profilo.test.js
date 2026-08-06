@@ -6,12 +6,15 @@ function fakeDb(recordset = []) {
   return { calls: [], async query(text, params) { this.calls.push({ text, params }); return recordset; } };
 }
 
-test('getProfilo restituisce lingua + note_personali (primo non nullo del gruppo) o null', async () => {
+test('getProfilo restituisce lingua + note_personali (con autore/data) o null', async () => {
   const rows = [
-    { pms_customer_id: 1, lingua: null, note_personali: 'Direttore LUISS', updated_at: 'b' },
-    { pms_customer_id: 1, lingua: 'IT', note_personali: null, updated_at: 'a' },
+    { pms_customer_id: 1, lingua: null, note_personali: 'Direttore LUISS', updated_at: 'b', autore: 'admin' },
+    { pms_customer_id: 1, lingua: 'IT', note_personali: null, updated_at: 'a', autore: null },
   ];
-  assert.deepStrictEqual(await getProfilo(fakeDb(rows), 1), { pms_customer_id: 1, lingua: 'IT', note_personali: 'Direttore LUISS', updated_at: 'b' });
+  assert.deepStrictEqual(await getProfilo(fakeDb(rows), 1), {
+    pms_customer_id: 1, lingua: 'IT', note_personali: 'Direttore LUISS',
+    note_autore: 'admin', note_updated_at: 'b', updated_at: 'b',
+  });
   assert.strictEqual(await getProfilo(fakeDb([]), 1), null);
 });
 

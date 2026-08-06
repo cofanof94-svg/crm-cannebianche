@@ -758,23 +758,14 @@ function popolaSelect(sel, valori, placeholder) {
 async function caricaLingua(codCli) {
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/profilo`);
   $('#cli-lingua').value = (body.profilo && body.profilo.lingua) || '';
-  $('#cli-note-personali').value = (body.profilo && body.profilo.note_personali) || '';
-  $('#notepers-ai-msg').textContent = '';
-  notePersBaseline = $('#cli-note-personali').value; // stato salvato di riferimento
-  $('#btn-notepers-salva').textContent = 'Salva';
-  aggiornaSalvaNotePers(); // Salva disabilitato finché non si modifica
+  notePersData = {
+    testo: (body.profilo && body.profilo.note_personali) || null,
+    autore: (body.profilo && body.profilo.note_autore) || null,
+    data: (body.profilo && body.profilo.note_updated_at) || null,
+  };
+  notePersEdit = false;
+  renderNotePersonali();
 }
-
-// Abilita "Salva" solo se le note differiscono dall'ultimo stato salvato (dirty).
-let notePersBaseline = '';
-function aggiornaSalvaNotePers() {
-  const btn = $('#btn-notepers-salva');
-  if (!btn) return;
-  const dirty = $('#cli-note-personali').value !== notePersBaseline;
-  btn.disabled = !dirty;
-  if (dirty) btn.textContent = 'Salva';
-}
-$('#cli-note-personali').addEventListener('input', aggiornaSalvaNotePers);
 
 $('#lingua-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -786,23 +777,52 @@ $('#lingua-form').addEventListener('submit', async (e) => {
   if (status === 200) { const b = $('#lingua-form').querySelector('button'); const t = b.textContent; b.textContent = 'Salvato ✓'; setTimeout(() => { b.textContent = t; }, 1200); }
 });
 
-// --- Note personali (salvataggio manuale + generazione AI) ---
-$('#notepers-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
+// --- Note personali: vista (nota salvata + Modifica/Elimina, stile allergie) /
+//     edit (textarea + Genera con AI + Salva + Annulla). Dopo il salvataggio si
+//     torna in vista → la nota "salvata" è evidente.
+let notePersEdit = false;
+let notePersData = { testo: null, autore: null, data: null };
+
+function renderNotePersonali() {
+  const box = $('#notepers-box');
+  if (!box) return;
+  const d = notePersData;
+  const haNota = d.testo && d.testo.trim();
+  if (haNota && !notePersEdit) {
+    const meta = [d.autore, d.data ? new Date(d.data).toLocaleString('it-IT') : null].filter(Boolean).join(' · ');
+    box.innerHTML = `
+      <div class="nota-testo notepers-testo">${esc(d.testo)}</div>
+      <div class="nota-meta">
+        <span>${esc(meta)}</span>
+        <span class="nota-az">
+          <button type="button" class="btn-icon" data-edit-notepers title="Modifica">✎ Modifica</button>
+          <button type="button" class="btn-icon danger" data-del-notepers title="Elimina">Elimina</button>
+        </span>
+      </div>`;
+    return;
+  }
+  box.innerHTML = `
+    <textarea id="cli-note-personali" class="notepers-text" rows="3" placeholder="Es. Direttore Generale LUISS; membro CdA Pirelli. Rivolgersi come 'Dottore'.">${esc(d.testo || '')}</textarea>
+    <div class="notepers-bar">
+      <button type="button" id="btn-notepers-ai" class="btn btn-ai">✨ Genera con AI</button>
+      <button type="button" id="btn-notepers-salva" class="btn btn-primary">Salva</button>
+      ${haNota ? '<button type="button" id="btn-notepers-annulla" class="btn btn-ghost">Annulla</button>' : ''}
+    </div>
+    <div id="notepers-ai-msg" class="notepers-ai-msg"></div>`;
+}
+
+async function salvaNotePers(testo) {
   if (!clienteCorrente) return;
-  const testo = $('#cli-note-personali').value.trim();
+  const btn = $('#btn-notepers-salva');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
   const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/note-personali`, {
     method: 'PUT', body: JSON.stringify({ testo, mode: 'set' }),
   });
-  if (status === 200) {
-    notePersBaseline = $('#cli-note-personali').value; // ora il salvato coincide → torna "pulito"
-    const b = $('#btn-notepers-salva');
-    b.textContent = 'Salvato ✓'; b.disabled = true;
-    setTimeout(() => { b.textContent = 'Salva'; aggiornaSalvaNotePers(); }, 1500);
-  }
-});
+  if (status === 200) { await caricaLingua(clienteCorrente); } // ricarica dal server = conferma (torna in vista)
+  else if (btn) { btn.disabled = false; btn.textContent = 'Salva'; }
+}
 
-$('#btn-notepers-ai').addEventListener('click', async () => {
+async function generaNotePers() {
   if (!clienteCorrente) return;
   const btn = $('#btn-notepers-ai');
   const msg = $('#notepers-ai-msg');
@@ -814,16 +834,23 @@ $('#btn-notepers-ai').addEventListener('click', async () => {
     if (status === 503) { msg.textContent = 'AI non configurata.'; return; }
     if (status !== 200) { msg.textContent = 'Errore durante la generazione.'; return; }
     if (!body.pubblico) { msg.textContent = 'Nessuna informazione pubblica rilevante per questo ospite.'; return; }
-    // Compila la textarea (la reception rivede e salva). Non sovrascrive senza avviso.
-    const attuale = $('#cli-note-personali').value.trim();
-    $('#cli-note-personali').value = attuale ? `${attuale}\n\n${body.testo}` : body.testo;
-    aggiornaSalvaNotePers(); // testo cambiato dall'AI → abilita Salva
+    const ta = $('#cli-note-personali');
+    const attuale = ta.value.trim();
+    ta.value = attuale ? `${attuale}\n\n${body.testo}` : body.testo;
     const fonti = (body.fonti || []).map((f) => f.titolo || f.url).slice(0, 6);
     msg.innerHTML = `<span class="notepers-ok">✓ Generato da fonti pubbliche. Rivedi e premi Salva.</span>${fonti.length ? `<span class="notepers-fonti">Fonti: ${fonti.map(esc).join(' · ')}</span>` : ''}`;
   } catch {
     btn.disabled = false;
     msg.textContent = 'Errore di rete durante la generazione.';
   }
+}
+
+$('#notepers-box').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-edit-notepers]')) { notePersEdit = true; renderNotePersonali(); return; }
+  if (e.target.closest('#btn-notepers-annulla')) { notePersEdit = false; renderNotePersonali(); return; }
+  if (e.target.closest('[data-del-notepers]')) { await salvaNotePers(''); return; }
+  if (e.target.closest('#btn-notepers-salva')) { await salvaNotePers(($('#cli-note-personali').value || '').trim()); return; }
+  if (e.target.closest('#btn-notepers-ai')) { await generaNotePers(); return; }
 });
 
 // --- Preferenze (reparto + categoria + testo + ambito) ---
