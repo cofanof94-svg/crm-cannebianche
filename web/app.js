@@ -194,8 +194,13 @@ function renderBriefResult(b, cli) {
 
 function shiftArriviData(giorni) {
   const input = $('#arrivi-data');
-  const base = input.value ? new Date(input.value + 'T00:00:00') : new Date();
-  base.setDate(base.getDate() + giorni);
+  // Calcolo interamente in UTC: parsare 'YYYY-MM-DD' come ora locale e poi
+  // usare toISOString (UTC) sfasava di un giorno nei fusi con offset positivo,
+  // facendo sembrare inerte il pulsante "giorno successivo".
+  const iso = input.value || new Date().toISOString().slice(0, 10);
+  const [y, m, d] = iso.split('-').map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  base.setUTCDate(base.getUTCDate() + giorni);
   input.value = base.toISOString().slice(0, 10);
   loadArrivi();
 }
