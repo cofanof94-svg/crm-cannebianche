@@ -422,6 +422,7 @@ function schedaArrivo(a) {
       <div class="arr-op">
         <span class="arr-op-imp"><i>Importo soggiorno</i> ${tot}</span>
         ${a.extra ? `<span class="arr-op-imp"><i>Extra</i> ${euro(a.extra)}</span>` : ''}
+        <span class="arr-op-imp"><i>Acconto / Pagato</i> ${euro(a.acconto || 0)}</span>
         <span><i>Trattamento</i> ${tratt}</span>
         <span><i>Pratica</i> ${esc(a.codpratica)}</span>
         <span><i>Creata</i> ${fmtData(a.dtPrenota)}</span>

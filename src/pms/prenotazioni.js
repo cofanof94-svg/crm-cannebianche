@@ -67,6 +67,7 @@ const COLONNE = `
   ${_imp.arrangiamento} AS arrangiamento,
   ${_imp.extra} AS extra,
   ${pianificatoExpr('p')} AS pianificato,
+  (SELECT ISNULL(SUM(a.impoeur), 0) FROM Acconti a WHERE a.CodPratica = p.codpratica) AS acconto,
   CONVERT(varchar(10), p.dtprenota, 23) AS dtPrenota,
   (SELECT al.codcli AS codCli,
      LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo,
@@ -179,6 +180,7 @@ function mapRiga(r) {
     // Importo del soggiorno come nello storico: maturato room; se non ancora maturato → previsto.
     importo: importoSoggiorno(r),
     extra: r.extra == null ? 0 : Number(r.extra),
+    acconto: r.acconto == null ? 0 : Number(r.acconto), // pagato/versato (tabella Acconti)
     note: pulisci(r.note),
   };
 }
