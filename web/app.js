@@ -361,7 +361,9 @@ function renderOspitiArrivo(a) {
   (a.camere ? a.camere.split(',').map((c) => c.trim()).filter(Boolean) : []).forEach((c) => { if (!rooms.includes(c)) rooms.push(c); });
   ospiti.forEach((o) => { const c = o.camera ? String(o.camera) : ''; if (c && !rooms.includes(c)) rooms.push(c); });
   const nomeOspite = (o) => {
-    const r = rel[o.codCli] ? `<span class="arr-rel">${esc(rel[o.codCli])}</span>` : '';
+    // Mostro la relazione solo se significativa: 'Altro' è il default dell'auto-popolamento → rumore.
+    const relOsp = rel[o.codCli];
+    const r = relOsp && relOsp.toLowerCase() !== 'altro' ? `<span class="arr-rel">${esc(relOsp)}</span>` : '';
     const nome = o.codCli
       ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
       : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`;
