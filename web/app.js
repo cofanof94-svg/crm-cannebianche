@@ -30,8 +30,11 @@ function showLogin() {
 }
 
 // --- router hash ---
+let hashRoutePrec = ''; // hash precedente, per capire da dove si arriva
 function route() {
   const hash = (location.hash || '#home').slice(1);
+  const cameFrom = hashRoutePrec;
+  hashRoutePrec = hash;
   // Scheda ospite: #cliente/<CodCli>
   if (hash.startsWith('cliente/')) {
     $('#topbar-title').textContent = 'Scheda ospite';
@@ -46,9 +49,7 @@ function route() {
     loadCliente(hash.split('/')[1]);
     return;
   }
-  // "#arrivi/oggi" = link "Arrivi di oggi" dalla Home: apre gli arrivi sulla data odierna.
-  const forzaOggiArrivi = hash === 'arrivi/oggi';
-  const view = forzaOggiArrivi ? 'arrivi' : hash;
+  const view = hash;
   const known = ['home', 'arrivi', 'incasa', 'ricerca', 'duplicati', 'utenti'];
   let v = known.includes(view) ? view : 'home';
   // Utenti è riservato agli admin: reindirizza gli altri alla home
@@ -63,7 +64,9 @@ function route() {
   $(`#view-${v}`).hidden = false;
   vistaPrecedente = v;
   if (v === 'home') loadHome();
-  else if (v === 'arrivi') initArrivi(forzaOggiArrivi);
+  // Rientro negli Arrivi: reset a oggi, tranne quando si torna da una scheda ospite
+  // (in quel caso si conserva la data che si stava consultando).
+  else if (v === 'arrivi') initArrivi(!cameFrom.startsWith('cliente/'));
   else if (v === 'incasa') initInCasa();
   else if (v === 'ricerca') initRicerca();
   else if (v === 'duplicati') loadDuplicatiPage();
@@ -114,7 +117,7 @@ const BRIEF_CHIPS = [
   { key: 'alert', label: 'Alert', field: 'alert', pred: (a) => !!(a.snapshot && ((a.snapshot.intolleranze && a.snapshot.intolleranze.length) || a.snapshot.indesiderato)) },
 ];
 
-function initArrivi(forzaOggi) {
+function initArrivi(resetOggi) {
   if (!arriviInit) {
     $('#arrivi-data').addEventListener('change', loadArrivi);
     $('#arrivi-search').addEventListener('input', renderArrivi);
@@ -138,8 +141,8 @@ function initArrivi(forzaOggi) {
     });
     arriviInit = true;
   }
-  // "Arrivi di oggi": azzero la data → loadArrivi usa la data di lavoro (oggi).
-  if (forzaOggi) $('#arrivi-data').value = '';
+  // Reset a oggi: azzero la data → loadArrivi usa la data di lavoro (oggi).
+  if (resetOggi) $('#arrivi-data').value = '';
   loadArrivi();
 }
 
