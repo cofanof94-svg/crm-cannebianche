@@ -309,13 +309,15 @@ tbody tr:hover { background: var(--surface-2); }
 .arr-ospiti { margin-top: 10px; }
 .arr-rel { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--accent-700); background: var(--accent-050); border-radius: 5px; padding: 1px 7px; margin-left: 8px; }
 
-.arr-details, .arr-note { margin-top: 10px; }
-.arr-details > summary, .arr-note > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); list-style: none; user-select: none; }
-.arr-details > summary::-webkit-details-marker, .arr-note > summary::-webkit-details-marker { display: none; }
-.arr-details > summary::before, .arr-note > summary::before { content: "▸ "; color: var(--faint); }
-.arr-details[open] > summary::before, .arr-note[open] > summary::before { content: "▾ "; }
-.arr-op { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.arr-note { margin-top: 10px; }
+.arr-note > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); list-style: none; user-select: none; }
+.arr-note > summary::-webkit-details-marker { display: none; }
+.arr-note > summary::before { content: "▸ "; color: var(--faint); }
+.arr-note[open] > summary::before { content: "▾ "; }
+.arr-op { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
 .arr-op i { font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 700; margin-right: 5px; }
+.arr-op-imp { font-size: 14px; color: var(--text); font-weight: 600; }
+.arr-op-imp i { color: var(--accent-700); }
 .arr-note-body { margin-top: 8px; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
 
 /* Guest Briefing AI */

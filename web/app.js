@@ -417,16 +417,13 @@ function schedaArrivo(a) {
         <span class="arr-dates">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${notti}</span>
       </div>
       ${ospiti ? `<div class="arr-ospiti">${ospiti}</div>` : ''}
-      <details class="arr-details">
-        <summary>Dettagli prenotazione</summary>
-        <div class="arr-op">
-          <span><i>Pratica</i> ${esc(a.codpratica)}</span>
-          <span><i>Creata</i> ${fmtData(a.dtPrenota)}</span>
-          <span><i>Trattamento</i> ${tratt}</span>
-          <span><i>Importo soggiorno</i> ${tot}</span>
-          ${a.extra ? `<span><i>Extra</i> ${euro(a.extra)}</span>` : ''}
-        </div>
-      </details>
+      <div class="arr-op">
+        <span class="arr-op-imp"><i>Importo soggiorno</i> ${tot}</span>
+        ${a.extra ? `<span class="arr-op-imp"><i>Extra</i> ${euro(a.extra)}</span>` : ''}
+        <span><i>Trattamento</i> ${tratt}</span>
+        <span><i>Pratica</i> ${esc(a.codpratica)}</span>
+        <span><i>Creata</i> ${fmtData(a.dtPrenota)}</span>
+      </div>
       ${note}
     </article>`;
 }
