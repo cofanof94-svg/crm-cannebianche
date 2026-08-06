@@ -5,7 +5,7 @@ const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
-const { getProfilo, upsertLingua } = require('../crm/profilo');
+const { getProfilo, upsertLingua, upsertNotePersonali } = require('../crm/profilo');
 const { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../crm/preferenze');
 const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
 const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
@@ -249,6 +249,24 @@ function createClientiRouter(pmsDb, crmDb) {
     const lingua = (req.body && req.body.lingua != null ? String(req.body.lingua) : '').trim() || null;
     const profilo = await upsertLingua(crmDb, { pmsCustomerId: codCli, lingua, autoreUserId: req.session.user.id });
     res.json({ profilo });
+  });
+
+  // Note personali (info biografiche/ruoli). mode 'append' accoda al testo esistente
+  // del gruppo (usato dal "Salva nel profilo" del briefing AI, non distruttivo);
+  // 'set' (default) sovrascrive col testo passato (la textarea della scheda).
+  router.put('/clienti/:codCli/note-personali', async (req, res) => {
+    const codCli = Number(req.params.codCli);
+    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const testo = (req.body && req.body.testo != null ? String(req.body.testo) : '').trim();
+    const mode = req.body && req.body.mode === 'append' ? 'append' : 'set';
+    let finale = testo || null;
+    if (mode === 'append' && testo) {
+      const { membri } = await getGruppo(crmDb, codCli);
+      const attuale = (await getProfilo(crmDb, membri) || {}).note_personali;
+      finale = attuale && attuale.trim() ? `${attuale.trim()}\n\n${testo}` : testo;
+    }
+    const out = await upsertNotePersonali(crmDb, { pmsCustomerId: codCli, notePersonali: finale, autoreUserId: req.session.user.id });
+    res.json({ notePersonali: out.notePersonali });
   });
 
   // --- Preferenze (reparto + categoria + testo, liste chiuse) ---

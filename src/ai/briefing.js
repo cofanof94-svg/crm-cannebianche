@@ -16,12 +16,20 @@ const SYSTEM = [
   '',
   'REGOLE FERREE:',
   '- Usa SOLO informazioni pubbliche e verificabili; CITA sempre le fonti.',
-  "- Includi SOLO ciò che è utile all'accoglienza: ruolo/professione pubblica, motivo di notorietà, eventuali preferenze note pubblicamente, come rivolgersi (titolo/appellativo).",
+  '- Cita ESCLUSIVAMENTE fonti AUTOREVOLI e pertinenti: siti ufficiali/istituzionali, enciclopedie (Treccani, Britannica, Wikipedia), stampa affidabile, pagine ufficiali dell\'organizzazione o profili professionali ufficiali. NON citare aggregatori/scraper di contatti (email, telefoni), marketplace, blog non verificati, social non ufficiali o pagine non pertinenti. Meglio poche fonti solide che molte deboli.',
+  "- Includi SOLO ciò che è utile all'accoglienza: ruolo/professione pubblica, cariche/ruoli pubblici, motivo di notorietà, come rivolgersi (titolo/appellativo).",
   '- NON includere dati privati o sensibili: salute, vita sentimentale/familiare, orientamento, religione, opinioni politiche, patrimonio, indirizzi, recapiti.',
   '- Se la persona NON è chiaramente un personaggio pubblico, oppure non trovi fonti affidabili, rispondi ESATTAMENTE: "Nessuna informazione pubblica rilevante." e nient\'altro. Non inventare, non indovinare.',
   '- In caso di omonimia o incertezza sull\'identità, NON attribuire informazioni: dichiara che non è possibile identificare l\'ospite con certezza.',
-  '- Massimo 4-5 righe. Tono professionale e sobrio.',
+  '- FORMATO: 2-4 frasi essenziali, in prosa. NIENTE intestazioni o titoli (es. "BRIEFING RECEPTION"), niente grassetti, niente elenchi, niente ripetizioni. Tono professionale e sobrio. Chiudi indicando come rivolgersi all\'ospite.',
 ].join('\n');
+
+// Domini non autorevoli da scartare comunque dalle fonti (scraper di contatti,
+// marketplace, ecc.), a difesa in più oltre alla regola nel prompt.
+const DOMINI_ESCLUSI = [
+  'rocketreach', 'signalhire', 'zoominfo', 'lusha', 'contactout', 'apollo.io',
+  'rocketreach.co', 'leadiq', 'hunter.io', '1stdibs', 'pressreader',
+];
 
 // Blocco identità minimo per disambiguare la ricerca. Le note interne sono contesto
 // e NON vanno pubblicate/ricercate come fatti.
@@ -61,6 +69,7 @@ function estraiFonti(blocchi) {
   const aggiungi = (url, titolo) => {
     const u = (url == null ? '' : String(url)).trim();
     if (!u || visti.has(u)) return;
+    if (DOMINI_ESCLUSI.some((d) => u.toLowerCase().includes(d))) return; // fonte non autorevole
     visti.add(u);
     fonti.push({ url: u, titolo: (titolo == null ? '' : String(titolo)).trim() || u });
   };

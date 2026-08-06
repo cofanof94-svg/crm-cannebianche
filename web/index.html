@@ -271,6 +271,19 @@
               <ul id="cli-intolleranze" class="note-list"></ul>
             </div>
 
+            <!-- NOTE PERSONALI (info biografiche / ruoli) -->
+            <h2 class="sez">Note personali <span class="info" data-tip="Informazioni personali dell'ospite: cariche, ruoli pubblici, note biografiche (es. Direttore LUISS). Distinte dalle preferenze. Compilabili dalla reception o generabili dal Guest Briefing AI.">i</span></h2>
+            <div class="card note-box">
+              <form id="notepers-form" class="notepers-form">
+                <textarea id="cli-note-personali" name="testo" class="notepers-text" rows="3" placeholder="Es. Direttore Generale LUISS; membro CdA Pirelli. Rivolgersi come 'Dottore'."></textarea>
+                <div class="notepers-bar">
+                  <button type="button" id="btn-notepers-ai" class="btn btn-ai">✨ Genera con AI</button>
+                  <button type="submit" class="btn btn-primary">Salva</button>
+                </div>
+                <div id="notepers-ai-msg" class="notepers-ai-msg"></div>
+              </form>
+            </div>
+
             <!-- PREFERENZE + AI -->
             <h2 class="sez">Preferenze <span class="info" data-tip="Preferenze del cliente per reparto (Rooms/F&B/SPA/Front office) e categoria. Dato interno CRM.">i</span></h2>
             <div class="card note-box">

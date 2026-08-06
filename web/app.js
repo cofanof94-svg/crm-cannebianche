@@ -129,6 +129,8 @@ function initArrivi() {
     });
     // Guest Briefing AI (on-demand) dai pulsanti nelle card.
     $('#arrivi-cards').addEventListener('click', (e) => {
+      const salva = e.target.closest('[data-save-cli]');
+      if (salva) { salvaBriefingNelProfilo(salva); return; }
       const btn = e.target.closest('[data-brief-cli]');
       if (btn) eseguiBriefing(btn);
     });
@@ -136,6 +138,8 @@ function initArrivi() {
   }
   loadArrivi();
 }
+
+const briefingTesti = {}; // cache cli → briefing (per il "Salva nel profilo")
 
 async function eseguiBriefing(btn) {
   const cli = btn.dataset.briefCli;
@@ -148,23 +152,42 @@ async function eseguiBriefing(btn) {
     btn.disabled = false;
     if (status === 503) { box.innerHTML = briefMsg('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); return; }
     if (status !== 200) { box.innerHTML = briefMsg('Errore durante la generazione del briefing.'); return; }
-    box.innerHTML = renderBriefResult(body);
+    briefingTesti[cli] = body;
+    box.innerHTML = renderBriefResult(body, cli);
   } catch {
     btn.disabled = false;
     box.innerHTML = briefMsg('Errore di rete durante la generazione del briefing.');
   }
 }
 
+async function salvaBriefingNelProfilo(btn) {
+  const cli = btn.dataset.saveCli;
+  const b = briefingTesti[cli];
+  if (!b || !b.testo) return;
+  btn.disabled = true;
+  const { status } = await api(`/api/clienti/${encodeURIComponent(cli)}/note-personali`, {
+    method: 'PUT', body: JSON.stringify({ testo: b.testo, mode: 'append' }),
+  });
+  btn.disabled = false;
+  btn.textContent = status === 200 ? '✓ Salvato nel profilo' : 'Errore nel salvataggio';
+  if (status === 200) btn.classList.add('brief-save-done');
+}
+
 function briefMsg(t) { return `<div class="brief-card"><div class="ai-msg">${esc(t)}</div></div>`; }
 
-function renderBriefResult(b) {
+function renderBriefResult(b, cli) {
   const fonti = (b.fonti || [])
     .map((f) => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.titolo || f.url)}</a></li>`)
     .join('');
   const fontiBlock = fonti ? `<div class="brief-fonti"><span class="brief-fonti-l">Fonti</span><ul>${fonti}</ul></div>` : '';
+  // Salvataggio nel profilo solo se l'ospite è stato riconosciuto (pubblico).
+  const salva = b.pubblico && cli
+    ? `<button type="button" class="brief-save" data-save-cli="${esc(cli)}" title="Aggiungi alle Note personali del profilo">💾 Salva nel profilo</button>`
+    : '';
   return `<div class="brief-card">
     <div class="brief-testo">${esc(b.testo || '')}</div>
     ${fontiBlock}
+    ${salva}
     <div class="brief-disclaimer">⚠ Generato dall'AI su fonti pubbliche — verificare prima dell'uso.</div>
   </div>`;
 }
@@ -724,10 +747,12 @@ function popolaSelect(sel, valori, placeholder) {
     valori.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
 }
 
-// --- Lingua preferita (profilo 1:1) ---
+// --- Profilo 1:1 (lingua preferita + note personali) ---
 async function caricaLingua(codCli) {
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/profilo`);
   $('#cli-lingua').value = (body.profilo && body.profilo.lingua) || '';
+  $('#cli-note-personali').value = (body.profilo && body.profilo.note_personali) || '';
+  $('#notepers-ai-msg').textContent = '';
 }
 
 $('#lingua-form').addEventListener('submit', async (e) => {
@@ -738,6 +763,40 @@ $('#lingua-form').addEventListener('submit', async (e) => {
     method: 'PUT', body: JSON.stringify({ lingua }),
   });
   if (status === 200) { const b = $('#lingua-form').querySelector('button'); const t = b.textContent; b.textContent = 'Salvato ✓'; setTimeout(() => { b.textContent = t; }, 1200); }
+});
+
+// --- Note personali (salvataggio manuale + generazione AI) ---
+$('#notepers-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!clienteCorrente) return;
+  const testo = $('#cli-note-personali').value.trim();
+  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/note-personali`, {
+    method: 'PUT', body: JSON.stringify({ testo, mode: 'set' }),
+  });
+  if (status === 200) { const b = $('#notepers-form').querySelector('button[type=submit]'); const t = b.textContent; b.textContent = 'Salvato ✓'; setTimeout(() => { b.textContent = t; }, 1200); }
+});
+
+$('#btn-notepers-ai').addEventListener('click', async () => {
+  if (!clienteCorrente) return;
+  const btn = $('#btn-notepers-ai');
+  const msg = $('#notepers-ai-msg');
+  btn.disabled = true;
+  msg.innerHTML = '<span class="ai-msg ai-loading"><span class="spinner"></span>Ricerca su fonti pubbliche in corso…</span>';
+  try {
+    const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/briefing`, { method: 'POST', body: JSON.stringify({}) });
+    btn.disabled = false;
+    if (status === 503) { msg.textContent = 'AI non configurata.'; return; }
+    if (status !== 200) { msg.textContent = 'Errore durante la generazione.'; return; }
+    if (!body.pubblico) { msg.textContent = 'Nessuna informazione pubblica rilevante per questo ospite.'; return; }
+    // Compila la textarea (la reception rivede e salva). Non sovrascrive senza avviso.
+    const attuale = $('#cli-note-personali').value.trim();
+    $('#cli-note-personali').value = attuale ? `${attuale}\n\n${body.testo}` : body.testo;
+    const fonti = (body.fonti || []).map((f) => f.titolo || f.url).slice(0, 6);
+    msg.innerHTML = `<span class="notepers-ok">✓ Generato da fonti pubbliche. Rivedi e premi Salva.</span>${fonti.length ? `<span class="notepers-fonti">Fonti: ${fonti.map(esc).join(' · ')}</span>` : ''}`;
+  } catch {
+    btn.disabled = false;
+    msg.textContent = 'Errore di rete durante la generazione.';
+  }
 });
 
 // --- Preferenze (reparto + categoria + testo + ambito) ---

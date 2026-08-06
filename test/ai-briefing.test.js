@@ -17,11 +17,25 @@ test('costruisciFatti: compone identità; senza nome → stringa vuota', () => {
   assert.strictEqual(haFatti('x'), true);
 });
 
-test('SYSTEM: tutele privacy e fallback esplicito', () => {
+test('SYSTEM: tutele privacy, fonti autorevoli, formato asciutto, fallback esplicito', () => {
   assert.match(SYSTEM, /SOLO fonti web PUBBLICHE/i);
   assert.match(SYSTEM, /CITA sempre le fonti/i);
+  assert.match(SYSTEM, /AUTOREVOLI/);
   assert.match(SYSTEM, /Nessuna informazione pubblica rilevante/);
   assert.match(SYSTEM, /omonimia/i);
+  assert.match(SYSTEM, /NIENTE intestazioni/i); // formato asciutto
+});
+
+test('estraiFonti: scarta i domini non autorevoli (scraper di contatti/marketplace)', () => {
+  const fonti = estraiFonti([
+    { type: 'text', text: 'x', citations: [
+      { url: 'https://it.wikipedia.org/wiki/X', title: 'Wikipedia' },
+      { url: 'https://rocketreach.co/x-email', title: 'contatti' },
+      { url: 'https://www.1stdibs.com/art/y', title: 'quadro' },
+    ] },
+  ]);
+  assert.strictEqual(fonti.length, 1);
+  assert.match(fonti[0].url, /wikipedia/);
 });
 
 test('buildRequest: modello, web search tool e system', () => {

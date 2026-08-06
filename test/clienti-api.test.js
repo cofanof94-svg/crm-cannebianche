@@ -63,7 +63,13 @@ async function makeApp(opts = {}) {
       if (/INSERT INTO customer_intolerances/.test(text)) { const n = { id: intolleranze.length + 1, ...params }; intolleranze.push(n); return [{ id: n.id }]; }
       if (/DELETE FROM customer_intolerances/.test(text)) { const i = intolleranze.findIndex((x) => x.id === params.id); if (i >= 0) { const id = intolleranze[i].id; intolleranze.splice(i, 1); return [{ id }]; } return []; }
       if (/FROM customer_intolerances/.test(text)) return intolleranze.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, testo: n.testo, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
-      if (/MERGE customer_profile/.test(text)) { profilo = { pms_customer_id: params.pmsCustomerId, lingua: params.lingua }; return []; }
+      if (/MERGE customer_profile/.test(text)) {
+        profilo = profilo || { pms_customer_id: params.pmsCustomerId, lingua: null, note_personali: null };
+        profilo.pms_customer_id = params.pmsCustomerId;
+        if (params.lingua !== undefined) profilo.lingua = params.lingua;
+        if (params.notePersonali !== undefined) profilo.note_personali = params.notePersonali;
+        return [];
+      }
       if (/FROM customer_profile/.test(text)) return profilo && ids.includes(profilo.pms_customer_id) ? [profilo] : [];
       if (/INSERT INTO customer_preferences/.test(text)) { const n = { id: preferenze.length + 1, ...params }; preferenze.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_preferences/.test(text)) { const n = preferenze.find((x) => x.id === params.id); if (n) { if (params.ambito !== undefined) n.ambito = params.ambito; if (params.testo !== undefined) n.testo = params.testo; if (params.reparto !== undefined) n.reparto = params.reparto; if (params.categoria !== undefined) n.categoria = params.categoria; return [{ id: n.id }]; } return []; }
@@ -318,6 +324,19 @@ test('profilo/lingua: PUT salva e GET rilegge (upsert)', async () => {
   assert.strictEqual(put.status, 200);
   const get = await ag.get('/api/clienti/47186/profilo');
   assert.strictEqual(get.body.profilo.lingua, 'EN');
+});
+
+test('note personali: PUT set salva e GET profilo rilegge; append accoda', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const set = await ag.put('/api/clienti/47186/note-personali').send({ testo: 'Direttore LUISS', mode: 'set' });
+  assert.strictEqual(set.status, 200);
+  const get = await ag.get('/api/clienti/47186/profilo');
+  assert.strictEqual(get.body.profilo.note_personali, 'Direttore LUISS');
+  const app2 = await ag.put('/api/clienti/47186/note-personali').send({ testo: 'Membro CdA Pirelli', mode: 'append' });
+  assert.strictEqual(app2.status, 200);
+  assert.match(app2.body.notePersonali, /Direttore LUISS/);
+  assert.match(app2.body.notePersonali, /Membro CdA Pirelli/);
 });
 
 test('preferenze: crea/elenca/elimina + validazione liste chiuse', async () => {
