@@ -12,6 +12,19 @@
 const { importiExpr } = require('../import/estrai');
 const _imp = importiExpr('Alberg', 'p'); // maturato room/extra (Matura + StorMatura)
 
+// Totale PIANIFICATO (previsto) del soggiorno. TipoPre.ImpoEur è una tariffa A NOTTE:
+// il totale = SUM(ImpoEur × notti-della-riga × qta). Fallback su Alberg (impoeur a notte
+// × notti prenotazione) se TipoPre è vuoto. prat = alias Prenota (es. 'p').
+function pianificatoExpr(prat) {
+  const notti = `DATEDIFF(day, ${prat}.dtarrivo, ${prat}.dtpartenza)`;
+  return `COALESCE(
+    NULLIF((SELECT SUM(tp.ImpoEur * ISNULL(NULLIF(DATEDIFF(day, tp.dtinizio, tp.dtfine), 0), 1) * ISNULL(NULLIF(tp.qta, 0), 1))
+       FROM TipoPre tp WHERE tp.codpratica = ${prat}.codpratica), 0),
+    ((SELECT ISNULL(SUM(tc.camImp), 0) FROM (SELECT MAX(al.impoeur) AS camImp
+       FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb WHERE al.codpratica = ${prat}.codpratica GROUP BY ad.codcam) tc) * ${notti})
+  )`;
+}
+
 // Colonne arricchite condivise da arrivi e "in casa" (riferiscono p e @data).
 const COLONNE = `
   COALESCE(
@@ -53,12 +66,7 @@ const COLONNE = `
   ) AS tariffa,
   ${_imp.arrangiamento} AS arrangiamento,
   ${_imp.extra} AS extra,
-  COALESCE(
-    (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp
-       FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
-       WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc),
-    (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
-  ) AS pianificato,
+  ${pianificatoExpr('p')} AS pianificato,
   CONVERT(varchar(10), p.dtprenota, 23) AS dtPrenota,
   (SELECT al.codcli AS codCli,
      LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo,
@@ -201,4 +209,4 @@ async function getDataLavoro(pmsDb) {
   return rows[0] && rows[0].data ? rows[0].data : null;
 }
 
-module.exports = { getArriviByData, getInCasaByData, getRiepilogoGiorno, getDataLavoro };
+module.exports = { getArriviByData, getInCasaByData, getRiepilogoGiorno, getDataLavoro, pianificatoExpr };

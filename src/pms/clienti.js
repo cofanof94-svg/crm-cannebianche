@@ -1,5 +1,6 @@
 const { importiExpr } = require('../import/estrai');
 const { inClause } = require('../db/query');
+const { pianificatoExpr } = require('./prenotazioni');
 
 // cameraInCasa: camera(e) se l'ospite è in casa alla data di lavoro (Persona.Dataggio), altrimenti NULL.
 // Ricerca stile rubrica: ogni parola digitata (token) deve comparire nel testo
@@ -69,11 +70,7 @@ FROM (
     (SELECT TOP 1 prov.DesProvenienza FROM PrenotaProvenienze prov WHERE prov.CodProvenienza = p.CodProvenienza) AS mercato,
     ${_impP.arrangiamento} AS arrangiamento,
     ${_impP.extra} AS extra,
-    COALESCE(
-      (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
-         WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc),
-      (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
-    ) AS pianificato,
+    ${pianificatoExpr('p')} AS pianificato,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM Alberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN AlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = p.codpratica AND al.codcli IS NOT NULL
@@ -92,8 +89,8 @@ FROM (
     (SELECT TOP 1 prov.DesProvenienza FROM PrenotaProvenienze prov WHERE prov.CodProvenienza = sp.CodProvenienza) AS mercato,
     ${_impS.arrangiamento} AS arrangiamento,
     ${_impS.extra} AS extra,
-    (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
-       WHERE al.codpratica = sp.codpratica GROUP BY ad.codcam) tc) AS pianificato,
+    ((SELECT ISNULL(SUM(tc.camImp), 0) FROM (SELECT MAX(al.impoeur) AS camImp FROM StorAlberg al JOIN StorAlbergDay ad ON ad.codalb = al.codalb
+       WHERE al.codpratica = sp.codpratica GROUP BY ad.codcam) tc) * DATEDIFF(day, sp.dtarrivo, sp.dtpartenza)) AS pianificato,
     (SELECT al.codcli AS codCli, LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo, MAX(ad.codcam) AS camera
      FROM StorAlberg al LEFT JOIN Anagra a2 ON a2.CodCli = al.codcli LEFT JOIN StorAlbergDay ad ON ad.codalb = al.codalb AND ISNULL(ad.codcam, '') <> ''
      WHERE al.codpratica = sp.codpratica AND al.codcli IS NOT NULL
