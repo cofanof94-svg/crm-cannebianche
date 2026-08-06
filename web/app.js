@@ -423,7 +423,8 @@ function schedaArrivo(a) {
           <span><i>Pratica</i> ${esc(a.codpratica)}</span>
           <span><i>Creata</i> ${fmtData(a.dtPrenota)}</span>
           <span><i>Trattamento</i> ${tratt}</span>
-          <span><i>Importo</i> ${tot}</span>
+          <span><i>Importo soggiorno</i> ${tot}</span>
+          ${a.extra ? `<span><i>Extra</i> ${euro(a.extra)}</span>` : ''}
         </div>
       </details>
       ${note}

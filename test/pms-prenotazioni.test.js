@@ -8,19 +8,31 @@ function fakePms(recordset) {
 
 test('getArriviByData mappa e normalizza le righe', async () => {
   const pms = fakePms([{
-    codpratica: 60176, codCliente: 47186, cognome: 'HILTON', nome: '', camere: '211',
+    codpratica: 60176, codCliente: 47186, cognome: 'HILTON', nome: '', camere: '211', tipologie: 'SUP',
     paxAdulti: 2, paxBambini: 0, dtpartenza: '2026-07-11', notti: 5,
     oraArrivo: '__.__', inCasa: 'N', provenienza: 'Booking.com', trattamento: 'Mezza Pensione', note: '  ',
+    arrangiamento: 1200, extra: 150, pianificato: 999,
   }]);
   const [a] = await getArriviByData(pms, '2026-07-06');
   assert.strictEqual(a.codpratica, 60176);
   assert.strictEqual(a.codCliente, 47186);          // per link scheda cliente
   assert.strictEqual(a.nominativo, 'HILTON');       // nome vuoto ignorato
   assert.strictEqual(a.camere, '211');
+  assert.strictEqual(a.tipologie, 'SUP');           // tipologia camera
   assert.strictEqual(a.oraArrivo, null);            // '__.__' -> null
   assert.strictEqual(a.inCasa, false);              // 'N' -> false
   assert.strictEqual(a.note, null);                 // solo spazi -> null
+  assert.strictEqual(a.importo, 1200);              // maturato room (non il pianificato)
+  assert.strictEqual(a.extra, 150);
   assert.strictEqual(pms.calls[0].params.data, '2026-07-06');
+});
+
+test('getArriviByData: importo usa il previsto quando nulla è maturato', async () => {
+  const pms = fakePms([{ codpratica: 2, cognome: 'ROSSI', nome: 'MARIO', camere: '201',
+    paxAdulti: 2, paxBambini: 0, dtpartenza: '2026-07-10', notti: 4, oraArrivo: '15:00', inCasa: 'N',
+    trattamento: 'BB', note: null, arrangiamento: 0, extra: 0, pianificato: 2650 }]);
+  const [a] = await getArriviByData(pms, '2026-07-06');
+  assert.strictEqual(a.importo, 2650); // maturato 0 → previsto (pianificato)
 });
 
 test('getArriviByData: nominativo assente -> null', async () => {
@@ -35,13 +47,13 @@ test('getArriviByData: nominativo assente -> null', async () => {
 test('getInCasaByData mappa le righe (con dtarrivo)', async () => {
   const pms = fakePms([{ codpratica: 5, cognome: 'VERDI', nome: 'LUIGI', camere: '104',
     paxAdulti: 2, paxBambini: 0, dtarrivo: '2026-04-20', dtpartenza: '2026-04-25', notti: 5,
-    oraArrivo: '', inCasa: 'S', statoPartenza: 'incasa', trattamento: 'BB', tariffa: 'X', importo: 500, note: null }]);
+    oraArrivo: '', inCasa: 'S', statoPartenza: 'incasa', trattamento: 'BB', tariffa: 'X', arrangiamento: 500, extra: 0, pianificato: 80, note: null }]);
   const [c] = await getInCasaByData(pms, '2026-04-22');
   assert.strictEqual(c.nominativo, 'VERDI LUIGI');
   assert.strictEqual(c.dtarrivo, '2026-04-20');
   assert.strictEqual(c.inCasa, true);
   assert.strictEqual(c.statoPartenza, 'incasa');
-  assert.strictEqual(c.importo, 500);
+  assert.strictEqual(c.importo, 500);               // maturato, non il pianificato (80)
   assert.strictEqual(pms.calls[0].params.data, '2026-04-22');
 });
 

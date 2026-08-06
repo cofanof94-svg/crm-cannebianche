@@ -1,9 +1,16 @@
 // Lista arrivi / clienti in casa di una data.
 // Camera = COALESCE(assegnazione roomlist in AlbergDay per @data, pianificata in TipoPre).
+// Tipologia camera = Camere.codtip delle camere (assegnate o pianificate).
 // OSPITE = codclinterm (l'ospite reale); codcli è l'intestatario del conto/pagante.
-// Trattamento (codice codarr, es. BB), Tariffa (CodConvenzione, concat distinte) e Importo (SUM)
-// presi con COALESCE(Alberg, TipoPre): al check-in i dati passano da TipoPre ad Alberg.
+// Trattamento (codarr, es. BB) e Tariffa (CodConvenzione) presi con COALESCE(Alberg, TipoPre).
+// IMPORTO: stessa logica dello storico prenotazioni della scheda cliente (getSoggiorniCliente):
+//   maturato room (Matura, via importiExpr) come importo del soggiorno; se non ancora maturato
+//   si mostra il "previsto" (pianificato). Prima si usava MAX(Alberg.impoeur) per camera, che dava
+//   ~una sola notte per gli ospiti già in casa.
 // Una riga per prenotazione.
+
+const { importiExpr } = require('../import/estrai');
+const _imp = importiExpr('Alberg', 'p'); // maturato room/extra (Matura + StorMatura)
 
 // Colonne arricchite condivise da arrivi e "in casa" (riferiscono p e @data).
 const COLONNE = `
@@ -44,12 +51,14 @@ const COLONNE = `
        FROM TipoPre tp WHERE tp.codpratica = p.codpratica AND ISNULL(tp.CodConvenzione, '') <> ''
        FOR XML PATH('')), 1, 2, ''))
   ) AS tariffa,
+  ${_imp.arrangiamento} AS arrangiamento,
+  ${_imp.extra} AS extra,
   COALESCE(
     (SELECT SUM(tc.camImp) FROM (SELECT MAX(al.impoeur) AS camImp
        FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
        WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc),
     (SELECT SUM(tp.ImpoEur) FROM TipoPre tp WHERE tp.codpratica = p.codpratica)
-  ) AS importo,
+  ) AS pianificato,
   CONVERT(varchar(10), p.dtprenota, 23) AS dtPrenota,
   (SELECT al.codcli AS codCli,
      LTRIM(RTRIM(ISNULL(a2.Cognome, '') + ' ' + ISNULL(a2.Nome, ''))) AS nominativo,
@@ -121,6 +130,16 @@ function normalizzaOra(v) {
   return s;
 }
 
+// Importo del soggiorno (room): maturato se presente, altrimenti il pianificato
+// ("previsto"). Stessa scelta della riga storico prenotazioni (rigaSoggiorno).
+function importoSoggiorno(r) {
+  const arrangiamento = r.arrangiamento == null ? 0 : Number(r.arrangiamento);
+  const extra = r.extra == null ? 0 : Number(r.extra);
+  const pianificato = r.pianificato == null ? 0 : Number(r.pianificato);
+  if (arrangiamento + extra === 0 && pianificato > 0) return pianificato;
+  return arrangiamento;
+}
+
 function mapRiga(r) {
   const nominativo = [r.cognome, r.nome]
     .map((s) => (s == null ? '' : String(s)).trim())
@@ -149,7 +168,9 @@ function mapRiga(r) {
     inCasa: r.inCasa === 'S',
     trattamento: pulisci(r.trattamento),
     tariffa: pulisci(r.tariffa),
-    importo: r.importo == null ? null : Number(r.importo),
+    // Importo del soggiorno come nello storico: maturato room; se non ancora maturato → previsto.
+    importo: importoSoggiorno(r),
+    extra: r.extra == null ? 0 : Number(r.extra),
     note: pulisci(r.note),
   };
 }
