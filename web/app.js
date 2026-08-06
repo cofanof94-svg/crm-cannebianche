@@ -760,7 +760,21 @@ async function caricaLingua(codCli) {
   $('#cli-lingua').value = (body.profilo && body.profilo.lingua) || '';
   $('#cli-note-personali').value = (body.profilo && body.profilo.note_personali) || '';
   $('#notepers-ai-msg').textContent = '';
+  notePersBaseline = $('#cli-note-personali').value; // stato salvato di riferimento
+  $('#btn-notepers-salva').textContent = 'Salva';
+  aggiornaSalvaNotePers(); // Salva disabilitato finché non si modifica
 }
+
+// Abilita "Salva" solo se le note differiscono dall'ultimo stato salvato (dirty).
+let notePersBaseline = '';
+function aggiornaSalvaNotePers() {
+  const btn = $('#btn-notepers-salva');
+  if (!btn) return;
+  const dirty = $('#cli-note-personali').value !== notePersBaseline;
+  btn.disabled = !dirty;
+  if (dirty) btn.textContent = 'Salva';
+}
+$('#cli-note-personali').addEventListener('input', aggiornaSalvaNotePers);
 
 $('#lingua-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -780,7 +794,12 @@ $('#notepers-form').addEventListener('submit', async (e) => {
   const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/note-personali`, {
     method: 'PUT', body: JSON.stringify({ testo, mode: 'set' }),
   });
-  if (status === 200) { const b = $('#notepers-form').querySelector('button[type=submit]'); const t = b.textContent; b.textContent = 'Salvato ✓'; setTimeout(() => { b.textContent = t; }, 1200); }
+  if (status === 200) {
+    notePersBaseline = $('#cli-note-personali').value; // ora il salvato coincide → torna "pulito"
+    const b = $('#btn-notepers-salva');
+    b.textContent = 'Salvato ✓'; b.disabled = true;
+    setTimeout(() => { b.textContent = 'Salva'; aggiornaSalvaNotePers(); }, 1500);
+  }
 });
 
 $('#btn-notepers-ai').addEventListener('click', async () => {
@@ -798,6 +817,7 @@ $('#btn-notepers-ai').addEventListener('click', async () => {
     // Compila la textarea (la reception rivede e salva). Non sovrascrive senza avviso.
     const attuale = $('#cli-note-personali').value.trim();
     $('#cli-note-personali').value = attuale ? `${attuale}\n\n${body.testo}` : body.testo;
+    aggiornaSalvaNotePers(); // testo cambiato dall'AI → abilita Salva
     const fonti = (body.fonti || []).map((f) => f.titolo || f.url).slice(0, 6);
     msg.innerHTML = `<span class="notepers-ok">✓ Generato da fonti pubbliche. Rivedi e premi Salva.</span>${fonti.length ? `<span class="notepers-fonti">Fonti: ${fonti.map(esc).join(' · ')}</span>` : ''}`;
   } catch {
