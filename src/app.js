@@ -31,7 +31,11 @@ function createApp({ crmDb, pmsDb, sessionSecret }) {
   app.use('/api', createArriviRouter(pmsDb, crmDb));
   app.use('/api', createClientiRouter(pmsDb, crmDb));
 
-  app.use(express.static(path.join(__dirname, '..', 'web')));
+  // no-cache: il browser rivalida sempre i file statici col server (ETag/Last-Modified),
+  // così una modifica a index.html/app.js/styles.css si vede subito senza cache stantia.
+  app.use(express.static(path.join(__dirname, '..', 'web'), {
+    setHeaders: (res) => { res.setHeader('Cache-Control', 'no-cache'); },
+  }));
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
