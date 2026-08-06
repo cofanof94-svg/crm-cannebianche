@@ -140,11 +140,16 @@ function createClientiRouter(pmsDb, crmDb) {
     const b = req.body || {};
     const giaMostrate = Array.isArray(b.giaMostrate) ? b.giaMostrate.map((t) => String(t)).slice(0, 50) : [];
     const { membri } = await getGruppo(crmDb, codCli);
+    // Controllo duplicati esteso al NUCLEO: i consumi F&B sono condivisi, quindi una
+    // preferenza già salvata su un altro membro del nucleo non va riproposta. La lista
+    // "già registrate" (preferenze/intolleranze) copre self + gruppo di fusione + nucleo.
+    const nucleoIds = await getNucleoGroup(crmDb, codCli);
+    const idsDedup = [...new Set([...membri, ...nucleoIds])];
     const [gusti, spa, intolleranze, preferenze, anags] = await Promise.all([
       getGustiFB(pmsDb, membri),
       getTrattamentiSpa(pmsDb, membri),
-      listIntolleranze(crmDb, membri),
-      listPreferenze(crmDb, membri),
+      listIntolleranze(crmDb, idsDedup),
+      listPreferenze(crmDb, idsDedup),
       Promise.all(membri.map((id) => getCliente(pmsDb, id))),
     ]);
     // Note anagrafica dal PMS (Annotazioni), unite su tutti i codici del gruppo.
