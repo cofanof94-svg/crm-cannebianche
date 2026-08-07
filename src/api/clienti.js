@@ -5,7 +5,7 @@ const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
-const { getProfilo, upsertLingua, upsertNotePersonali } = require('../crm/profilo');
+const { getProfilo, upsertLingua, upsertNotePersonali, upsertDataNascita, validaDataNascita, applicaDataNascita } = require('../crm/profilo');
 const { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../crm/preferenze');
 const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
 const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
@@ -51,6 +51,7 @@ function createClientiRouter(pmsDb, crmDb) {
     const anagrafica = await getCliente(pmsDb, codCli);
     if (!anagrafica) return res.status(404).json({ error: 'Cliente non trovato' });
     const { canonicalId, membri } = await getGruppo(crmDb, codCli);
+    applicaDataNascita(anagrafica, await getProfilo(crmDb, membri)); // override CRM sul dato PMS
     const soggiorni = await getSoggiorniCliente(pmsDb, membri);
     // Info fusione per il banner: se il gruppo ha più codici, elenco i nominativi.
     let merge = null;
@@ -268,6 +269,22 @@ function createClientiRouter(pmsDb, crmDb) {
     const lingua = (req.body && req.body.lingua != null ? String(req.body.lingua) : '').trim() || null;
     const profilo = await upsertLingua(crmDb, { pmsCustomerId: codCli, lingua, autoreUserId: req.session.user.id });
     res.json({ profilo });
+  });
+
+  // Data di nascita: il PMS è in sola lettura, quindi la modifica finisce in un
+  // override CRM. Corpo vuoto → override rimosso e ritorna a valere il dato PMS.
+  // Risposta: il valore EFFETTIVO dopo il salvataggio, con la sua fonte.
+  router.put('/clienti/:codCli/data-nascita', async (req, res) => {
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
+    const v = validaDataNascita(req.body && req.body.dataNascita);
+    if (!v.ok) return res.status(400).json({ error: 'Data di nascita non valida' });
+    await upsertDataNascita(crmDb, { pmsCustomerId: codCli, dataNascita: v.valore, autoreUserId: req.session.user.id });
+    const anagrafica = await getCliente(pmsDb, codCli);
+    if (!anagrafica) return res.status(404).json({ error: 'Cliente non trovato' });
+    const { membri } = await getGruppo(crmDb, codCli);
+    applicaDataNascita(anagrafica, await getProfilo(crmDb, membri));
+    res.json({ dataNascita: anagrafica.dtNascita || null, fonte: anagrafica.dtNascitaFonte });
   });
 
   // Note personali (info biografiche/ruoli). mode 'append' accoda al testo esistente
