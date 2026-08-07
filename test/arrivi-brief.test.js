@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   arricchisciArrivi, raccogliIds, costruisciSnapshot, calcolaBriefing,
-  compleannoNelSoggiorno, idsPrenotazione,
+  compleannoNelSoggiorno, idsPrenotazione, applicaDateNascitaCrm,
 } = require('../src/crm/arrivi-brief');
 
 test('raccogliIds: referenti + occupanti, deduplicati, solo interi', () => {
@@ -83,6 +83,27 @@ test('calcolaBriefing: conta VIP, compleanni, reclami, alert', () => {
   assert.strictEqual(b.alert, 2); // intolleranze OR indesiderato
 });
 
+test('applicaDateNascitaCrm: l\'override CRM vince e si propaga al gruppo di fusione', () => {
+  const anagra = new Map([
+    [100, { dtNascita: null }],   // manca nel PMS, la reception l'ha inserita nel CRM
+    [101, { dtNascita: null }],   // stesso gruppo di 100 → eredita l'override
+    [200, { dtNascita: '1970-01-01' }], // il PMS ha la data, il CRM la corregge
+    [300, { dtNascita: '1990-05-05' }], // nessun override → resta il dato PMS
+  ]);
+  const gruppi = new Map([[100, [100, 101]], [101, [100, 101]]]);
+  applicaDateNascitaCrm(anagra, gruppi, new Map([[100, '1980-08-05'], [200, '1971-02-02']]));
+  assert.strictEqual(anagra.get(100).dtNascita, '1980-08-05');
+  assert.strictEqual(anagra.get(101).dtNascita, '1980-08-05');
+  assert.strictEqual(anagra.get(200).dtNascita, '1971-02-02');
+  assert.strictEqual(anagra.get(300).dtNascita, '1990-05-05');
+});
+
+test('applicaDateNascitaCrm: nessun override → anagrafiche invariate', () => {
+  const anagra = new Map([[100, { dtNascita: '1980-08-05' }]]);
+  applicaDateNascitaCrm(anagra, new Map(), new Map());
+  assert.strictEqual(anagra.get(100).dtNascita, '1980-08-05');
+});
+
 // --- Orchestratore end-to-end con mock DB ---
 function pmsMock() {
   return {
@@ -95,9 +116,10 @@ function pmsMock() {
     },
   };
 }
-function crmMock() {
+function crmMock(dateNascita = []) {
   return {
     async query(text) {
+      if (/FROM customer_profile/.test(text)) return dateNascita;
       if (/FROM customer_merge/.test(text)) return []; // nessuna fusione
       if (/FROM customer_preferences/.test(text)) return [{ pms_customer_id: 100, ambito: 'nucleo', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè leccese' }];
       if (/FROM customer_complaints/.test(text)) return [{ pms_customer_id: 100, stato: 'aperto' }];
@@ -119,6 +141,16 @@ test('arricchisciArrivi: allega snapshot e calcola il briefing', async () => {
   assert.strictEqual(s.indesiderato, true);
   assert.strictEqual(enr.briefing.reclami, 1);
   assert.strictEqual(enr.briefing.alert, 1);
+});
+
+test('arricchisciArrivi: compleanno anche da data inserita in CRM (assente nel PMS)', async () => {
+  // 200 non ha dtNascita nel PMS: la data arriva dall'override CRM.
+  const arrivi = [{ codCliente: 200, dtarrivo: '2026-09-01', dtpartenza: '2026-09-06', ospiti: [] }];
+  const crm = crmMock([{ pms_customer_id: 200, data_nascita: '1975-09-03' }]);
+  const enr = await arricchisciArrivi(pmsMock(), crm, arrivi);
+  assert.strictEqual(enr.arrivi[0].snapshot.compleanno.data, '2026-09-03');
+  assert.strictEqual(enr.arrivi[0].snapshot.compleanno.nome, 'ROSSI ANNA');
+  assert.strictEqual(enr.briefing.compleanni, 1);
 });
 
 test('arricchisciArrivi: lista vuota → briefing a zero, nessuna query', async () => {

@@ -58,6 +58,21 @@ async function upsertNotePersonali(db, { pmsCustomerId, notePersonali, autoreUse
   return { pmsCustomerId, notePersonali };
 }
 
+// Override CRM della data di nascita per un insieme di codici, in UNA query
+// (usato dagli Arrivi per i compleanni). → Map(pms_customer_id → 'YYYY-MM-DD').
+async function getDateNascitaByIds(db, ids) {
+  const arr = [...new Set(Array.isArray(ids) ? ids : [ids])];
+  const map = new Map();
+  if (!arr.length) return map;
+  const rows = await db.query(
+    `SELECT pms_customer_id, CONVERT(varchar(10), data_nascita, 23) AS data_nascita
+     FROM customer_profile
+     WHERE data_nascita IS NOT NULL AND pms_customer_id IN ${inClause(arr)}`
+  );
+  for (const r of rows) map.set(r.pms_customer_id, r.data_nascita);
+  return map;
+}
+
 // Salva l'override CRM della data di nascita. Tocca SOLO quella colonna.
 // dataNascita null → override rimosso (torna a valere il dato PMS).
 async function upsertDataNascita(db, { pmsCustomerId, dataNascita, autoreUserId }) {
@@ -96,4 +111,7 @@ function applicaDataNascita(anagrafica, profilo) {
   return anagrafica;
 }
 
-module.exports = { getProfilo, upsertLingua, upsertNotePersonali, upsertDataNascita, validaDataNascita, applicaDataNascita };
+module.exports = {
+  getProfilo, upsertLingua, upsertNotePersonali,
+  upsertDataNascita, getDateNascitaByIds, validaDataNascita, applicaDataNascita,
+};
