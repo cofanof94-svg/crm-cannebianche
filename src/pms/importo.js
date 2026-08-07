@@ -97,17 +97,41 @@ async function getImportiPrenotazioni(pmsDb, codpratiche) {
   }
   for (const [cp, tp] of tpByPratica) out.set(cp, sommaPratica(tp, psByPratica.get(cp) || []));
 
-  // Fallback per le pratiche senza TipoPre: tariffa rack Alberg (a notte) × notti.
+  // Al CHECK-IN il PMS svuota TipoPre (i dati passano ad Alberg) ma la pianificazione
+  // resta: per le pratiche senza TipoPre il totale = maturato (notti già consumate,
+  // Matura) + notti residue valorizzate dalla pianificazione (o dalla tariffa corrente
+  // Alberg.impoeur se la pianificazione non copre quelle notti).
   const daFallback = ids.filter((id) => !tpByPratica.has(id));
   if (daFallback.length) {
     const fb = await pmsDb.query(
       `SELECT p.codpratica,
+         DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
+         DATEDIFF(day, p.dtarrivo, (SELECT TOP 1 Dataggio FROM Persona)) AS nottiFatte,
+         (SELECT ISNULL(SUM(m.impoeur), 0) FROM Matura m
+            WHERE m.codalb IN (SELECT codalb FROM Alberg WHERE codpratica = p.codpratica)
+              AND LTRIM(RTRIM(ISNULL(m.codarr, ''))) <> '') AS maturato,
          (SELECT ISNULL(SUM(tc.camImp), 0) FROM (SELECT MAX(al.impoeur) AS camImp
             FROM Alberg al JOIN AlbergDay ad ON ad.codalb = al.codalb
-            WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc) * DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS tot
+            WHERE al.codpratica = p.codpratica GROUP BY ad.codcam) tc) AS tariffaNotte
        FROM Prenota p WHERE p.codpratica IN ${inClause(daFallback)}`
     );
-    for (const r of fb) if (!out.get(r.codpratica)) out.set(r.codpratica, Number(r.tot) || 0);
+    for (const r of fb) {
+      if (out.get(r.codpratica)) continue;
+      const notti = Number(r.notti) || 0;
+      const fatte = Math.min(Math.max(Number(r.nottiFatte) || 0, 0), notti);
+      const maturato = Number(r.maturato) || 0;
+      const tariffa = Number(r.tariffaNotte) || 0;
+      const ps = (psByPratica.get(r.codpratica) || []).map((p) => ({ GG: Number(p.GG), impoEur: Number(p.impoEur) })).sort((a, b) => a.GG - b.GG);
+      // n. camere paganti (tariffa > 0), per moltiplicare la pianificazione per camera
+      const camere = new Set((psByPratica.get(r.codpratica) || []).map((p) => p.id)).size || 1;
+      let residuo = 0;
+      for (let n = fatte + 1; n <= notti; n++) {
+        let val = null;
+        for (const p of ps) { if (p.GG <= n) val = p.impoEur; else break; }
+        residuo += (val != null ? val * camere : tariffa);
+      }
+      out.set(r.codpratica, maturato + residuo);
+    }
   }
   return out;
 }

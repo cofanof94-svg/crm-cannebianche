@@ -56,15 +56,34 @@ test('getImportiPrenotazioni: aggrega TipoPre + PianificazioneSogg per pratica',
   assert.strictEqual(m.get(61178), 11700);
 });
 
-test('getImportiPrenotazioni: fallback Alberg quando manca TipoPre', async () => {
+test('getImportiPrenotazioni: check-in fatto (TipoPre svuotata) → maturato + residuo pianificato', async () => {
+  // 61178 dopo il check-in: 1 notte maturata (1760 = 880×2 camere), 6 notti residue
+  // dalla pianificazione (790,820,820,860,860,820) × 2 camere = 9940 → totale 11700.
+  const pms = {
+    async query(text) {
+      if (/FROM TipoPre WHERE codpratica IN/.test(text)) return []; // svuotata al check-in
+      if (/FROM PianificazioneSogg/.test(text)) {
+        const r = [];
+        for (const id of [68139, 68140]) r.push({ codpratica: 61178, id, GG: 2, impoEur: 790 }, { codpratica: 61178, id, GG: 3, impoEur: 820 }, { codpratica: 61178, id, GG: 5, impoEur: 860 }, { codpratica: 61178, id, GG: 7, impoEur: 820 });
+        return r;
+      }
+      if (/FROM Prenota p WHERE p\.codpratica IN/.test(text)) return [{ codpratica: 61178, notti: 7, nottiFatte: 1, maturato: 1760, tariffaNotte: 1580 }];
+      return [];
+    },
+  };
+  const m = await getImportiPrenotazioni(pms, [61178]);
+  assert.strictEqual(m.get(61178), 11700);
+});
+
+test('getImportiPrenotazioni: senza TipoPre né pianificazione → maturato + tariffa corrente', async () => {
   const pms = {
     async query(text) {
       if (/FROM TipoPre WHERE codpratica IN/.test(text)) return [];
       if (/FROM PianificazioneSogg/.test(text)) return [];
-      if (/FROM Prenota p WHERE p\.codpratica IN/.test(text)) return [{ codpratica: 9, tot: 1710 }];
+      if (/FROM Prenota p WHERE p\.codpratica IN/.test(text)) return [{ codpratica: 9, notti: 2, nottiFatte: 0, maturato: 0, tariffaNotte: 855 }];
       return [];
     },
   };
   const m = await getImportiPrenotazioni(pms, [9]);
-  assert.strictEqual(m.get(9), 1710);
+  assert.strictEqual(m.get(9), 1710); // 855 × 2 notti
 });
