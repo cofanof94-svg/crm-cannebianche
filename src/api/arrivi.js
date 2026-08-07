@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth } = require('../auth/middleware');
 const { getArriviByData, getInCasaByData, getRiepilogoGiorno, getDataLavoro } = require('../pms/prenotazioni');
 const { arricchisciArrivi, briefingVuoto } = require('../crm/arrivi-brief');
+const { arricchisciInCasa, briefingInCasaVuoto, ordinaInCasa } = require('../crm/incasa-brief');
 
 function oggiISO() {
   return new Date().toISOString().slice(0, 10);
@@ -36,7 +37,15 @@ function createArriviRouter(pmsDb, crmDb) {
     const data = req.query.data || (await getDataLavoro(pmsDb)) || oggiISO();
     if (!dataValida(data)) return res.status(400).json({ error: 'Data non valida' });
     const clienti = await getInCasaByData(pmsDb, data);
-    res.json({ data, clienti });
+    // Stessa degradazione morbida degli arrivi: se il CRM non risponde si serve
+    // comunque la lista PMS, almeno ordinata per camera.
+    try {
+      const enr = await arricchisciInCasa(pmsDb, crmDb, clienti, data);
+      res.json({ data, briefing: enr.briefing, clienti: enr.clienti });
+    } catch (e) {
+      console.error('Arricchimento In Casa fallito, degrado a lista PMS:', e.message);
+      res.json({ data, briefing: briefingInCasaVuoto(clienti.length), clienti: ordinaInCasa(clienti) });
+    }
   });
 
   router.get('/dashboard', async (req, res) => {

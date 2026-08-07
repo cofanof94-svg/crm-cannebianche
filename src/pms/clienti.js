@@ -239,4 +239,34 @@ async function getAnagraByIds(pmsDb, ids) {
   return map;
 }
 
-module.exports = { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, vipInfo };
+// Storico soggiorni CONCLUSI per una lista di codici ("ospite di ritorno" della
+// pagina In Casa): conta le pratiche archiviate (StorPrenota) in cui il codice
+// compare come intestatario o come occupante, con la data dell'ultima partenza.
+// Le eliminate non contano. Una sola query set-based → Map codice → {n, ultima}.
+// COUNT(DISTINCT codpratica): lo stesso codice può comparire sia come intestatario
+// sia come occupante della stessa pratica (e su più righe StorAlberg) → un soggiorno solo.
+const sqlStoricoByIds = (inl) => `
+SELECT c.codCli, COUNT(DISTINCT c.codpratica) AS n, CONVERT(varchar(10), MAX(c.dtpartenza), 23) AS ultima
+FROM (
+  SELECT sp.codclinterm AS codCli, sp.codpratica, sp.dtpartenza FROM StorPrenota sp
+   WHERE sp.DataEliminazione IS NULL AND sp.codclinterm IN ${inl}
+  UNION ALL
+  SELECT al.codcli, sp.codpratica, sp.dtpartenza FROM StorPrenota sp
+   JOIN StorAlberg al ON al.codpratica = sp.codpratica
+   WHERE sp.DataEliminazione IS NULL AND al.codcli IN ${inl}
+) c
+GROUP BY c.codCli`;
+
+async function getStoricoByIds(pmsDb, ids) {
+  const arr = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Number.isInteger))];
+  const map = new Map();
+  if (!arr.length) return map;
+  const rows = await pmsDb.query(sqlStoricoByIds(inClause(arr)), {});
+  for (const r of rows) {
+    const n = Number(r.n) || 0;
+    if (n > 0) map.set(r.codCli, { n, ultima: r.ultima || null });
+  }
+  return map;
+}
+
+module.exports = { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, getStoricoByIds, vipInfo };

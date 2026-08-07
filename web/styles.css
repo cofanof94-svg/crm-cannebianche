@@ -222,37 +222,11 @@ tbody tr:hover { background: var(--surface-2); }
 
 /* ===== Schede prenotazione (Arrivi / Clienti in casa) ===== */
 .card-list { display: flex; flex-direction: column; gap: 14px; }
-.bcard { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm); transition: box-shadow .15s; }
-.bcard:hover { box-shadow: var(--shadow-md); }
-.bcard-head { display: flex; align-items: center; gap: 16px; padding: 12px 18px; background: linear-gradient(100deg, var(--brand), var(--brand-700)); color: #fff; }
-.bcard-prat { display: flex; flex-direction: column; line-height: 1.1; flex: none; }
-.bcard-prat span { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); }
-.bcard-prat strong { font-family: var(--font-display); font-size: 17px; font-variant-numeric: tabular-nums; }
-.bcard-created { display: flex; flex-direction: column; line-height: 1.1; flex: none; padding-left: 16px; border-left: 1px solid rgba(255,255,255,.18); }
-.bcard-created span { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); }
-.bcard-created strong { font-family: var(--font-display); font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.bcard-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
-.bcard-name-l { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); }
-.bcard-name-v { font-weight: 600; font-size: 16px; }
-.bcard-pills { display: flex; gap: 8px; flex: none; }
-.bcard-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; padding: 16px 18px; }
-.tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .ospiti { display: flex; flex-direction: column; gap: 5px; margin-top: 2px; }
 .ospite-row { display: flex; align-items: center; gap: 8px; }
 .ospite-link { font-size: 12.5px; color: var(--brand); text-decoration: none; font-weight: 600; }
 .ospite-link:hover { text-decoration: underline; }
 .ospite-x { font-size: 12.5px; color: var(--muted); }
-.tile-l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; color: var(--accent-700); }
-.tile-v { font-size: 14px; font-weight: 500; color: var(--text); }
-.tile-sub { color: var(--muted); font-size: 12.5px; font-weight: 500; }
-.tratt-blocco { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; }
-.tratt-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.tratt-tot { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--brand); font-variant-numeric: tabular-nums; }
-.tile--tot { background: var(--brand-050); border-color: #cfe0e4; }
-.tile--tot .tile-v { font-family: var(--font-display); font-size: 21px; font-weight: 600; color: var(--brand); }
-.chip { display: inline-block; background: #fff; border: 1px solid var(--border-strong); color: var(--brand); border-radius: 7px; padding: 2px 10px; font-size: 12.5px; font-weight: 600; }
-.bcard-note { padding: 10px 18px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12.5px; line-height: 1.5; }
-.bcard-note b { color: var(--faint); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; margin-right: 8px; font-weight: 700; }
 
 /* ===== Dashboard Arrivi 2.0 ===== */
 /* Navigazione data */
@@ -667,6 +641,60 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
   .cli-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .consensi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ===== Pagina "In Casa" 2.0 ===== */
+/* Card compatta: la camera è l'ancora visiva a sinistra, poi il nome cliccabile.
+   Alert, preferenze, ospiti e note compaiono solo quando ci sono. */
+.ic { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: var(--radius); padding: 11px 16px; box-shadow: var(--shadow-sm); transition: box-shadow .15s; }
+.ic:hover { box-shadow: var(--shadow-md); }
+.ic-vip { border-left-color: var(--accent); }
+.ic-danger { border-left-color: var(--danger); }
+.ic-out { opacity: .62; }
+.ic-out:hover { opacity: 1; }
+
+.ic-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.ic-room { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--brand); background: var(--brand-050); border-radius: 8px; padding: 1px 11px; font-variant-numeric: tabular-nums; }
+.ic-room-vuota { color: var(--faint); }
+.ic-tipo { font-size: 10.5px; font-weight: 700; color: var(--sea-700); background: var(--sea-050); border-radius: 5px; padding: 2px 6px; letter-spacing: .04em; }
+.ic-name { font-family: var(--font-display); font-size: 16.5px; font-weight: 600; color: var(--brand); text-decoration: none; border-bottom: 1px solid transparent; }
+a.ic-name:hover { border-bottom-color: var(--accent); }
+.ic-spacer { flex: 1; }
+
+.ic-stay { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 7px; font-size: 13px; color: var(--text); }
+.ic-prog { display: inline-flex; gap: 2px; align-items: center; }
+.ic-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sand); border: 1px solid var(--border-strong); }
+.ic-dot.on { background: var(--brand); border-color: var(--brand); }
+.ic-ritorno { font-size: 11.5px; font-weight: 700; color: var(--sea-700); background: var(--sea-050); border: 1px solid #d6ddca; border-radius: 6px; padding: 1px 8px; }
+
+.ic-flags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+.ic-prefs { margin-top: 7px; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.ic-lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.pref { font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 2px 9px; }
+
+.ic-ospiti { margin-top: 7px; font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 3px 14px; }
+.ic-ospiti a { color: var(--brand); text-decoration: none; font-weight: 600; border-bottom: 1px solid transparent; }
+.ic-ospiti a:hover { border-bottom-color: var(--accent); }
+.ic-rel { color: var(--faint); font-size: 11.5px; font-weight: 500; }
+
+.ic-op { margin-top: 9px; padding-top: 8px; border-top: 1px dashed var(--border); display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--muted); }
+.ic-op i { font-style: normal; color: var(--faint); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; margin-right: 5px; font-weight: 700; }
+.ic-op b { color: var(--text); font-weight: 600; }
+
+/* Note PMS: qui sono lunghe anche 2.000 caratteri → collassate con anteprima. */
+.ic-note { margin-top: 7px; }
+.ic-note > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); list-style: none; user-select: none; display: flex; gap: 7px; align-items: baseline; }
+.ic-note > summary::-webkit-details-marker { display: none; }
+.ic-note > summary::before { content: "▸"; color: var(--faint); }
+.ic-note[open] > summary::before { content: "▾"; }
+.note-prev { color: var(--faint); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.note-body { margin-top: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 12.5px; line-height: 1.55; color: var(--text); white-space: pre-wrap; max-height: 220px; overflow: auto; }
+
+/* Chip filtranti specifiche di In Casa (riusano .brief-chip degli Arrivi) */
+.brief-partenze .brief-n { color: var(--sea-700); }
+.brief-ricorrenze .brief-n { color: var(--accent); }
+.brief-usciti .brief-n { color: var(--muted); }
+.brief-chip-on .brief-partenze .brief-n, .brief-chip-on.brief-partenze .brief-n,
+.brief-chip-on.brief-ricorrenze .brief-n, .brief-chip-on.brief-usciti .brief-n { color: #fff; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }

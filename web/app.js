@@ -282,59 +282,6 @@ function chipCamere(camere) {
   return camere.split(',').map((c) => `<span class="room">${esc(c.trim())}</span>`).join('');
 }
 
-// Lista occupanti camera (camera a sinistra del nome, nome cliccabile → scheda ospite).
-function renderOspiti(ospiti) {
-  if (!ospiti || !ospiti.length) return '';
-  return `<div class="ospiti">${ospiti.map((o) => `<div class="ospite-row">${o.camera ? `<span class="room">${esc(o.camera)}</span>` : ''}${o.codCli
-    ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
-    : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`}</div>`).join('')}</div>`;
-}
-
-// Come renderOspiti ma mostra TUTTE le camere della prenotazione (a.camere),
-// incluse quelle senza occupanti ancora assegnati.
-function renderOspitiConCamere(a) {
-  const ospiti = a.ospiti || [];
-  const rooms = [];
-  (a.camere ? a.camere.split(',').map((c) => c.trim()).filter(Boolean) : []).forEach((c) => { if (!rooms.includes(c)) rooms.push(c); });
-  ospiti.forEach((o) => { const c = o.camera ? String(o.camera) : ''; if (c && !rooms.includes(c)) rooms.push(c); });
-  if (!rooms.length) return renderOspiti(ospiti) || `<span class="tile-v">${dash}</span>`;
-  const rows = rooms.map((cam) => {
-    const occ = ospiti.filter((o) => String(o.camera || '') === cam);
-    if (occ.length) {
-      return occ.map((o) => `<div class="ospite-row"><span class="room">${esc(cam)}</span>${o.codCli
-        ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
-        : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`}</div>`).join('');
-    }
-    return `<div class="ospite-row"><span class="room">${esc(cam)}</span><span class="ospite-x">nessun ospite assegnato</span></div>`;
-  }).join('');
-  return `<div class="ospiti">${rows}</div>`;
-}
-
-// Scheda prenotazione condivisa da Arrivi e Clienti in casa.
-function scheda(a, pill) {
-  const tratt = [a.trattamento, a.tariffa].filter(Boolean).map(esc).join(' / ') || '—';
-  const nottiLine = a.notti != null ? `<br><span class="tile-sub">${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}</span>` : '';
-  const tot = a.importo != null ? euro(a.importo) : dash;
-  const note = a.note ? `<div class="bcard-note"><b>Note</b>${esc(a.note)}</div>` : '';
-  const ospitiHtml = renderOspitiConCamere(a);
-  return `
-    <article class="bcard">
-      <header class="bcard-head">
-        <div class="bcard-prat"><span>Pratica</span><strong>${esc(a.codpratica)}</strong></div>
-        <div class="bcard-created"><span>Data creazione</span><strong>${fmtData(a.dtPrenota)}</strong></div>
-        <div class="bcard-name"><span class="bcard-name-l">Referente</span><span class="bcard-name-v">${a.nominativo ? (a.codCliente ? `<a class="cli-link" href="#cliente/${a.codCliente}">${esc(a.nominativo)}</a>` : esc(a.nominativo)) : '(senza nominativo)'}</span></div>
-        <div class="bcard-pills">${pill}</div>
-      </header>
-      <div class="bcard-body">
-        <div class="tile"><span class="tile-l">Arrivo → Partenza</span><span class="tile-v">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${nottiLine}</span></div>
-        <div class="tile"><span class="tile-l">Ospiti in camera</span>${ospitiHtml}
-          <div class="tratt-blocco"><span class="tile-l">Trattamento / Tariffa</span><div class="tratt-row"><span class="chip">${tratt}</span><span class="tratt-tot">${tot}</span></div></div>
-        </div>
-      </div>
-      ${note}
-    </article>`;
-}
-
 // Badge VIP compatto per le card (l'indesiderato ha priorità come warning).
 function badgeVip(v) {
   if (!v) return '';
@@ -446,14 +393,40 @@ function schedaArrivo(a) {
 }
 
 // --- Clienti in casa (sempre alla data di lavoro del PMS: nessun selettore data) ---
+// La pagina risponde a "chi c'è, dove, quanto resta e a chi devo stare attento":
+// la camera è l'ancora visiva, la data di arrivo lascia il posto all'avanzamento
+// del soggiorno, e tutto il resto (alert, preferenze, storico) compare solo se c'è.
 let incasaInited = false;
 let incasaAll = [];
 let incasaData = null;
+let incasaBriefing = null;
+let filtroInCasa = 'all';
+
+// Chip filtranti: pochi e operativi. Gli "usciti" (check-out fatto) restano in
+// fondo alla lista, ma hanno un chip per isolarli quando servono.
+const INCASA_CHIPS = [
+  { key: 'all', label: 'In casa', field: 'presenti', pred: () => true },
+  { key: 'partenze', label: 'Partono oggi', field: 'partonoOggi', pred: (c) => c.statoPartenza === 'partenza' },
+  { key: 'vip', label: 'VIP', field: 'vip', pred: (c) => !!(c.snapshot && c.snapshot.vip) },
+  { key: 'alert', label: 'Alert', field: 'alert', pred: (c) => !!(c.snapshot && ((c.snapshot.intolleranze && c.snapshot.intolleranze.length) || c.snapshot.indesiderato)) },
+  { key: 'ricorrenze', label: 'Ricorrenze', field: 'ricorrenze', pred: (c) => !!(c.snapshot && c.snapshot.compleanno) },
+  { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (c) => !!(c.snapshot && c.snapshot.reclami && c.snapshot.reclami.totali > 0) },
+  { key: 'usciti', label: 'Usciti', field: 'usciti', pred: (c) => c.statoPartenza === 'checkout' },
+];
+
 function initInCasa() {
   if (!incasaInited) {
     $('#incasa-search').addEventListener('input', renderInCasa);
+    $('#incasa-briefing').addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-incasa]');
+      if (!chip) return;
+      const key = chip.dataset.incasa;
+      filtroInCasa = (filtroInCasa === key || key === 'all') ? 'all' : key;
+      renderInCasa();
+    });
     incasaInited = true;
   }
+  filtroInCasa = 'all';
   loadInCasa();
 }
 
@@ -466,36 +439,176 @@ async function loadInCasa() {
   if (status !== 200) { msg.textContent = 'Errore nel leggere i dati dal PMS.'; return; }
   incasaAll = body.clienti || [];
   incasaData = body.data || null;
+  incasaBriefing = body.briefing || null;
   renderInCasa();
+}
+
+function renderBriefingInCasa() {
+  const bar = $('#incasa-briefing');
+  const b = incasaBriefing;
+  if (!b) { bar.hidden = true; return; }
+  const chips = INCASA_CHIPS.map((c) => {
+    const n = b[c.field] || 0;
+    if (c.key === 'usciti' && n === 0) return ''; // il chip "Usciti" compare solo se ce ne sono
+    const spento = c.key !== 'all' && n === 0 ? ' brief-chip-off' : '';
+    const attivo = filtroInCasa === c.key ? ' brief-chip-on' : '';
+    return `<button type="button" class="brief-chip brief-${c.key}${attivo}${spento}" data-incasa="${c.key}">
+      <span class="brief-n">${n}</span><span class="brief-l">${c.label}</span></button>`;
+  }).join('');
+  bar.innerHTML = `<div class="briefing-inner">
+    <span class="briefing-date">${esc(dataEstesa(incasaData))}</span>
+    <div class="briefing-chips">${chips}</div>
+  </div>`;
+  bar.hidden = false;
+}
+
+// Ricerca: solo nome e camera (in casa non si cerca per numero di pratica).
+function matchInCasa(c, term) {
+  const t = (term || '').trim().toLowerCase();
+  if (!t) return true;
+  return (c.camere || '').toLowerCase().includes(t)
+    || (c.nominativo || '').toLowerCase().includes(t)
+    || (c.ospiti || []).some((o) => (o.nominativo || '').toLowerCase().includes(t));
 }
 
 function renderInCasa() {
   const cards = $('#incasa-cards');
   const msg = $('#incasa-msg');
   const stato = $('#incasa-stato');
-  const quando = incasaData ? dataEstesa(incasaData) : '';
-  const lista = incasaAll.filter((a) => matchRicerca(a, $('#incasa-search').value));
+  renderBriefingInCasa();
+  const chip = INCASA_CHIPS.find((c) => c.key === filtroInCasa) || INCASA_CHIPS[0];
+  // Senza filtro esplicito i check-out restano in lista (in fondo, attenuati).
+  const lista = incasaAll
+    .filter((c) => matchInCasa(c, $('#incasa-search').value))
+    .filter(chip.pred);
+  const presenti = incasaBriefing ? incasaBriefing.presenti : incasaAll.length;
   if (lista.length === 0) {
     cards.hidden = true; msg.hidden = false;
-    msg.textContent = incasaAll.length === 0 ? 'Nessun cliente in casa.' : 'Nessun risultato per la ricerca.';
-    stato.textContent = quando;
+    msg.textContent = incasaAll.length === 0 ? 'Nessun cliente in casa.' : 'Nessun risultato per il filtro.';
+    stato.textContent = `${presenti} ${presenti === 1 ? 'presente' : 'presenti'}`;
     return;
   }
   stato.textContent = lista.length === incasaAll.length
-    ? `${incasaAll.length} clienti · ${quando}`
-    : `${lista.length} di ${incasaAll.length} · ${quando}`;
+    ? `${presenti} ${presenti === 1 ? 'presente' : 'presenti'}`
+    : `${lista.length} di ${incasaAll.length}`;
   cards.innerHTML = lista.map(schedaInCasa).join('');
   msg.hidden = true; cards.hidden = false;
 }
 
-function statoPill(s) {
-  if (s === 'checkout') return '<span class="pill pill-checkout">Check-out effettuato</span>';
-  if (s === 'partenza') return '<span class="pill pill-partenza">In partenza</span>';
-  return '<span class="pill pill-incasa">In casa</span>';
+// Avanzamento del soggiorno: pallini + testo parlante ("Notte 3 di 7").
+function renderAvanzamento(c) {
+  const av = c.avanzamento;
+  if (c.statoPartenza === 'checkout') {
+    const n = c.notti != null ? ` · ${c.notti} ${c.notti === 1 ? 'notte' : 'notti'}` : '';
+    return `<span>Soggiorno concluso${n}</span>`;
+  }
+  if (!av) return `<span>Parte il ${fmtData(c.dtpartenza)}</span>`;
+  // Pallini solo per soggiorni brevi: oltre le 14 notti diventano rumore.
+  const dots = av.notti <= 14
+    ? `<span class="ic-prog">${Array.from({ length: av.notti }, (_, i) => `<i class="ic-dot${i < av.notte ? ' on' : ''}"></i>`).join('')}</span>`
+    : '';
+  const testo = av.ultimaNotte && c.statoPartenza === 'partenza'
+    ? 'Ultima notte · <b>parte oggi</b>'
+    : `Notte ${av.notte} di ${av.notti} · parte ${fmtData(c.dtpartenza)}`;
+  return `${dots}<span>${testo}</span>`;
 }
 
-function schedaInCasa(a) {
-  return scheda(a, statoPill(a.statoPartenza));
+// "Ospite di ritorno". `storico.n` sono i soggiorni GIÀ CONCLUSI: quello in corso
+// è quindi l'(n+1)-esimo. Chi non è mai stato qui non ha badge.
+function badgeStorico(s) {
+  if (!s || !s.n) return '';
+  const ultima = s.ultima ? ` · ultima ${fmtData(s.ultima)}` : '';
+  const tip = `${s.n} ${s.n === 1 ? 'soggiorno concluso' : 'soggiorni conclusi'} in hotel`;
+  return `<span class="ic-ritorno" title="${tip}">${s.n + 1}ª volta${ultima}</span>`;
+}
+
+// Occupanti in camera, in riga compatta con l'eventuale relazione col referente.
+function renderOspitiInCasa(c) {
+  const rel = (c.snapshot && c.snapshot.relazioni) || {};
+  const ospiti = (c.ospiti || []).filter((o) => o.codCli !== c.codCliente);
+  if (!ospiti.length) return '';
+  const voci = ospiti.map((o) => {
+    const r = rel[o.codCli];
+    const relTxt = r && r.toLowerCase() !== 'altro' ? ` <span class="ic-rel">${esc(r)}</span>` : '';
+    const nome = o.codCli
+      ? `<a href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
+      : esc(o.nominativo || '—');
+    return `<span>${nome}${relTxt}</span>`;
+  }).join('');
+  return `<div class="ic-ospiti">👤 ${voci}</div>`;
+}
+
+function schedaInCasa(c) {
+  const s = c.snapshot || null;
+  const uscito = c.statoPartenza === 'checkout';
+  const accento = s && s.indesiderato ? ' ic-danger' : (s && s.vip ? ' ic-vip' : '');
+  const nome = c.nominativo
+    ? (c.codCliente ? `<a class="ic-name" href="#cliente/${c.codCliente}">${esc(c.nominativo)}</a>` : `<span class="ic-name">${esc(c.nominativo)}</span>`)
+    : '<span class="ic-name">(senza nominativo)</span>';
+  const camere = c.camere
+    ? c.camere.split(',').map((x) => `<span class="ic-room">${esc(x.trim())}</span>`).join('')
+    : '<span class="ic-room ic-room-vuota">—</span>';
+  const tipologie = c.tipologie
+    ? c.tipologie.split(',').map((t) => `<span class="ic-tipo">${esc(t.trim())}</span>`).join('')
+    : '';
+  const pill = uscito
+    ? '<span class="pill pill-checkout">Check-out effettuato</span>'
+    : (c.statoPartenza === 'partenza' ? '<span class="pill pill-partenza">Parte oggi</span>' : '');
+
+  const flags = [];
+  if (s && s.indesiderato) flags.push('<span class="flag flag-danger">⚠ Ospite indesiderato</span>');
+  if (s && s.intolleranze && s.intolleranze.length) {
+    flags.push(`<span class="flag flag-safety" title="Allergie / intolleranze — sicurezza">⚠ ${s.intolleranze.map(esc).join(', ')}</span>`);
+  }
+  if (s && s.compleanno) {
+    const chi = s.compleanno.nome ? ` · ${esc(s.compleanno.nome)}` : '';
+    flags.push(`<span class="flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);
+  }
+  if (s && s.reclami && s.reclami.totali) {
+    const ap = s.reclami.aperti ? `${s.reclami.aperti} aperti / ` : '';
+    flags.push(`<span class="flag flag-warning">⚑ Reclami: ${ap}${s.reclami.totali}</span>`);
+  }
+  const flagBlock = flags.length ? `<div class="ic-flags">${flags.join('')}</div>` : '';
+
+  const prefs = ((s && s.preferenzeTop) || [])
+    .map((p) => `<span class="pref" title="${esc(p.reparto || '')}${p.categoria ? ' / ' + esc(p.categoria) : ''}">${esc(p.testo)}</span>`)
+    .join('');
+  const prefBlock = prefs ? `<div class="ic-prefs"><span class="ic-lbl">Preferenze</span>${prefs}</div>` : '';
+
+  const tratt = [c.trattamento, c.tariffa].filter(Boolean).map(esc).join(' / ');
+  const note = c.note
+    ? `<details class="ic-note"><summary>Note PMS <span class="note-prev">${esc(anteprimaNota(c.note))}</span></summary>
+         <div class="note-body">${esc(c.note)}</div></details>`
+    : '';
+
+  return `
+    <article class="ic${accento}${uscito ? ' ic-out' : ''}">
+      <div class="ic-head">
+        ${camere}${tipologie}
+        ${nome}
+        ${badgeVip(s && s.vip)}
+        <span class="ic-spacer"></span>
+        ${pill}
+      </div>
+      <div class="ic-stay">${renderAvanzamento(c)}${badgeStorico(c.storico)}</div>
+      ${flagBlock}
+      ${prefBlock}
+      ${renderOspitiInCasa(c)}
+      <div class="ic-op">
+        ${tratt ? `<span><i>Trattamento</i><b>${tratt}</b></span>` : ''}
+        ${c.extra ? `<span><i>Extra</i><b>${euro(c.extra)}</b></span>` : ''}
+        <span><i>Soggiorno</i><b>${c.importo != null ? euro(c.importo) : '—'}</b></span>
+        <span><i>Pratica</i><b>${esc(c.codpratica)}</b></span>
+      </div>
+      ${note}
+    </article>`;
+}
+
+// Anteprima di una riga per le note PMS (oggi lunghe anche 2.000 caratteri):
+// si appiattiscono gli a capo e si taglia, il testo pieno resta nel dettaglio.
+function anteprimaNota(t, max = 90) {
+  const piatto = String(t).replace(/\s+/g, ' ').trim();
+  return piatto.length > max ? `${piatto.slice(0, max)}…` : piatto;
 }
 
 // --- Ricerca ospiti (pagina) ---

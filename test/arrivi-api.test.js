@@ -85,7 +85,14 @@ test('GET /api/incasa → 200 con clienti in casa', async () => {
   const res = await ag.get('/api/incasa?data=2026-04-22');
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.body.data, '2026-04-22');
-  assert.strictEqual(res.body.clienti[0].nominativo, 'VERDI LUIGI');
+  const c = res.body.clienti[0];
+  assert.strictEqual(c.nominativo, 'VERDI LUIGI');
+  assert.ok(res.body.briefing, 'manca il briefing');
+  assert.strictEqual(res.body.briefing.presenti, 1);
+  assert.ok(c.snapshot, 'manca lo snapshot CRM');
+  // soggiorno 20→25/04, data richiesta 22/04 → terza notte di cinque
+  assert.strictEqual(c.avanzamento.notte, 3);
+  assert.strictEqual(c.avanzamento.notti, 5);
 });
 
 test('GET /api/dashboard → 200 con i tre conteggi', async () => {

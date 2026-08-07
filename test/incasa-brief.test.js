@@ -1,0 +1,93 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const {
+  arricchisciInCasa, calcolaBriefingInCasa, ordinaInCasa, numeroCamera, avanzamento,
+} = require('../src/crm/incasa-brief');
+
+test('numeroCamera: prima camera della lista, non numeriche in fondo', () => {
+  assert.strictEqual(numeroCamera('104'), 104);
+  assert.strictEqual(numeroCamera('220, 222'), 220);
+  assert.strictEqual(numeroCamera(''), Number.MAX_SAFE_INTEGER);
+  assert.strictEqual(numeroCamera(null), Number.MAX_SAFE_INTEGER);
+  assert.strictEqual(numeroCamera('SUITE'), Number.MAX_SAFE_INTEGER);
+});
+
+test('ordinaInCasa: per numero di camera, con i check-out in fondo', () => {
+  const ordinati = ordinaInCasa([
+    { camere: '221', statoPartenza: 'incasa' },
+    { camere: '106', statoPartenza: 'checkout' },
+    { camere: '104', statoPartenza: 'partenza' },
+    { camere: '', statoPartenza: 'incasa' },
+    { camere: '112, 115', statoPartenza: 'incasa' },
+  ]);
+  assert.deepStrictEqual(ordinati.map((c) => c.camere), ['104', '112, 115', '221', '', '106']);
+});
+
+test('ordinaInCasa non muta la lista originale', () => {
+  const orig = [{ camere: '221', statoPartenza: 'incasa' }, { camere: '104', statoPartenza: 'incasa' }];
+  ordinaInCasa(orig);
+  assert.strictEqual(orig[0].camere, '221');
+});
+
+test('avanzamento: notte corrente, ultima notte, input incompleti', () => {
+  const c = { dtarrivo: '2026-08-05', notti: 7 };
+  assert.deepStrictEqual(avanzamento(c, '2026-08-07'), { notte: 3, notti: 7, ultimaNotte: false, restano: 4 });
+  assert.deepStrictEqual(avanzamento(c, '2026-08-05'), { notte: 1, notti: 7, ultimaNotte: false, restano: 6 });
+  // giorno della partenza: si resta sull'ultima notte, non si sfora
+  assert.deepStrictEqual(avanzamento(c, '2026-08-12'), { notte: 7, notti: 7, ultimaNotte: true, restano: 0 });
+  assert.strictEqual(avanzamento({ dtarrivo: null, notti: 5 }, '2026-08-07'), null);
+  assert.strictEqual(avanzamento({ dtarrivo: '2026-08-05', notti: 0 }, '2026-08-07'), null); // day-use
+});
+
+test('calcolaBriefingInCasa: presenti esclude gli usciti, conta i segnali', () => {
+  const b = calcolaBriefingInCasa([
+    { statoPartenza: 'incasa', snapshot: { vip: { cod: 'V1' }, intolleranze: [], reclami: { totali: 0 }, compleanno: null } },
+    { statoPartenza: 'partenza', snapshot: { vip: null, intolleranze: ['Lattosio'], reclami: { totali: 2, aperti: 1 }, compleanno: { data: '2026-08-07' } } },
+    { statoPartenza: 'incasa', snapshot: { vip: null, indesiderato: true, intolleranze: [], reclami: { totali: 0 } } },
+    { statoPartenza: 'checkout', snapshot: { vip: { cod: 'V1' }, intolleranze: [], reclami: { totali: 0 } } },
+  ]);
+  assert.strictEqual(b.presenti, 3);      // l'uscito non è "presente"
+  assert.strictEqual(b.usciti, 1);
+  assert.strictEqual(b.partonoOggi, 1);
+  assert.strictEqual(b.vip, 2);           // il VIP conta anche se già uscito
+  assert.strictEqual(b.alert, 2);         // intolleranze OR indesiderato
+  assert.strictEqual(b.reclami, 1);
+  assert.strictEqual(b.ricorrenze, 1);
+});
+
+// --- Orchestratore con mock DB ---
+function pmsMock() {
+  return {
+    async query(text) {
+      if (/FROM Anagra a/.test(text)) return [
+        { CodCli: 100, Cognome: 'ROSSI', Nome: 'MARIO', dtNascita: null, CodVip: 'V1', DesVip: 'BOLLICINE' },
+        { CodCli: 200, Cognome: 'VERDI', Nome: 'ANNA', dtNascita: null, CodVip: null, DesVip: null },
+      ];
+      if (/FROM StorPrenota sp/.test(text)) return [{ codCli: 100, n: 4, ultima: '2024-08-09' }];
+      return [];
+    },
+  };
+}
+const crmMock = () => ({ async query() { return []; } });
+
+test('arricchisciInCasa: snapshot + storico + avanzamento, ordinato per camera', async () => {
+  const clienti = [
+    { codpratica: 2, codCliente: 200, camere: '221', dtarrivo: '2026-08-06', dtpartenza: '2026-08-08', notti: 2, statoPartenza: 'incasa', ospiti: [] },
+    { codpratica: 1, codCliente: 100, camere: '104', dtarrivo: '2026-08-05', dtpartenza: '2026-08-12', notti: 7, statoPartenza: 'incasa', ospiti: [] },
+  ];
+  const enr = await arricchisciInCasa(pmsMock(), crmMock(), clienti, '2026-08-07');
+  assert.deepStrictEqual(enr.clienti.map((c) => c.camere), ['104', '221']); // ordinati per camera
+  const primo = enr.clienti[0];
+  assert.deepStrictEqual(primo.storico, { n: 4, ultima: '2024-08-09' });
+  assert.strictEqual(primo.avanzamento.notte, 3);
+  assert.strictEqual(primo.snapshot.vip.descrizione, 'BOLLICINE');
+  assert.strictEqual(enr.clienti[1].storico, null); // 200 non ha storico
+  assert.strictEqual(enr.briefing.presenti, 2);
+  assert.strictEqual(enr.briefing.vip, 1);
+});
+
+test('arricchisciInCasa: lista vuota → briefing a zero', async () => {
+  const enr = await arricchisciInCasa(pmsMock(), crmMock(), [], '2026-08-07');
+  assert.deepStrictEqual(enr.clienti, []);
+  assert.strictEqual(enr.briefing.presenti, 0);
+});
