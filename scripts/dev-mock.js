@@ -301,10 +301,9 @@ const crmDb = {
     // --- customer_profile ---
     if (/MERGE customer_profile/.test(t)) {
       let p = store.profili.find((x) => x.pms_customer_id === params.pmsCustomerId);
-      if (!p) { p = { pms_customer_id: params.pmsCustomerId, lingua: null, note_personali: null, data_nascita: null }; store.profili.push(p); }
+      if (!p) { p = { pms_customer_id: params.pmsCustomerId, lingua: null, note_personali: null }; store.profili.push(p); }
       if (params.lingua !== undefined) p.lingua = params.lingua;
       if (params.notePersonali !== undefined) p.note_personali = params.notePersonali;
-      if (params.dataNascita !== undefined) p.data_nascita = params.dataNascita;
       p.autore_user_id = params.autoreUserId;
       p.updated_at = new Date().toISOString();
       return [];

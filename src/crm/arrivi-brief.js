@@ -17,7 +17,6 @@ const { getAnagraByIds } = require('../pms/clienti');
 const { listPreferenze } = require('./preferenze');
 const { listComplaints } = require('./complaint');
 const { listIntolleranze } = require('./intolleranze');
-const { getDateNascitaByIds } = require('./profilo');
 
 function briefingVuoto(nArrivi) {
   // anniversari e suggerimentiAi: nessuna fonte dati affidabile per ora → 0 (TODO).
@@ -73,19 +72,6 @@ function idsPrenotazione(a, gruppi) {
   const set = new Set();
   for (const id of base) for (const m of (gruppi.get(id) || [id])) set.add(m);
   return [...set];
-}
-
-// Sovrascrive nelle anagrafiche PMS la data di nascita inserita in CRM dalla reception
-// (EVO-010), così i compleanni funzionano anche per gli ospiti che nel gestionale non
-// hanno la data. Come nella scheda ospite, l'override vale per tutto il gruppo di fusione.
-function applicaDateNascitaCrm(anagra, gruppi, dateNascita) {
-  if (!dateNascita || !dateNascita.size) return anagra;
-  for (const [id, an] of anagra) {
-    const membri = (gruppi && gruppi.get(id)) || [id];
-    const iso = membri.map((m) => dateNascita.get(m)).find(Boolean);
-    if (iso) an.dtNascita = iso;
-  }
-  return anagra;
 }
 
 // Snapshot per un arrivo. ctx = { gruppi, anagra:Map, prefBy, complBy, intolBy, relBy:Map('ref|occ'→rel) }.
@@ -168,15 +154,15 @@ async function arricchisciArrivi(pmsDb, crmDb, arrivi) {
   const gruppi = await getGruppiByIds(crmDb, idOspiti);
   const allIds = [...new Set([...gruppi.values()].flat().concat(idOspiti))];
 
-  const [anagra, prefRows, complRows, intolRows, relRows, dateNascita] = await Promise.all([
+  // Le date di nascita (quindi i compleanni) arrivano solo da Anagra: il PMS è
+  // l'unica fonte del dato.
+  const [anagra, prefRows, complRows, intolRows, relRows] = await Promise.all([
     getAnagraByIds(pmsDb, allIds),
     listPreferenze(crmDb, allIds),
     listComplaints(crmDb, allIds),
     listIntolleranze(crmDb, allIds),
     getRelazioniByIds(crmDb, idOspiti),
-    getDateNascitaByIds(crmDb, allIds),
   ]);
-  applicaDateNascitaCrm(anagra, gruppi, dateNascita);
 
   const relBy = new Map();
   for (const r of relRows) relBy.set(`${r.pms_customer_id}|${r.pms_occupant_id}`, r.tipo_relazione);
@@ -202,5 +188,4 @@ module.exports = {
   calcolaBriefing,
   compleannoNelSoggiorno,
   idsPrenotazione,
-  applicaDateNascitaCrm,
 };

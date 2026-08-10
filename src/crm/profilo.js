@@ -2,9 +2,11 @@
 // - lingua preferita
 // - note_personali: info biografiche/ruoli (es. "Direttore LUISS", cariche), distinte
 //   dalle preferenze; compilabili dalla reception e popolabili dal Guest Briefing AI.
-// - data_nascita: override del dato PMS (Anagra.dtNascita, sola lettura), così la
-//   reception può correggerlo/compilarlo quando manca. Vuoto → vale il dato PMS.
 // upsert su UNIQUE pms_customer_id.
+//
+// NB: la data di nascita NON sta qui. È un dato del PMS (Anagra.dtNascita) e si
+// legge solo da lì: tenerne una copia modificabile nel CRM significherebbe avere
+// due valori che possono divergere, senza sapere quale sia quello buono.
 
 const { inClause } = require('../db/query');
 
@@ -12,9 +14,7 @@ const { inClause } = require('../db/query');
 // non nullo del gruppo (più recente). La scrittura resta sul codice visualizzato.
 async function getProfilo(db, ids) {
   const rows = await db.query(
-    `SELECT p.pms_customer_id, p.lingua, p.note_personali,
-            CONVERT(varchar(10), p.data_nascita, 23) AS data_nascita,
-            p.updated_at, u.username AS autore
+    `SELECT p.pms_customer_id, p.lingua, p.note_personali, p.updated_at, u.username AS autore
      FROM customer_profile p LEFT JOIN users u ON u.id = p.autore_user_id
      WHERE p.pms_customer_id IN ${inClause(ids)}
      ORDER BY p.updated_at DESC`
@@ -25,7 +25,6 @@ async function getProfilo(db, ids) {
   return {
     pms_customer_id: rows[0].pms_customer_id,
     lingua: primo('lingua'),
-    data_nascita: primo('data_nascita'),
     note_personali: rigaNota ? rigaNota.note_personali : null,
     note_autore: rigaNota && rigaNota.autore != null ? rigaNota.autore : null,
     note_updated_at: rigaNota ? rigaNota.updated_at : null,
@@ -58,60 +57,4 @@ async function upsertNotePersonali(db, { pmsCustomerId, notePersonali, autoreUse
   return { pmsCustomerId, notePersonali };
 }
 
-// Override CRM della data di nascita per un insieme di codici, in UNA query
-// (usato dagli Arrivi per i compleanni). → Map(pms_customer_id → 'YYYY-MM-DD').
-async function getDateNascitaByIds(db, ids) {
-  const arr = [...new Set(Array.isArray(ids) ? ids : [ids])];
-  const map = new Map();
-  if (!arr.length) return map;
-  const rows = await db.query(
-    `SELECT pms_customer_id, CONVERT(varchar(10), data_nascita, 23) AS data_nascita
-     FROM customer_profile
-     WHERE data_nascita IS NOT NULL AND pms_customer_id IN ${inClause(arr)}`
-  );
-  for (const r of rows) map.set(r.pms_customer_id, r.data_nascita);
-  return map;
-}
-
-// Salva l'override CRM della data di nascita. Tocca SOLO quella colonna.
-// dataNascita null → override rimosso (torna a valere il dato PMS).
-async function upsertDataNascita(db, { pmsCustomerId, dataNascita, autoreUserId }) {
-  await db.query(
-    `MERGE customer_profile AS t
-     USING (SELECT @pmsCustomerId AS pms_customer_id) AS s ON t.pms_customer_id = s.pms_customer_id
-     WHEN MATCHED THEN UPDATE SET data_nascita = CAST(@dataNascita AS date), autore_user_id = @autoreUserId, updated_at = SYSUTCDATETIME()
-     WHEN NOT MATCHED THEN INSERT (pms_customer_id, data_nascita, autore_user_id, updated_at)
-       VALUES (@pmsCustomerId, CAST(@dataNascita AS date), @autoreUserId, SYSUTCDATETIME());`,
-    { pmsCustomerId, dataNascita, autoreUserId }
-  );
-  return { pmsCustomerId, dataNascita };
-}
-
-// Valida una data di nascita in ISO 'YYYY-MM-DD'. Vuota → null (nessun override).
-// Rifiuta formati errati, date inesistenti (es. 2026-02-30), date future e
-// anni assurdi. Ritorna { ok, valore }.
-function validaDataNascita(valore) {
-  const v = (valore == null ? '' : String(valore)).trim();
-  if (!v) return { ok: true, valore: null };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return { ok: false, valore: null };
-  const d = new Date(`${v}T00:00:00Z`);
-  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) return { ok: false, valore: null };
-  const oggi = new Date().toISOString().slice(0, 10);
-  if (v > oggi || v < '1900-01-01') return { ok: false, valore: null };
-  return { ok: true, valore: v };
-}
-
-// Data di nascita effettiva sull'anagrafica: override CRM se presente, altrimenti
-// il dato PMS. `dtNascitaFonte` dice all'interfaccia da dove arriva il valore.
-function applicaDataNascita(anagrafica, profilo) {
-  if (!anagrafica) return anagrafica;
-  const override = profilo && profilo.data_nascita ? profilo.data_nascita : null;
-  if (override) anagrafica.dtNascita = override;
-  anagrafica.dtNascitaFonte = override ? 'crm' : 'pms';
-  return anagrafica;
-}
-
-module.exports = {
-  getProfilo, upsertLingua, upsertNotePersonali,
-  upsertDataNascita, getDateNascitaByIds, validaDataNascita, applicaDataNascita,
-};
+module.exports = { getProfilo, upsertLingua, upsertNotePersonali };

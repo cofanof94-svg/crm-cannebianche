@@ -64,11 +64,10 @@ async function makeApp(opts = {}) {
       if (/DELETE FROM customer_intolerances/.test(text)) { const i = intolleranze.findIndex((x) => x.id === params.id); if (i >= 0) { const id = intolleranze[i].id; intolleranze.splice(i, 1); return [{ id }]; } return []; }
       if (/FROM customer_intolerances/.test(text)) return intolleranze.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, testo: n.testo, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/MERGE customer_profile/.test(text)) {
-        profilo = profilo || { pms_customer_id: params.pmsCustomerId, lingua: null, note_personali: null, data_nascita: null };
+        profilo = profilo || { pms_customer_id: params.pmsCustomerId, lingua: null, note_personali: null };
         profilo.pms_customer_id = params.pmsCustomerId;
         if (params.lingua !== undefined) profilo.lingua = params.lingua;
         if (params.notePersonali !== undefined) profilo.note_personali = params.notePersonali;
-        if (params.dataNascita !== undefined) profilo.data_nascita = params.dataNascita;
         return [];
       }
       if (/FROM customer_profile/.test(text)) return profilo && ids.includes(profilo.pms_customer_id) ? [profilo] : [];
@@ -354,35 +353,16 @@ test('note personali: PUT set salva e GET profilo rilegge; append accoda', async
   assert.match(app2.body.notePersonali, /Membro CdA Pirelli/);
 });
 
-test('data di nascita: dal PMS finché non la si modifica, poi vince l\'override CRM', async () => {
+test('data di nascita: esposta dal PMS, non modificabile dal CRM', async () => {
   const app = await makeApp();
   const ag = await agente(app);
-  const pms = await ag.get('/api/clienti/47186');
-  assert.strictEqual(pms.body.anagrafica.dtNascita, '1964-10-17'); // dato del gestionale
-  assert.strictEqual(pms.body.anagrafica.dtNascitaFonte, 'pms');
-
+  const res = await ag.get('/api/clienti/47186');
+  assert.strictEqual(res.body.anagrafica.dtNascita, '1964-10-17'); // dato del gestionale
+  // Una sola fonte: nessun override CRM, quindi nessun campo "fonte" da disambiguare.
+  assert.strictEqual(res.body.anagrafica.dtNascitaFonte, undefined);
+  // La rotta di scrittura non esiste più: si corregge nel PMS.
   const put = await ag.put('/api/clienti/47186/data-nascita').send({ dataNascita: '1965-01-02' });
-  assert.strictEqual(put.status, 200);
-  assert.deepStrictEqual(put.body, { dataNascita: '1965-01-02', fonte: 'crm' });
-
-  const crm = await ag.get('/api/clienti/47186');
-  assert.strictEqual(crm.body.anagrafica.dtNascita, '1965-01-02');
-  assert.strictEqual(crm.body.anagrafica.dtNascitaFonte, 'crm');
-
-  // svuotando l'override torna a valere il dato PMS
-  const reset = await ag.put('/api/clienti/47186/data-nascita').send({ dataNascita: '' });
-  assert.deepStrictEqual(reset.body, { dataNascita: '1964-10-17', fonte: 'pms' });
-});
-
-test('data di nascita: PUT rifiuta date non valide e richiede il login', async () => {
-  const app = await makeApp();
-  const ag = await agente(app);
-  const brutta = await ag.put('/api/clienti/47186/data-nascita').send({ dataNascita: '17/10/1964' });
-  assert.strictEqual(brutta.status, 400);
-  const futura = await ag.put('/api/clienti/47186/data-nascita').send({ dataNascita: '2099-01-01' });
-  assert.strictEqual(futura.status, 400);
-  const noauth = await request(app).put('/api/clienti/47186/data-nascita').send({ dataNascita: '1964-10-17' });
-  assert.strictEqual(noauth.status, 401);
+  assert.strictEqual(put.status, 404);
 });
 
 test('preferenze: crea/elenca/elimina + validazione liste chiuse', async () => {

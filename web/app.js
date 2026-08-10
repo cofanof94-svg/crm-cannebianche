@@ -790,15 +790,15 @@ async function loadCliente(codCli) {
   const s = d.statistiche;
   $('#cli-nome').textContent = a.nominativo || '(senza nominativo)';
   $('#cli-avatar').textContent = ((a.cognome || a.nome || '?')[0] || '?').toUpperCase();
-  const contatti = [
+  // Data di nascita: dato del gestionale, in sola lettura (si modifica nel PMS,
+  // così non ci sono due valori in giro che possono divergere).
+  $('#cli-contatti').innerHTML = [
+    contattoCard('Data di nascita', a.dtNascita ? fmtData(a.dtNascita) : null),
     contattoCard('Email', a.email, a.email ? `mailto:${a.email}` : null),
     contattoCard('Telefono', a.telefono, a.telefono ? `tel:${a.telefono}` : null),
     contattoCard('Cellulare', a.cellulare, a.cellulare ? `tel:${a.cellulare}` : null),
     contattoCard('Provenienza', [a.citta, a.nazione].filter(Boolean).join(', ')),
-  ].filter(Boolean).join('') || '<div class="cc cc-empty">Nessun contatto</div>';
-  nascitaData = { valore: a.dtNascita || null, fonte: a.dtNascitaFonte || 'pms' };
-  nascitaEdit = false;
-  $('#cli-contatti').innerHTML = contatti + nascitaCard();
+  ].filter(Boolean).join('') || '<div class="cc cc-empty">Nessun dato di contatto</div>';
   renderVip(a.vip);
   $('#cli-nsogg').textContent = s.nSoggiorni;
   $('#cli-notti').textContent = s.nottiTotali != null ? s.nottiTotali : '–';
@@ -857,63 +857,6 @@ function contattoCard(label, value, href) {
   const inner = href ? `<a href="${esc(href)}">${esc(value)}</a>` : esc(value);
   return `<div class="cc"><span class="cc-l">${esc(label)}</span><span class="cc-v">${inner}</span></div>`;
 }
-
-// --- Data di nascita (EVO-010) ---
-// Dato anagrafico principale: sta nella striscia dei contatti insieme a email,
-// telefono e provenienza. Arriva dal PMS (sola lettura) ma è modificabile: il
-// valore inserito qui è un override CRM che vince sul gestionale; svuotandolo si
-// torna al dato PMS. Modifica in-place, come le altre note della scheda.
-let nascitaData = { valore: null, fonte: 'pms' };
-let nascitaEdit = false;
-
-const oggiIso = () => new Date().toISOString().slice(0, 10);
-
-function nascitaCard() {
-  const d = nascitaData;
-  if (nascitaEdit) {
-    return `<div class="cc cc-nascita" id="cc-nascita">
-      <span class="cc-l">Data di nascita</span>
-      <span class="cc-edit">
-        <input type="date" id="cli-nascita-input" value="${esc(d.valore || '')}" min="1900-01-01" max="${oggiIso()}" />
-        <button type="button" class="btn-icon" data-nascita-salva>Salva</button>
-        <button type="button" class="btn-icon" data-nascita-annulla>Annulla</button>
-      </span>
-      <span class="cc-msg" id="cli-nascita-msg"></span>
-    </div>`;
-  }
-  const fonte = d.fonte === 'crm' ? ' <span class="cc-src" title="Valore inserito nel CRM: sovrascrive il dato del gestionale">CRM</span>' : '';
-  const valore = d.valore ? esc(fmtData(d.valore)) : '<span class="cc-vuoto">Non indicata</span>';
-  return `<div class="cc cc-nascita" id="cc-nascita">
-    <span class="cc-l">Data di nascita${fonte}</span>
-    <span class="cc-v">${valore}<button type="button" class="btn-icon" data-nascita-edit title="Modifica la data di nascita">✎</button></span>
-  </div>`;
-}
-
-function renderNascita() {
-  const el = $('#cc-nascita');
-  if (el) el.outerHTML = nascitaCard();
-}
-
-async function salvaNascita(valore) {
-  if (!clienteCorrente) return;
-  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/data-nascita`, {
-    method: 'PUT', body: JSON.stringify({ dataNascita: valore }),
-  });
-  if (status !== 200) {
-    const msg = $('#cli-nascita-msg');
-    if (msg) msg.textContent = (body && body.error) || 'Errore nel salvataggio.';
-    return;
-  }
-  nascitaData = { valore: body.dataNascita || null, fonte: body.fonte || 'pms' };
-  nascitaEdit = false;
-  renderNascita();
-}
-
-$('#cli-contatti').addEventListener('click', async (e) => {
-  if (e.target.closest('[data-nascita-edit]')) { nascitaEdit = true; renderNascita(); $('#cli-nascita-input').focus(); return; }
-  if (e.target.closest('[data-nascita-annulla]')) { nascitaEdit = false; renderNascita(); return; }
-  if (e.target.closest('[data-nascita-salva]')) { await salvaNascita($('#cli-nascita-input').value); }
-});
 
 // Storico prenotazioni: una riga per pratica con le info principali.
 // Stati "in corso/futuri": se il maturato è ancora 0 ma c'è la tariffa pianificata,
