@@ -1178,13 +1178,14 @@ $('#cli-suggerimenti').addEventListener('click', async (e) => {
 // --- Nucleo di viaggio / accompagnatori ---
 // Righe in SOLA LETTURA (= dato salvato). La matita ✎ entra in edit-mode; con
 // Salva il dato viene persistito e la riga torna alla vista pulita (ricaricata dal
-// server → conferma del salvataggio). I membri precompilati portano il badge "auto".
+// server → conferma del salvataggio). Come i membri siano stati aggiunti (a mano
+// o dalle prenotazioni) non cambia nulla per chi li legge: nessun badge in riga,
+// la spiegazione sta nella (i) della sezione.
 let nucleoEditId = null;
 async function caricaNucleo(codCli) {
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/nucleo`);
   const membri = body.nucleo || [];
   $('#cli-nucleo').innerHTML = membri.map((m) => {
-    const auto = m.pms_occupant_id ? '<span class="nucleo-auto" title="Precompilato automaticamente dalle prenotazioni">auto</span>' : '';
     if (m.id === nucleoEditId) {
       const opts = RELAZIONI.map((r) => `<option${r === m.tipo_relazione ? ' selected' : ''}>${esc(r)}</option>`).join('');
       return `<li class="nucleo-item nucleo-editing" data-nucleo="${m.id}">
@@ -1202,7 +1203,6 @@ async function caricaNucleo(codCli) {
         <span class="pref-tag">${esc(m.tipo_relazione)}</span>
         <span class="nucleo-nome">${esc(nomeCompl)}</span>
         ${m.nota ? `<span class="cell-muted">— ${esc(m.nota)}</span>` : ''}
-        ${auto}
       </div>
       <span class="nucleo-az">
         <button type="button" class="btn-icon" data-edit-nucleo="${m.id}" title="Modifica">✎</button>

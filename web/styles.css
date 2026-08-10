@@ -624,7 +624,6 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .nucleo-rel { flex: 0 0 128px; }
 .nucleo-in { flex: 1 1 110px; min-width: 84px; }
 .nucleo-nota { flex: 2 1 150px; }
-.nucleo-auto { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--sand-050); color: var(--accent-700); border: 1px solid var(--accent); border-radius: 6px; padding: 1px 6px; }
 .nucleo-view { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 0; }
 .nucleo-nome { font-weight: 600; }
 .nucleo-az { display: inline-flex; gap: 4px; margin-left: auto; }
