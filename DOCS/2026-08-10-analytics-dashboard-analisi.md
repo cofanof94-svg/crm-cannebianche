@@ -52,9 +52,19 @@ la strumentazione nelle tre rotte AI. I numeri partirebbero dal giorno del deplo
 **il passato non è recuperabile**, quindi ogni giorno di attesa è dato perso.
 
 ### 3.2 Preferenze manuali vs generate dall'AI
-Una preferenza confermata da un suggerimento passa dalla **stessa POST** di una
-scritta a mano (`POST /clienti/:id/preferenze`): non c'è marcatore di origine.
-Distinguerle a posteriori è impossibile — serve una colonna `origine` da qui in avanti.
+⚠️ Da non confondere con il punto precedente: le preferenze **accettate ci sono
+tutte**, salvate regolarmente in `customer_preferences`. Qui non si perde alcun
+dato — si perde solo la **provenienza**, perché una preferenza confermata da un
+suggerimento passa dalla **stessa POST** di una scritta a mano
+(`POST /clienti/:id/preferenze`), con lo stesso autore e lo stesso ambito
+predefinito. Serve una colonna `origine` da qui in avanti; le righe già presenti
+resterebbero "origine non nota", il che è corretto e non è una perdita.
+
+Il vuoto vero è nel §3.1: di ciò che l'AI propone e **nessuno conferma** non resta
+traccia da nessuna parte. È esattamente il denominatore dell'acceptance rate —
+senza gli scarti si sa quante preferenze esistono, non quante ne sono state
+buttate via per arrivarci, che è la domanda del ticket ("l'AI produce informazioni
+considerate utili?").
 
 ### 3.3 Tipologia / reparto del complaint
 `customer_complaints` ha solo `testo` libero e `periodo`. "Complain per categoria" e
