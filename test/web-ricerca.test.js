@@ -33,6 +33,14 @@ function caricaFunzione(nome, ...dipendenze) {
   return new Function(`${[...dipendenze, estrai(nome)].join('\n')}\nreturn ${nome};`)();
 }
 
+// Come sopra, ma per più simboli che condividono lo stesso stato (il registro
+// dei pulsanti AI): vanno valutati insieme, altrimenti ognuno avrebbe il suo.
+function caricaModulo(nomi, ...dipendenze) {
+  const corpi = nomi.map((n) => (SRC.includes(`function ${n}(`) ? estrai(n) : estraiConst(n)));
+  // eslint-disable-next-line no-new-func
+  return new Function(`${[...dipendenze, ...corpi].join('\n')}\nreturn { ${nomi.join(', ')} };`)();
+}
+
 const matchPrenotazione = caricaFunzione('matchPrenotazione');
 
 const prenotazione = {
@@ -103,4 +111,48 @@ test('linkCliente: nome ed eventuale titolo sono sempre con escape', () => {
   const h = linkCliente(7, '<img src=x onerror=alert(1)>');
   assert.doesNotMatch(h, /<img/);
   assert.match(h, /&lt;img/);
+});
+
+// --- Registro dei pulsanti AI: "generato una volta, finché resti qui" ---
+function registroAi() {
+  return caricaModulo(['aiGiaFatto', 'aiSegnaFatto', 'aiAzzera', 'aiApplicaStato'], estraiConst('aiEseguiti'));
+}
+const bottoneFinto = () => ({ disabled: false, textContent: '✨ Genera con AI', title: '' });
+
+test('registro AI: una generazione riuscita risulta fatta, le altre no', () => {
+  const ai = registroAi();
+  assert.strictEqual(ai.aiGiaFatto('scheda:notepers'), false);
+  ai.aiSegnaFatto('scheda:notepers');
+  assert.strictEqual(ai.aiGiaFatto('scheda:notepers'), true);
+  assert.strictEqual(ai.aiGiaFatto('scheda:suggerimenti'), false); // pulsanti indipendenti
+});
+
+test('registro AI: aiAzzera svuota solo il proprio ambito', () => {
+  const ai = registroAi();
+  ['scheda:notepers', 'scheda:suggerimenti', 'arrivi:brief:1001'].forEach(ai.aiSegnaFatto);
+  ai.aiAzzera('scheda'); // cambio anagrafica: i pulsanti della scheda tornano attivi
+  assert.strictEqual(ai.aiGiaFatto('scheda:notepers'), false);
+  assert.strictEqual(ai.aiGiaFatto('scheda:suggerimenti'), false);
+  assert.strictEqual(ai.aiGiaFatto('arrivi:brief:1001'), true); // la pagina arrivi non c'entra
+});
+
+test('registro AI: il briefing è per singolo ospite, non per pagina', () => {
+  const ai = registroAi();
+  ai.aiSegnaFatto('arrivi:brief:1001');
+  assert.strictEqual(ai.aiGiaFatto('arrivi:brief:1002'), false); // le altre card restano usabili
+  ai.aiAzzera('arrivi');
+  assert.strictEqual(ai.aiGiaFatto('arrivi:brief:1001'), false);
+});
+
+test('aiApplicaStato: spegne il pulsante solo se la generazione è già avvenuta', () => {
+  const ai = registroAi();
+  const btn = bottoneFinto();
+  assert.strictEqual(ai.aiApplicaStato(btn, 'scheda:notepers', '✨ Già generato', 'Riapri la scheda'), false);
+  assert.strictEqual(btn.disabled, false); // non ancora generato → resta cliccabile
+  ai.aiSegnaFatto('scheda:notepers');
+  assert.strictEqual(ai.aiApplicaStato(btn, 'scheda:notepers', '✨ Già generato', 'Riapri la scheda'), true);
+  assert.strictEqual(btn.disabled, true);
+  assert.strictEqual(btn.textContent, '✨ Già generato');
+  assert.strictEqual(btn.title, 'Riapri la scheda'); // il perché è a portata di mouse
+  assert.doesNotThrow(() => ai.aiApplicaStato(null, 'scheda:notepers', 'x', 'y')); // pulsante non a video
 });

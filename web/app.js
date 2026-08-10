@@ -23,6 +23,31 @@ function loaderRiga(testo = 'Caricamento…') {
   return `<li class="nota-vuota">${loaderHTML(testo)}</li>`;
 }
 
+// --- Pulsanti di generazione AI (una regola sola per tutta l'app) ---
+// Una generazione riuscita non si ripete finché l'operatore resta sulla stessa
+// anagrafica/pagina: il pulsante resta disabilitato e dice perché, così non lo si
+// clicca due volte (ogni clic è una chiamata al modello, con attesa e costo).
+// Gli ERRORI non contano come esecuzione: lì si deve poter riprovare subito.
+// Il registro è per chiave, non per nodo DOM: un pulsante ricostruito da un
+// re-render (filtro sugli arrivi, riapertura del riquadro note) ritrova il suo stato.
+const aiEseguiti = new Set();
+const aiGiaFatto = (chiave) => aiEseguiti.has(chiave);
+const aiSegnaFatto = (chiave) => aiEseguiti.add(chiave);
+
+// Azzera un ambito: 'scheda' al cambio anagrafica, 'arrivi' rientrando nella pagina.
+function aiAzzera(ambito) {
+  for (const k of [...aiEseguiti]) if (k.startsWith(`${ambito}:`)) aiEseguiti.delete(k);
+}
+
+// Applica lo stato "già generato" a un pulsante (o lo lascia intatto se non lo è).
+function aiApplicaStato(btn, chiave, etichetta, titolo) {
+  if (!btn || !aiGiaFatto(chiave)) return false;
+  btn.disabled = true;
+  if (etichetta) btn.textContent = etichetta;
+  btn.title = titolo;
+  return true;
+}
+
 // --- Riferimenti a un cliente ---
 // Regola dell'app: ovunque compaia il nome di un cliente si deve poter aprire la
 // sua anagrafica. Un unico helper, così nessun elenco se ne dimentica.
@@ -190,28 +215,38 @@ function initArrivi(resetOggi) {
     });
     arriviInit = true;
   }
+  // Rientrando nella pagina i pulsanti "Briefing AI" tornano disponibili: la
+  // regola vale finché si resta sugli arrivi (cambiare data non è uscire).
+  aiAzzera('arrivi');
   // Reset a oggi: azzero la data → loadArrivi usa la data di lavoro (oggi).
   if (resetOggi) $('#arrivi-data').value = '';
   loadArrivi();
 }
 
-const briefingTesti = {}; // cache cli → briefing (per il "Salva nel profilo")
+const briefingTesti = {}; // cache cli → briefing (per il "Salva nel profilo" e per i re-render)
+const chiaveBrief = (cli) => `arrivi:brief:${cli}`;
+const chiaveSalvaBrief = (cli) => `arrivi:salva:${cli}`;
+const BRIEF_FATTO_TIT = 'Briefing già generato: esci e rientra negli arrivi per rifarlo';
 
 async function eseguiBriefing(btn) {
   const cli = btn.dataset.briefCli;
+  if (aiGiaFatto(chiaveBrief(cli))) return; // già generato su questa pagina
   const box = btn.closest('.arr-card').querySelector('.arr-brief-result');
   btn.disabled = true;
   box.hidden = false;
   box.innerHTML = '<div class="ai-msg ai-loading"><span class="spinner"></span>Ricerca su fonti pubbliche in corso…</div>';
+  // Errore o AI non configurata → si deve poter riprovare: il pulsante torna attivo.
+  const riabilita = () => { btn.disabled = false; };
   try {
     const { status, body } = await api(`/api/clienti/${encodeURIComponent(cli)}/briefing`, { method: 'POST', body: JSON.stringify({}) });
-    btn.disabled = false;
-    if (status === 503) { box.innerHTML = briefMsg('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); return; }
-    if (status !== 200) { box.innerHTML = briefMsg('Errore durante la generazione del briefing.'); return; }
+    if (status === 503) { riabilita(); box.innerHTML = briefMsg('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); return; }
+    if (status !== 200) { riabilita(); box.innerHTML = briefMsg('Errore durante la generazione del briefing.'); return; }
     briefingTesti[cli] = body;
     box.innerHTML = renderBriefResult(body, cli);
+    aiSegnaFatto(chiaveBrief(cli)); // riuscito → niente seconda generazione su questa pagina
+    aiApplicaStato(btn, chiaveBrief(cli), '✨ Briefing già generato', BRIEF_FATTO_TIT);
   } catch {
-    btn.disabled = false;
+    riabilita();
     box.innerHTML = briefMsg('Errore di rete durante la generazione del briefing.');
   }
 }
@@ -219,14 +254,16 @@ async function eseguiBriefing(btn) {
 async function salvaBriefingNelProfilo(btn) {
   const cli = btn.dataset.saveCli;
   const b = briefingTesti[cli];
-  if (!b || !b.testo) return;
+  if (!b || !b.testo || aiGiaFatto(chiaveSalvaBrief(cli))) return; // un secondo clic accodava la nota due volte
   btn.disabled = true;
   const { status } = await api(`/api/clienti/${encodeURIComponent(cli)}/note-personali`, {
     method: 'PUT', body: JSON.stringify({ testo: b.testo, mode: 'append' }),
   });
-  btn.disabled = false;
-  btn.textContent = status === 200 ? '✓ Salvato nel profilo' : 'Errore nel salvataggio';
-  if (status === 200) btn.classList.add('brief-save-done');
+  if (status !== 200) { btn.disabled = false; btn.textContent = 'Errore nel salvataggio'; return; }
+  aiSegnaFatto(chiaveSalvaBrief(cli));
+  btn.textContent = '✓ Salvato nel profilo';
+  btn.title = 'Già aggiunto alle Note personali del profilo';
+  btn.classList.add('brief-save-done');
 }
 
 function briefMsg(t) { return `<div class="brief-card"><div class="ai-msg">${esc(t)}</div></div>`; }
@@ -240,8 +277,11 @@ function renderBriefResult(b, cli) {
     ? `<details class="brief-fonti"><summary>Fonti (${nFonti})</summary><ul>${fonti}</ul></details>`
     : '';
   // Salvataggio nel profilo solo se l'ospite è stato riconosciuto (pubblico).
+  const salvato = cli && aiGiaFatto(chiaveSalvaBrief(cli));
   const salva = b.pubblico && cli
-    ? `<button type="button" class="brief-save" data-save-cli="${esc(cli)}" title="Aggiungi alle Note personali del profilo">💾 Salva nel profilo</button>`
+    ? `<button type="button" class="brief-save${salvato ? ' brief-save-done' : ''}" data-save-cli="${esc(cli)}"${salvato
+      ? ' disabled title="Già aggiunto alle Note personali del profilo">✓ Salvato nel profilo'
+      : ' title="Aggiungi alle Note personali del profilo">💾 Salva nel profilo'}</button>`
     : '';
   return `<div class="brief-card">
     <div class="brief-testo">${esc(b.testo || '')}</div>
@@ -408,8 +448,13 @@ function schedaArrivo(a) {
   const tot = a.importo != null ? euro(a.importo) : '—';
   const ospiti = renderOspitiArrivo(a);
   const accento = s && s.indesiderato ? ' arr-card-danger' : (s && s.vip ? ' arr-card-vip' : '');
+  // Un briefing già generato resta generato: filtri e ricerca ricostruiscono le
+  // card, ma il pulsante torna disabilitato e il testo riappare dalla cache.
+  const briefFatto = !!a.codCliente && aiGiaFatto(chiaveBrief(a.codCliente));
   const briefBtn = a.codCliente
-    ? `<button type="button" class="arr-brief-btn${s && s.vip ? ' arr-brief-vip' : ''}" data-brief-cli="${a.codCliente}" title="Cerca informazioni pubbliche su questo ospite">✨ Briefing AI</button>`
+    ? `<button type="button" class="arr-brief-btn${s && s.vip ? ' arr-brief-vip' : ''}" data-brief-cli="${a.codCliente}"${briefFatto
+      ? ` disabled title="${esc(BRIEF_FATTO_TIT)}">✨ Briefing già generato`
+      : ' title="Cerca informazioni pubbliche su questo ospite">✨ Briefing AI'}</button>`
     : '';
   const note = a.note
     ? `<details class="arr-note"><summary>Note PMS</summary><div class="arr-note-body">${esc(a.note)}</div></details>`
@@ -424,7 +469,9 @@ function schedaArrivo(a) {
         <div class="arr-meta">${ora}${pill}${briefBtn}</div>
       </header>
       ${snapshotBand(s)}
-      <div class="arr-brief-result" hidden></div>
+      ${briefFatto && briefingTesti[a.codCliente]
+    ? `<div class="arr-brief-result">${renderBriefResult(briefingTesti[a.codCliente], a.codCliente)}</div>`
+    : '<div class="arr-brief-result" hidden></div>'}
       <div class="arr-stay">
         <span class="arr-rooms">${camere || '<span class="dash">—</span>'}${tipologie}</span>
         <span class="arr-dates">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${notti}</span>
@@ -878,7 +925,8 @@ async function loadCliente(codCli) {
   popolaSelect($('#pref-form').categoria, CATEGORIE, 'Categoria');
   popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
   suggerimentiCorrenti = []; suggerimentiMostrati = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
-  resetAiButton(); // pulsante "Suggerisci AI" di nuovo disponibile all'apertura della scheda
+  aiAzzera('scheda'); // aprire una scheda rende di nuovo disponibili i pulsanti AI (suggerimenti, note personali)
+  resetAiButton();
   nucleoEditId = null; // esci da eventuale edit-mode del nucleo
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
@@ -964,6 +1012,8 @@ $('#lingua-form').addEventListener('submit', async (e) => {
 //     torna in vista → la nota "salvata" è evidente.
 let notePersEdit = false;
 let notePersData = { testo: null, autore: null, data: null };
+const CHIAVE_AI_NOTEPERS = 'scheda:notepers';
+const NOTEPERS_AI_TIT = 'Già generato su questa anagrafica: riapri la scheda per rifarlo';
 
 function renderNotePersonali() {
   const box = $('#notepers-box');
@@ -983,10 +1033,15 @@ function renderNotePersonali() {
       </div>`;
     return;
   }
+  // Se l'AI è già stata usata su questa anagrafica il pulsante resta spento anche
+  // qui, dove il riquadro viene ricostruito ogni volta che si rientra in modifica.
+  const aiFatto = aiGiaFatto(CHIAVE_AI_NOTEPERS);
   box.innerHTML = `
     <textarea id="cli-note-personali" class="notepers-text" rows="3" placeholder="Es. Direttore Generale LUISS; membro CdA Pirelli. Rivolgersi come 'Dottore'.">${esc(d.testo || '')}</textarea>
     <div class="notepers-bar">
-      <button type="button" id="btn-notepers-ai" class="btn btn-ai">✨ Genera con AI</button>
+      <button type="button" id="btn-notepers-ai" class="btn btn-ai"${aiFatto
+    ? ` disabled title="${esc(NOTEPERS_AI_TIT)}">✨ Già generato`
+    : '>✨ Genera con AI'}</button>
       <button type="button" id="btn-notepers-salva" class="btn btn-primary">Salva</button>
       ${haNota ? '<button type="button" id="btn-notepers-annulla" class="btn btn-ghost">Annulla</button>' : ''}
     </div>
@@ -1005,16 +1060,23 @@ async function salvaNotePers(testo) {
 }
 
 async function generaNotePers() {
-  if (!clienteCorrente) return;
+  if (!clienteCorrente || aiGiaFatto(CHIAVE_AI_NOTEPERS)) return; // già generato su questa scheda
   const btn = $('#btn-notepers-ai');
   const msg = $('#notepers-ai-msg');
   btn.disabled = true;
   msg.innerHTML = '<span class="ai-msg ai-loading"><span class="spinner"></span>Ricerca su fonti pubbliche in corso…</span>';
+  // Errore o AI non configurata → riprovabile subito; una risposta valida no.
+  const riabilita = () => { btn.disabled = false; };
+  const fatto = () => {
+    aiSegnaFatto(CHIAVE_AI_NOTEPERS);
+    aiApplicaStato(btn, CHIAVE_AI_NOTEPERS, '✨ Già generato', NOTEPERS_AI_TIT);
+  };
   try {
     const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/briefing`, { method: 'POST', body: JSON.stringify({}) });
-    btn.disabled = false;
-    if (status === 503) { msg.textContent = 'AI non configurata.'; return; }
-    if (status !== 200) { msg.textContent = 'Errore durante la generazione.'; return; }
+    if (status === 503) { riabilita(); msg.textContent = 'AI non configurata.'; return; }
+    if (status !== 200) { riabilita(); msg.textContent = 'Errore durante la generazione.'; return; }
+    // Ricerca fatta: anche "nessuna informazione" è una risposta, rifarla darebbe lo stesso esito.
+    fatto();
     if (!body.pubblico) { msg.textContent = 'Nessuna informazione pubblica rilevante per questo ospite.'; return; }
     const ta = $('#cli-note-personali');
     const attuale = ta.value.trim();
@@ -1088,12 +1150,13 @@ $('#cli-preferenze').addEventListener('click', async (e) => {
 // --- Suggerimenti AI (Fase 3 C): proposte on-demand, l'operatore conferma ---
 let suggerimentiCorrenti = [];
 let suggerimentiMostrati = []; // testi già proposti in questa sessione (dedup lato AI)
-let aiEseguito = false;        // "Suggerisci AI" già lanciato su QUESTA scheda → pulsante disabilitato
+const CHIAVE_AI_SUGG = 'scheda:suggerimenti';
 const AI_BTN_LABEL = '✨ Suggerisci preferenze (AI)';
+const SUGG_FATTO_TIT = 'Riapri la scheda per rigenerare i suggerimenti';
 
-// Riabilita il pulsante AI (chiamato all'apertura/cambio scheda).
+// Questo pulsante è un nodo fisso della pagina (non lo ricostruisce nessun
+// render): all'apertura di una scheda va riportato a mano allo stato iniziale.
 function resetAiButton() {
-  aiEseguito = false;
   const btn = $('#btn-suggerisci');
   btn.disabled = false;
   btn.textContent = AI_BTN_LABEL;
@@ -1124,7 +1187,7 @@ function renderSuggerimenti(msg) {
 }
 
 $('#btn-suggerisci').addEventListener('click', async () => {
-  if (!clienteCorrente || aiEseguito) return; // già eseguito su questa scheda → no doppie chiamate
+  if (!clienteCorrente || aiGiaFatto(CHIAVE_AI_SUGG)) return; // già eseguito su questa scheda → no doppie chiamate
   const btn = $('#btn-suggerisci');
   btn.disabled = true; btn.textContent = 'Analisi in corso…';
   suggerimentiCorrenti = [];
@@ -1141,9 +1204,9 @@ $('#btn-suggerisci').addEventListener('click', async () => {
     // memorizzo i testi proposti così una nuova richiesta non li ripropone
     suggerimentiMostrati.push(...suggerimentiCorrenti.map((s) => s.testo));
     renderSuggerimenti();
-    aiEseguito = true; // eseguito → resta disabilitato per tutta la permanenza sulla scheda
-    btn.textContent = '✨ Già suggerito su questa scheda';
-    btn.title = 'Riapri la scheda per rigenerare i suggerimenti';
+    // eseguito → resta disabilitato per tutta la permanenza sulla scheda
+    aiSegnaFatto(CHIAVE_AI_SUGG);
+    aiApplicaStato(btn, CHIAVE_AI_SUGG, '✨ Già suggerito su questa scheda', SUGG_FATTO_TIT);
   } catch { renderSuggerimenti('Errore di rete durante la generazione.'); riabilita(); }
 });
 

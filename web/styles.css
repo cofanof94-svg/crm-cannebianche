@@ -330,7 +330,7 @@ tbody tr:hover { background: var(--surface-2); }
 
 /* Guest Briefing AI */
 .arr-brief-btn { font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--brand); border-radius: 999px; padding: 5px 12px; white-space: nowrap; }
-.arr-brief-btn:hover { background: var(--brand-050); }
+.arr-brief-btn:hover:not(:disabled) { background: var(--brand-050); }
 .arr-brief-btn:disabled { opacity: .55; cursor: default; }
 .arr-brief-vip { background: var(--accent-050); border-color: var(--accent); color: var(--accent-700); }
 .arr-brief-result { margin-top: 12px; }
@@ -347,7 +347,7 @@ tbody tr:hover { background: var(--surface-2); }
 .brief-fonti a { color: var(--accent-700); }
 .brief-disclaimer { margin-top: 10px; font-size: 11.5px; color: var(--muted); font-style: italic; border-top: 1px dashed var(--border-strong); padding-top: 8px; }
 .brief-save { margin-top: 10px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; background: var(--brand-050); border: 1px solid var(--border-strong); color: var(--brand); border-radius: 8px; padding: 6px 12px; }
-.brief-save:hover { background: var(--sand-050); }
+.brief-save:hover:not(:disabled) { background: var(--sand-050); }
 .brief-save:disabled { cursor: default; }
 .brief-save-done { background: var(--sea-050); color: var(--sea-700); border-color: var(--sea); }
 
@@ -564,7 +564,7 @@ dialog.modal-wide { width: min(780px, calc(100vw - 32px)); }
 /* --- Suggerimenti AI (Fase 3 C) --- */
 .ai-sugg-bar { display: flex; align-items: center; gap: 6px; margin: 4px 0 2px; }
 .btn-ai { background: var(--sand-050); color: var(--brand-700); border-color: var(--accent); }
-.btn-ai:hover { background: #efe6d5; }
+.btn-ai:hover:not(:disabled) { background: #efe6d5; }
 .btn-ai:disabled { opacity: .6; cursor: default; }
 .ai-sugg:not(:empty) { margin: 8px 0 4px; border: 1px dashed var(--accent); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--sand-050); }
 .ai-msg { font-size: 13px; color: var(--muted); }
