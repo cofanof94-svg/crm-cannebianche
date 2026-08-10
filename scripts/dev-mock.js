@@ -119,6 +119,14 @@ const pmsDb = {
       const a = anagraByCod.get(Number(params.codCli));
       return a ? [a] : [];
     }
+    // ATTENZIONE all'ordine: la query di CONFRONTO (merge guidato) contiene anche
+    // lei "tv.desvip AS DesVip ... WHERE a.CodCli IN", quindi va riconosciuta PRIMA
+    // dell'anagrafica batch — che è più generica e altrimenti se la mangia,
+    // restituendo righe senza nPrenotazioni e con le chiavi sbagliate.
+    if (/AS nPrenotazioni/.test(t)) {
+      return idsDaIn(t).map((id) => anagraByCod.get(id)).filter(Boolean)
+        .map((a) => ({ codCli: a.CodCli, Cognome: a.Cognome, Nome: a.Nome, dtNascita: a.dtNascita, codiceFiscale: a.CodFis, Citta: a.Citta, CodNaz: a.CodNaz, email: a.email, Telefono: a.Telefono, Cellulare: a.Cellulare, CodVip: a.CodVip, DesVip: a.DesVip, nPrenotazioni: nPren(a.CodCli) }));
+    }
     if (/tv\.desvip AS DesVip[\s\S]*WHERE a\.CodCli IN/.test(t)) {
       return idsDaIn(t).map((id) => anagraByCod.get(id)).filter(Boolean);
     }
@@ -190,10 +198,6 @@ const pmsDb = {
         const [cognome, nome, chiave] = k.split('|');
         return { tipo: 'ANAGRAFICA', cognome, nome, chiave, n: m.length, membri: m.join(',') };
       });
-    }
-    if (/AS nPrenotazioni/.test(t)) {
-      return idsDaIn(t).map((id) => anagraByCod.get(id)).filter(Boolean)
-        .map((a) => ({ codCli: a.CodCli, Cognome: a.Cognome, Nome: a.Nome, dtNascita: a.dtNascita, codiceFiscale: a.CodFis, Citta: a.Citta, CodNaz: a.CodNaz, email: a.email, Telefono: a.Telefono, Cellulare: a.Cellulare, CodVip: a.CodVip, DesVip: a.DesVip, nPrenotazioni: nPren(a.CodCli) }));
     }
 
     // --- Consumi ---
