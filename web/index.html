@@ -267,9 +267,10 @@
               <div class="stat stat-hl"><span class="stat-n" id="cli-ltv">–</span><span class="stat-l">Valore storico (LTV) <span class="info" data-tip="Totale maturato (arrangiamenti + extra) delle prenotazioni di cui l'ospite fa parte — anche come co-occupante, non solo da intestatario. City tax esclusa. Su membri dello stesso nucleo può quindi ripetersi.">i</span></span><span class="stat-sub" id="cli-ltv-media"></span></div>
               <div class="stat"><span class="stat-n" id="cli-arr">–</span><span class="stat-l">Arrangiamenti <span class="info" data-tip="Totale maturato per pensione/trattamento (righe con arrangiamento).">i</span></span><span class="stat-sub" id="cli-arr-media"></span></div>
               <div class="stat"><span class="stat-n" id="cli-extra">–</span><span class="stat-l">Extra <span class="stat-note">(city tax esclusa)</span> <span class="info" data-tip="Consumi extra maturati (ristorante, spiaggia, ecc.). City tax esclusa dal totale.">i</span></span><span class="stat-sub" id="cli-extra-media"></span></div>
+              <!-- Scorciatoie: portano allo storico prenotazioni più in basso -->
               <div class="stat stat-visite">
-                <div class="visita-riga"><span class="visita-l">Prima visita <span class="info" data-tip="Data del primo e dell'ultimo soggiorno valido del cliente (esclusi Eliminate e No-show).">i</span></span><span class="visita-d" id="cli-prima">–</span></div>
-                <div class="visita-riga"><span class="visita-l">Ultima visita</span><span class="visita-d" id="cli-ultima">–</span></div>
+                <div class="visita-riga" role="button" tabindex="0" data-vai-storico title="Apri lo storico delle prenotazioni"><span class="visita-l">Prima visita <span class="info" data-tip="Data del primo e dell'ultimo soggiorno valido del cliente (esclusi Eliminate e No-show).">i</span></span><span class="visita-d" id="cli-prima">–</span><span class="visita-go" aria-hidden="true">↓</span></div>
+                <div class="visita-riga" role="button" tabindex="0" data-vai-storico title="Apri lo storico delle prenotazioni"><span class="visita-l">Ultima visita</span><span class="visita-d" id="cli-ultima">–</span><span class="visita-go" aria-hidden="true">↓</span></div>
               </div>
               <div class="stat"><span class="stat-n stat-sm" id="cli-source">–</span><span class="stat-l">Ultima Source <span class="info" data-tip="Canale di vendita dell'ultima prenotazione: Diretti, OTA, Agenzie, T.O., GDS…">i</span></span></div>
               <div class="stat"><span class="stat-n stat-sm" id="cli-mercato">–</span><span class="stat-l">Tipologia viaggio <span class="info" data-tip="Segmento/mercato dell'ultima prenotazione: Leisure, Group, MICE, SPA, Evento…">i</span></span></div>
@@ -371,7 +372,7 @@
               <div class="card note-box" id="cli-spa"></div>
             </details>
 
-            <details class="sez-collapse">
+            <details class="sez-collapse" id="cli-storico-box">
               <summary class="sez sez-sum">Storico prenotazioni <span class="sez-hint">tutte le prenotazioni — apri</span> <span class="info" data-tip="Tutte le prenotazioni del cliente (correnti e archiviate): periodo, camere, importi e stato. Una riga per pratica.">i</span></summary>
               <div class="card table-wrap">
                 <table class="cli-sogg-tab">

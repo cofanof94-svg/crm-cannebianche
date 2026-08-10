@@ -1017,6 +1017,31 @@ function rigaSoggiorno(x) {
   </tr>`;
 }
 
+// --- Scorciatoia: Prima/Ultima visita → Storico prenotazioni ---
+// Le due date sono un riassunto dello storico, quindi portano allo storico:
+// stessa pagina, sezione aperta se era chiusa, e un lampo breve per far vedere
+// dove si è atterrati (uno scroll che finisce e basta lascia spaesati).
+function vaiAlloStorico() {
+  const box = $('#cli-storico-box');
+  if (!box) return;
+  box.open = true;
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  box.classList.remove('sez-lampo');
+  void box.offsetWidth; // forza il ricalcolo: così il lampo riparte anche al 2º clic
+  box.classList.add('sez-lampo');
+}
+
+$('#view-cliente').addEventListener('click', (e) => {
+  if (e.target.closest('[data-vai-storico]')) vaiAlloStorico();
+});
+// Le righe sono pulsanti (role=button): da tastiera devono rispondere come tali.
+$('#view-cliente').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (!e.target.closest('[data-vai-storico]')) return;
+  e.preventDefault(); // lo spazio altrimenti scrolla la pagina
+  vaiAlloStorico();
+});
+
 // Liste chiuse (allineate ai CHECK del DB e alla validazione API)
 const REPARTI = ['Rooms', 'F&B', 'SPA', 'Front office'];
 const CATEGORIE = ['F&B', 'Camera', 'Persona', 'Occasioni', 'Generale'];
