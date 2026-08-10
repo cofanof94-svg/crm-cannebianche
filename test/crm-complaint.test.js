@@ -30,6 +30,38 @@ test('setComplaintStato aggiorna stato e resolved_at', async () => {
   assert.match(db.calls[0].text, /resolved_at = CASE WHEN @stato = 'risolto'/);
 });
 
+test('setComplaintStato: risolvere scrive il follow-up nello stesso UPDATE', async () => {
+  const db = fakeDb([{ id: 5 }]);
+  await c.setComplaintStato(db, 5, 'risolto', 'Cambio camera effettuato');
+  assert.strictEqual(db.calls.length, 1); // un solo giro: niente stato senza follow-up
+  assert.strictEqual(db.calls[0].params.followUp, 'Cambio camera effettuato');
+  assert.match(db.calls[0].text, /follow_up = @followUp/);
+});
+
+test('setComplaintStato: riaprendo non si tocca il follow-up già scritto', async () => {
+  const db = fakeDb([{ id: 5 }]);
+  await c.setComplaintStato(db, 5, 'aperto');
+  assert.doesNotMatch(db.calls[0].text, /follow_up/);
+  assert.strictEqual('followUp' in db.calls[0].params, false);
+});
+
+test('setComplaintFollowUp: corregge il solo testo, vuoto → NULL', async () => {
+  const db = fakeDb([{ id: 5 }]);
+  assert.strictEqual(await c.setComplaintFollowUp(db, 5, 'Omaggio SPA offerto'), true);
+  assert.strictEqual(db.calls[0].params.followUp, 'Omaggio SPA offerto');
+  assert.doesNotMatch(db.calls[0].text, /stato/);
+  const db2 = fakeDb([{ id: 5 }]);
+  await c.setComplaintFollowUp(db2, 5, '');
+  assert.strictEqual(db2.calls[0].params.followUp, null);
+  assert.strictEqual(await c.setComplaintFollowUp(fakeDb([]), 999, 'x'), false);
+});
+
+test('listComplaints legge anche il follow-up', async () => {
+  const db = fakeDb([]);
+  await c.listComplaints(db, 47186);
+  assert.match(db.calls[0].text, /c\.follow_up/);
+});
+
 test('updateComplaintTesto/deleteComplaint true solo se riga toccata', async () => {
   assert.strictEqual(await c.updateComplaintTesto(fakeDb([{ id: 5 }]), 5, 'nuovo'), true);
   assert.strictEqual(await c.updateComplaintTesto(fakeDb([]), 999, 'x'), false);

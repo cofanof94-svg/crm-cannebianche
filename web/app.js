@@ -1669,13 +1669,20 @@ async function caricaComplaints(codCli) {
   const compl = body.complaints || [];
   $('#cli-complaints').innerHTML = compl.map((c) => {
     const risolto = c.stato === 'risolto';
+    // Il follow-up si mostra sempre se c'è: su un complaint riaperto racconta
+    // cosa era già stato tentato. I reclami chiusi prima di questa funzione non
+    // ce l'hanno — è normale, non è un dato mancante da recuperare.
+    const followUp = c.follow_up
+      ? `<div class="compl-fu"><span class="compl-fu-lbl">Follow-up</span><span class="compl-fu-testo">${esc(c.follow_up)}</span></div>`
+      : '';
     return `
-    <li data-compl="${c.id}" data-periodo="${esc(c.periodo || '')}" class="${risolto ? 'compl-risolto' : ''}">
+    <li data-compl="${c.id}" data-periodo="${esc(c.periodo || '')}" data-followup="${esc(c.follow_up || '')}" class="${risolto ? 'compl-risolto' : ''}">
       <div class="compl-top">
         <span class="pill ${risolto ? 'pill-risolto' : 'pill-aperto'}">${risolto ? 'Risolto' : 'Aperto'}</span>
         ${c.periodo ? `<span class="pref-tag">${esc(c.periodo)}</span>` : ''}
         <span class="compl-testo nota-testo">${esc(c.testo)}</span>
       </div>
+      ${followUp}
       <div class="nota-meta">
         <span>${esc(c.autore || '?')} · ${new Date(c.created_at).toLocaleString('it-IT')}${risolto && c.resolved_at ? ' · risolto ' + new Date(c.resolved_at).toLocaleString('it-IT') : ''}</span>
         <span class="nota-az">
@@ -1708,18 +1715,76 @@ $('#cli-complaints').addEventListener('click', async (e) => {
     await api(`/api/complaints/${del.dataset.delCompl}`, { method: 'DELETE' });
     caricaComplaints(clienteCorrente);
   } else if (toggle) {
-    const nuovoStato = toggle.dataset.stato === 'risolto' ? 'aperto' : 'risolto';
-    await api(`/api/complaints/${toggle.dataset.toggleCompl}`, { method: 'PATCH', body: JSON.stringify({ stato: nuovoStato }) });
-    caricaComplaints(clienteCorrente);
+    const li = toggle.closest('[data-compl]');
+    // Risolvere passa dalla maschera del follow-up; riaprire no: lì non c'è
+    // niente da raccontare, e il follow-up già scritto resta dov'è.
+    if (toggle.dataset.stato === 'risolto') {
+      await api(`/api/complaints/${toggle.dataset.toggleCompl}`, { method: 'PATCH', body: JSON.stringify({ stato: 'aperto' }) });
+      caricaComplaints(clienteCorrente);
+      return;
+    }
+    apriFollowUp(toggle.dataset.toggleCompl, li.querySelector('.compl-testo').textContent, li.dataset.followup || '');
   } else if (edit) {
     const li = edit.closest('[data-compl]');
     const nuovo = prompt('Modifica complaint:', li.querySelector('.compl-testo').textContent);
     if (nuovo == null || !nuovo.trim()) return;
     const nuovoPeriodo = prompt('Periodo (es. ago 2025), lascia vuoto per nessuno:', li.dataset.periodo || '');
     if (nuovoPeriodo == null) return;
-    await api(`/api/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify({ testo: nuovo.trim(), periodo: nuovoPeriodo.trim() }) });
+    const patch = { testo: nuovo.trim(), periodo: nuovoPeriodo.trim() };
+    // Il follow-up si corregge solo se c'è già: su un complaint ancora aperto
+    // non lo si chiede qui, lo si scrive risolvendo.
+    if (li.dataset.followup) {
+      const nuovoFu = prompt('Follow-up (cosa è stato fatto):', li.dataset.followup);
+      if (nuovoFu == null) return;
+      if (nuovoFu.trim()) patch.followUp = nuovoFu.trim();
+    }
+    await api(`/api/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify(patch) });
     caricaComplaints(clienteCorrente);
   }
+});
+
+// --- Risoluzione guidata: stato + follow-up in un colpo solo ---
+// Il complaint diventa "Risolto" solo se la PATCH va a buon fine, quindi non
+// esiste il caso "risolto ma senza follow-up" (la regola è anche lato server).
+let followUpId = null;
+
+function apriFollowUp(id, testoCompl, precedente) {
+  followUpId = id;
+  $('#followup-quale').textContent = testoCompl || '';
+  const ta = $('#followup-testo');
+  // Se il reclamo era già stato risolto e poi riaperto, si riparte da quel testo.
+  ta.value = precedente || '';
+  $('#followup-msg').textContent = '';
+  aggiornaFollowUpBtn();
+  $('#followup-dialog').showModal();
+  ta.focus();
+}
+
+function aggiornaFollowUpBtn() {
+  $('#followup-conferma').disabled = !$('#followup-testo').value.trim();
+}
+
+$('#followup-testo').addEventListener('input', aggiornaFollowUpBtn);
+$('#followup-annulla').addEventListener('click', () => { followUpId = null; $('#followup-dialog').close(); });
+
+$('#followup-form').addEventListener('submit', async (e) => {
+  e.preventDefault(); // la chiusura la decide l'esito della chiamata, non il form
+  const testo = $('#followup-testo').value.trim();
+  if (!testo || !followUpId) return;
+  const btn = $('#followup-conferma');
+  btn.disabled = true; btn.textContent = 'Salvataggio…';
+  const { status, body } = await api(`/api/complaints/${followUpId}`, {
+    method: 'PATCH', body: JSON.stringify({ stato: 'risolto', followUp: testo }),
+  });
+  btn.textContent = 'Conferma e risolvi';
+  if (status !== 200) {
+    $('#followup-msg').textContent = (body && body.error) || 'Errore nel salvataggio.';
+    btn.disabled = false;
+    return;
+  }
+  followUpId = null;
+  $('#followup-dialog').close();
+  caricaComplaints(clienteCorrente);
 });
 
 refresh();

@@ -3,7 +3,7 @@ const { requireAuth } = require('../auth/middleware');
 const { cercaClienti, getCliente, getSoggiorniCliente } = require('../pms/clienti');
 const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
-const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
+const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, setComplaintFollowUp, deleteComplaint, FOLLOWUP_MAX } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
 const { getProfilo, upsertLingua, upsertNotePersonali } = require('../crm/profilo');
 const { sintetizzaNota } = require('../crm/arrivi-brief');
@@ -227,12 +227,19 @@ function createClientiRouter(pmsDb, crmDb) {
     const testo = body.testo != null ? String(body.testo).trim() : null;
     const stato = body.stato != null ? String(body.stato).trim() : null;
     const periodo = body.periodo != null ? String(body.periodo).trim() : null;
+    const followUp = body.followUp != null ? String(body.followUp).trim() : null;
     if (stato != null && stato !== 'aperto' && stato !== 'risolto') return res.status(400).json({ error: 'Stato non valido' });
     if (testo === '') return res.status(400).json({ error: 'Testo mancante' });
-    if (testo == null && stato == null && periodo == null) return res.status(400).json({ error: 'Niente da aggiornare' });
+    // Risolvere senza dire cosa è stato fatto lascia un dato inutile a chi legge
+    // dopo: la regola sta qui, non solo nella maschera, così vale per ogni client.
+    if (stato === 'risolto' && !followUp) return res.status(400).json({ error: 'Follow-up mancante: descrivi come è stato gestito il problema' });
+    if (followUp && followUp.length > FOLLOWUP_MAX) return res.status(400).json({ error: `Follow-up troppo lungo (max ${FOLLOWUP_MAX} caratteri)` });
+    if (testo == null && stato == null && periodo == null && followUp == null) return res.status(400).json({ error: 'Niente da aggiornare' });
     let ok = true;
     if (testo != null) ok = await updateComplaintTesto(crmDb, id, testo);
-    if (ok && stato != null) ok = await setComplaintStato(crmDb, id, stato);
+    // Stato e follow-up nello stesso UPDATE: si risolve e si registra come, insieme.
+    if (ok && stato != null) ok = await setComplaintStato(crmDb, id, stato, stato === 'risolto' ? followUp : undefined);
+    else if (ok && followUp != null) ok = await setComplaintFollowUp(crmDb, id, followUp);
     if (ok && periodo != null) ok = await setComplaintPeriodo(crmDb, id, periodo);
     if (!ok) return res.status(404).json({ error: 'Complaint non trovato' });
     res.json({ ok: true });

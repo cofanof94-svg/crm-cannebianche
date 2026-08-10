@@ -317,6 +317,24 @@
               <ul id="cli-complaints" class="note-list"></ul>
             </div>
 
+            <!-- MODALE: risoluzione di un complaint. Un campo solo, obbligatorio:
+                 non si chiude un reclamo senza dire come è stato gestito. -->
+            <dialog id="followup-dialog" class="modal">
+              <form id="followup-form" method="dialog">
+                <div class="modal-title">Risolvi il complaint</div>
+                <p class="fu-quale" id="followup-quale"></p>
+                <label class="field">Follow-up — cosa è stato fatto
+                  <textarea id="followup-testo" rows="3" maxlength="500" required autocomplete="off"
+                    placeholder="Es. Cambio camera effettuato · Upgrade gratuito · Omaggio SPA offerto · Contattato il cliente e presentate le scuse"></textarea>
+                </label>
+                <div class="fu-msg" id="followup-msg"></div>
+                <div class="modal-actions">
+                  <button type="button" class="btn" id="followup-annulla">Annulla</button>
+                  <button type="submit" class="btn btn-primary" id="followup-conferma" disabled>Conferma e risolvi</button>
+                </div>
+              </form>
+            </dialog>
+
             <!-- LINGUA -->
             <h2 class="sez">Lingua preferita <span class="info" data-tip="Lingua preferita del cliente per le comunicazioni. Dato interno CRM, inserito dal team.">i</span></h2>
             <div class="card note-box lingua-box">

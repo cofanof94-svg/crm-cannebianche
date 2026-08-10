@@ -383,7 +383,11 @@ tbody tr:hover { background: var(--surface-2); }
 /* Modale */
 dialog.modal { border: none; border-radius: 18px; padding: 0; box-shadow: var(--shadow-md); width: 500px; max-width: calc(100vw - 32px); color: var(--text); }
 dialog.modal::backdrop { background: rgba(8,42,52,.45); }
-#user-form { padding: 26px; }
+#user-form, #followup-form { padding: 26px; }
+/* Il testo del reclamo che si sta chiudendo: contesto, non un campo da compilare. */
+.fu-quale { margin: -8px 0 16px; padding: 10px 12px; background: var(--surface-2); border-left: 3px solid var(--border-strong); border-radius: 0 8px 8px 0; font-size: 13px; color: var(--muted); }
+#followup-testo { font: inherit; font-size: 13.5px; font-weight: 400; padding: 9px 11px; border: 1px solid var(--border-strong); border-radius: 10px; resize: vertical; }
+.fu-msg { margin-top: 10px; font-size: 12.5px; color: var(--danger); min-height: 1em; }
 .modal-title { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin-bottom: 18px; }
 .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .modal-grid .field-wide { grid-column: 1 / -1; }
@@ -654,6 +658,11 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .compl-top { display: flex; align-items: baseline; gap: 10px; }
 .compl-top .pill { flex: none; }
 .compl-risolto .compl-testo { color: var(--muted); text-decoration: line-through; }
+/* Follow-up: come è stato gestito. Sta sotto al reclamo, mai barrato — è la
+   parte che serve rileggere quando l'ospite torna. */
+.compl-fu { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 0 4px; padding-left: 10px; border-left: 2px solid var(--sea); }
+.compl-fu-lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--sea-700); flex: none; }
+.compl-fu-testo { font-size: 12.5px; color: var(--text); }
 
 /* stessa larghezza box delle statistiche: 4 colonne uguali ai 3 box da 720px */
 .consensi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; max-width: 965px; margin-bottom: 22px; }

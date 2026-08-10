@@ -81,9 +81,9 @@ async function makeApp(opts = {}) {
       if (/pms_occupant_id AS c/.test(text)) { const s = new Set(); nucleo.forEach((n) => { if (n.pmsCustomerId === params.codCli && n.pmsOccupantId != null) s.add(n.pmsOccupantId); if (n.pmsOccupantId === params.codCli) s.add(n.pmsCustomerId); }); return [...s].map((c) => ({ c })); }
       if (/FROM customer_travel_party/.test(text)) return nucleo.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, tipo_relazione: n.tipoRelazione, nome: n.nome, cognome: n.cognome, nota: n.nota, pms_occupant_id: n.pmsOccupantId != null ? n.pmsOccupantId : null, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_complaints/.test(text)) { const n = { id: complaints.length + 1, stato: 'aperto', ...params }; complaints.push(n); return [{ id: n.id }]; }
-      if (/UPDATE customer_complaints/.test(text)) { const n = complaints.find((x) => x.id === params.id); if (n) { if (params.testo != null) n.testo = params.testo; if (params.stato != null) n.stato = params.stato; if (params.periodo !== undefined) n.periodo = params.periodo; return [{ id: n.id }]; } return []; }
+      if (/UPDATE customer_complaints/.test(text)) { const n = complaints.find((x) => x.id === params.id); if (n) { if (params.testo != null) n.testo = params.testo; if (params.stato != null) n.stato = params.stato; if (params.periodo !== undefined) n.periodo = params.periodo; if (params.followUp !== undefined) n.follow_up = params.followUp; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_complaints/.test(text)) { const i = complaints.findIndex((x) => x.id === params.id); if (i >= 0) { const id = complaints[i].id; complaints.splice(i, 1); return [{ id }]; } return []; }
-      if (/FROM customer_complaints/.test(text)) return complaints.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, testo: n.testo, stato: n.stato, periodo: n.periodo || null, autore: 'admin', created_at: 'x', resolved_at: null, autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
+      if (/FROM customer_complaints/.test(text)) return complaints.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, testo: n.testo, stato: n.stato, periodo: n.periodo || null, follow_up: n.follow_up || null, autore: 'admin', created_at: 'x', resolved_at: null, autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       return [];
     },
   };
@@ -295,14 +295,58 @@ test('complaints: crea/elenca/risolvi (PATCH stato)/404/elimina', async () => {
   const l = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l.body.complaints[0].testo, 'reclamo camera');
   assert.strictEqual(l.body.complaints[0].stato, 'aperto');
-  const risolvi = await ag.patch(`/api/complaints/${id}`).send({ stato: 'risolto' });
+  const risolvi = await ag.patch(`/api/complaints/${id}`).send({ stato: 'risolto', followUp: 'Cambio camera effettuato' });
   assert.strictEqual(risolvi.status, 200);
   const l2 = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l2.body.complaints[0].stato, 'risolto');
-  const patch404 = await ag.patch('/api/complaints/9999').send({ stato: 'risolto' });
+  const patch404 = await ag.patch('/api/complaints/9999').send({ stato: 'risolto', followUp: 'x' });
   assert.strictEqual(patch404.status, 404);
   const del = await ag.delete(`/api/complaints/${id}`);
   assert.strictEqual(del.status, 200);
+});
+
+test('complaint: risolvere senza follow-up → 400 e il complaint resta aperto', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'doccia fredda' });
+  const id = c.body.complaint.id;
+  for (const corpo of [{ stato: 'risolto' }, { stato: 'risolto', followUp: '   ' }]) {
+    const res = await ag.patch(`/api/complaints/${id}`).send(corpo);
+    assert.strictEqual(res.status, 400);
+    assert.match(res.body.error, /Follow-up/);
+  }
+  const l = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l.body.complaints[0].stato, 'aperto'); // nessuna risoluzione a metà
+});
+
+test('complaint: il follow-up si salva risolvendo, si rilegge e sopravvive alla riapertura', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'rumore', periodo: 'ago 2025' });
+  const id = c.body.complaint.id;
+  await ag.patch(`/api/complaints/${id}`).send({ stato: 'risolto', followUp: 'Omaggio SPA offerto' });
+  const l = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l.body.complaints[0].follow_up, 'Omaggio SPA offerto');
+  assert.strictEqual(l.body.complaints[0].periodo, 'ago 2025'); // il resto non si perde
+  // Riaperto: resta scritto cosa era già stato fatto.
+  assert.strictEqual((await ag.patch(`/api/complaints/${id}`).send({ stato: 'aperto' })).status, 200);
+  const l2 = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l2.body.complaints[0].stato, 'aperto');
+  assert.strictEqual(l2.body.complaints[0].follow_up, 'Omaggio SPA offerto');
+});
+
+test('complaint: il follow-up si corregge da solo, e troppo lungo → 400', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'x' });
+  const id = c.body.complaint.id;
+  await ag.patch(`/api/complaints/${id}`).send({ stato: 'risolto', followUp: 'Cambio camra' });
+  assert.strictEqual((await ag.patch(`/api/complaints/${id}`).send({ followUp: 'Cambio camera' })).status, 200);
+  const l = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l.body.complaints[0].follow_up, 'Cambio camera');
+  assert.strictEqual(l.body.complaints[0].stato, 'risolto'); // correggere non riapre
+  const lungo = await ag.patch(`/api/complaints/${id}`).send({ followUp: 'x'.repeat(501) });
+  assert.strictEqual(lungo.status, 400);
 });
 
 test('complaint: periodo salvato in creazione e modificabile', async () => {

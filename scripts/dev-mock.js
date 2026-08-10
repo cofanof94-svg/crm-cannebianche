@@ -347,6 +347,7 @@ const crmDb = {
       if (!r) return [];
       if (params.testo !== undefined) r.testo = params.testo;
       if (params.periodo !== undefined) r.periodo = params.periodo;
+      if (params.followUp !== undefined) r.follow_up = params.followUp;
       if (params.stato !== undefined) { r.stato = params.stato; r.resolved_at = params.stato === 'risolto' ? new Date().toISOString() : null; }
       return [{ id: r.id }];
     }

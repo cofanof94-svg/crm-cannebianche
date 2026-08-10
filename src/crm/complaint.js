@@ -1,13 +1,21 @@
 // Reclami cliente (Complaints) nel DB CRM. Stessa logica delle note + stato
 // aperto/risolto. Le funzioni di modifica/eliminazione restituiscono true se
 // una riga è stata effettivamente toccata (per il 404 dell'API).
+//
+// follow_up = come è stato gestito il problema (colonna della stessa riga, non
+// una nota a parte): si scrive nello stesso UPDATE che risolve, così non può
+// esistere un complaint "risolto ma senza sapere cosa è stato fatto".
 
 const { inClause } = require('../db/query');
+
+// Il follow-up è una descrizione breve dell'intervento, non un racconto: il
+// limite è anche sulla colonna (NVARCHAR(500)), qui serve a dare un 400 chiaro.
+const FOLLOWUP_MAX = 500;
 
 // ids: codice singolo o array (gruppo di anagrafiche fuse).
 async function listComplaints(db, ids) {
   return db.query(
-    `SELECT c.id, c.pms_customer_id, c.testo, c.stato, c.periodo, c.created_at, c.resolved_at,
+    `SELECT c.id, c.pms_customer_id, c.testo, c.stato, c.periodo, c.follow_up, c.created_at, c.resolved_at,
             c.autore_user_id, u.username AS autore
      FROM customer_complaints c LEFT JOIN users u ON u.id = c.autore_user_id
      WHERE c.pms_customer_id IN ${inClause(ids)}
@@ -41,12 +49,28 @@ async function setComplaintPeriodo(db, id, periodo) {
   return rows.length > 0;
 }
 
-async function setComplaintStato(db, id, stato) {
+// Cambio di stato. followUp non passato (undefined) = colonna non toccata: alla
+// RIAPERTURA il follow-up precedente resta, ed è giusto — dice cosa era già stato
+// tentato e non era bastato. Lo sovrascrive la risoluzione successiva.
+async function setComplaintStato(db, id, stato, followUp) {
+  const set = [
+    'stato = @stato',
+    "resolved_at = CASE WHEN @stato = 'risolto' THEN SYSUTCDATETIME() ELSE NULL END",
+  ];
+  const params = { id, stato };
+  if (followUp !== undefined) { set.push('follow_up = @followUp'); params.followUp = followUp || null; }
   const rows = await db.query(
-    `UPDATE customer_complaints
-     SET stato = @stato, resolved_at = CASE WHEN @stato = 'risolto' THEN SYSUTCDATETIME() ELSE NULL END
-     OUTPUT INSERTED.id WHERE id = @id`,
-    { id, stato }
+    `UPDATE customer_complaints SET ${set.join(', ')} OUTPUT INSERTED.id WHERE id = @id`,
+    params
+  );
+  return rows.length > 0;
+}
+
+// Correzione del solo follow-up (refuso), senza rimettere mano allo stato.
+async function setComplaintFollowUp(db, id, followUp) {
+  const rows = await db.query(
+    'UPDATE customer_complaints SET follow_up = @followUp OUTPUT INSERTED.id WHERE id = @id',
+    { id, followUp: followUp || null }
   );
   return rows.length > 0;
 }
@@ -54,4 +78,7 @@ async function setComplaintStato(db, id, stato) {
 const { deleteById } = require('./helpers');
 const deleteComplaint = (db, id) => deleteById(db, 'customer_complaints', id);
 
-module.exports = { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint };
+module.exports = {
+  listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo,
+  setComplaintStato, setComplaintFollowUp, deleteComplaint, FOLLOWUP_MAX,
+};
