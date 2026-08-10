@@ -1,8 +1,14 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  arricchisciInCasa, calcolaBriefingInCasa, ordinaInCasa, numeroCamera, avanzamento,
+  arricchisciInCasa, calcolaBriefingInCasa, ordinaInCasa, numeroCamera, avanzamento, parteOggi,
 } = require('../src/crm/incasa-brief');
+
+test('parteOggi: chi lascia l\'hotel oggi include chi ha già fatto il check-out', () => {
+  assert.strictEqual(parteOggi({ statoPartenza: 'partenza' }), true);
+  assert.strictEqual(parteOggi({ statoPartenza: 'checkout' }), true);
+  assert.strictEqual(parteOggi({ statoPartenza: 'incasa' }), false);
+});
 
 test('numeroCamera: prima camera della lista, non numeriche in fondo', () => {
   assert.strictEqual(numeroCamera('104'), 104);
@@ -48,7 +54,7 @@ test('calcolaBriefingInCasa: presenti esclude gli usciti, conta i segnali', () =
   ]);
   assert.strictEqual(b.presenti, 3);      // l'uscito non è "presente"
   assert.strictEqual(b.usciti, 1);
-  assert.strictEqual(b.partonoOggi, 1);
+  assert.strictEqual(b.partonoOggi, 2);   // in partenza + chi ha già fatto il check-out
   assert.strictEqual(b.vip, 2);           // il VIP conta anche se già uscito
   assert.strictEqual(b.alert, 2);         // intolleranze OR indesiderato
   assert.strictEqual(b.reclami, 1);

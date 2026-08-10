@@ -50,13 +50,18 @@ function avanzamento(c, data) {
   return { notte, notti, ultimaNotte: notte >= notti, restano: Math.max(notti - notte, 0) };
 }
 
+// Chi lascia l'hotel oggi: sia chi è ancora in camera con partenza odierna
+// ('partenza'), sia chi ha già fatto il check-out ('checkout'). È il numero che
+// la Home mostra come "Partenze oggi".
+const parteOggi = (c) => c.statoPartenza === 'partenza' || c.statoPartenza === 'checkout';
+
 // Riepilogo della giornata per le chip filtranti (contatori della lista mostrata).
 function calcolaBriefingInCasa(clienti) {
   const b = briefingInCasaVuoto(0);
   for (const c of clienti || []) {
     const s = c.snapshot || {};
     if (c.statoPartenza === 'checkout') { b.usciti += 1; } else { b.presenti += 1; }
-    if (c.statoPartenza === 'partenza') b.partonoOggi += 1;
+    if (parteOggi(c)) b.partonoOggi += 1;
     if (s.vip) b.vip += 1;
     if ((s.intolleranze && s.intolleranze.length) || s.indesiderato) b.alert += 1;
     if (s.reclami && s.reclami.totali) b.reclami += 1;
@@ -84,5 +89,5 @@ async function arricchisciInCasa(pmsDb, crmDb, clienti, data) {
 
 module.exports = {
   arricchisciInCasa, briefingInCasaVuoto, calcolaBriefingInCasa,
-  ordinaInCasa, numeroCamera, avanzamento,
+  ordinaInCasa, numeroCamera, avanzamento, parteOggi,
 };

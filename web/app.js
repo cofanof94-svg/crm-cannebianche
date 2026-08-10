@@ -49,7 +49,9 @@ function route() {
     loadCliente(hash.split('/')[1]);
     return;
   }
-  const view = hash;
+  // Le altre viste accettano un parametro dopo la barra: oggi solo
+  // #incasa/<chip>, per aprire "In casa" con un filtro già attivo.
+  const [view, param] = hash.split('/');
   const known = ['home', 'arrivi', 'incasa', 'ricerca', 'duplicati', 'utenti'];
   let v = known.includes(view) ? view : 'home';
   // Utenti è riservato agli admin: reindirizza gli altri alla home
@@ -67,7 +69,7 @@ function route() {
   // Rientro negli Arrivi: reset a oggi, tranne quando si torna da una scheda ospite
   // (in quel caso si conserva la data che si stava consultando).
   else if (v === 'arrivi') initArrivi(!cameFrom.startsWith('cliente/'));
-  else if (v === 'incasa') initInCasa(!cameFrom.startsWith('cliente/'));
+  else if (v === 'incasa') initInCasa(!cameFrom.startsWith('cliente/'), param);
   else if (v === 'ricerca') initRicerca();
   else if (v === 'duplicati') loadDuplicatiPage();
   else if (v === 'utenti') { if (currentUser && currentUser.role === 'admin') loadUsers(); }
@@ -409,7 +411,9 @@ let filtroInCasa = 'all';
 // fondo alla lista, ma hanno un chip per isolarli quando servono.
 const INCASA_CHIPS = [
   { key: 'all', label: 'In casa', field: 'presenti', pred: () => true },
-  { key: 'partenze', label: 'Partono oggi', field: 'partonoOggi', pred: (c) => c.statoPartenza === 'partenza' },
+  // "Partono oggi" = ancora in camera con partenza odierna + chi ha già fatto il
+  // check-out. È il filtro che apre la Home cliccando su "Partenze oggi".
+  { key: 'partenze', label: 'Partono oggi', field: 'partonoOggi', pred: (c) => c.statoPartenza === 'partenza' || c.statoPartenza === 'checkout' },
   { key: 'vip', label: 'VIP', field: 'vip', pred: (c) => !!(c.snapshot && c.snapshot.vip) },
   { key: 'alert', label: 'Alert', field: 'alert', pred: (c) => !!(c.snapshot && ((c.snapshot.intolleranze && c.snapshot.intolleranze.length) || c.snapshot.indesiderato)) },
   { key: 'ricorrenze', label: 'Ricorrenze', field: 'ricorrenze', pred: (c) => !!(c.snapshot && c.snapshot.compleanno) },
@@ -420,7 +424,9 @@ const INCASA_CHIPS = [
 // resetFiltri: rientrando nella pagina si riparte dalla lista completa. Fa
 // eccezione il ritorno da una scheda ospite, dove si conserva quello che si
 // stava consultando (stessa regola degli Arrivi).
-function initInCasa(resetFiltri) {
+// filtroIniziale: chip da attivare all'ingresso, dall'hash #incasa/<chip>
+// (la Home ci porta su #incasa/partenze).
+function initInCasa(resetFiltri, filtroIniziale) {
   if (!incasaInited) {
     $('#incasa-search').addEventListener('input', renderInCasa);
     $('#incasa-briefing').addEventListener('click', (e) => {
@@ -432,7 +438,11 @@ function initInCasa(resetFiltri) {
     });
     incasaInited = true;
   }
-  if (resetFiltri) { filtroInCasa = 'all'; $('#incasa-search').value = ''; }
+  const richiesto = INCASA_CHIPS.some((c) => c.key === filtroIniziale) ? filtroIniziale : null;
+  if (richiesto || resetFiltri) {
+    filtroInCasa = richiesto || 'all';
+    $('#incasa-search').value = '';
+  }
   loadInCasa();
 }
 
