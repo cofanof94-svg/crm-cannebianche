@@ -335,6 +335,8 @@ async function loadArrivi() {
   arriviAll = body.arrivi || [];
   arriviBriefing = body.briefing || null;
   arriviData = body.data || input.value || null;
+  // L'export lavora sulla lista appena caricata: segue la data che stai guardando.
+  if (typeof registraDatiExport === 'function') registraDatiExport('arrivi', arriviAll, arriviData);
   renderArrivi();
 }
 
@@ -589,6 +591,7 @@ async function loadInCasa() {
   incasaAll = body.clienti || [];
   incasaData = body.data || null;
   incasaBriefing = body.briefing || null;
+  if (typeof registraDatiExport === 'function') registraDatiExport('incasa', incasaAll, incasaData);
   renderInCasa();
 }
 

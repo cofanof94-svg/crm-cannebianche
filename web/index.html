@@ -124,6 +124,7 @@
                 <button type="button" id="arrivi-next" class="date-btn" title="Giorno successivo" aria-label="Giorno successivo">›</button>
                 <button type="button" id="arrivi-oggi" class="date-today">Oggi</button>
               </div>
+              <button type="button" id="btn-export-arrivi" class="btn btn-ghost" title="Esporta la lista per i reparti">⇩ Esporta</button>
             </div>
           </div>
           <div id="arrivi-briefing" class="briefing" hidden></div>
@@ -140,6 +141,7 @@
             </div>
             <div class="toolbar">
               <input type="search" id="incasa-search" class="search" placeholder="Cerca pratica, camera o nome…" />
+              <button type="button" id="btn-export-incasa" class="btn btn-ghost" title="Esporta la lista per i reparti">⇩ Esporta</button>
             </div>
           </div>
           <div id="incasa-briefing" class="briefing" hidden></div>
@@ -389,6 +391,34 @@
       </div>
     </div>
   </div>
+  <!-- Export per i reparti: scelta popolazione e formato -->
+  <dialog id="export-dialog" class="modal">
+    <form id="export-form">
+      <div class="modal-title">Esporta per i reparti</div>
+      <fieldset class="exp-gruppo">
+        <legend>Chi esportare</legend>
+        <label class="check"><input type="radio" name="popolazione" value="arrivi" checked /> Ospiti in arrivo</label>
+        <label class="check"><input type="radio" name="popolazione" value="incasa" /> Ospiti in casa</label>
+        <p class="exp-nota" id="export-anteprima"></p>
+      </fieldset>
+      <fieldset class="exp-gruppo">
+        <legend>Formato</legend>
+        <label class="check"><input type="radio" name="formato" value="foglio" checked /> Foglio da stampare <span class="exp-hint">— o "Salva come PDF" dalla finestra di stampa</span></label>
+        <label class="check"><input type="radio" name="formato" value="csv" /> Foglio di calcolo (CSV per Excel)</label>
+      </fieldset>
+      <p class="exp-nota">Contiene camera, ospiti, date, VIP, <b>allergie</b>, attenzioni, preferenze e note della prenotazione. Importi e tariffe restano fuori.</p>
+      <div class="fu-msg" id="export-msg"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="export-annulla">Annulla</button>
+        <button type="submit" class="btn btn-primary" id="export-conferma">Esporta</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Foglio da stampare: invisibile a schermo, unica cosa visibile in stampa -->
+  <div id="stampa-box" aria-hidden="true"></div>
+
   <script src="/app.js"></script>
+  <script src="/export.js"></script>
 </body>
 </html>
