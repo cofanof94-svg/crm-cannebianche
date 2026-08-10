@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "dev:mock": "node scripts/dev-mock.js",
     "seed": "node scripts/seed-admin.js",
     "import": "node src/import/run.js",
     "test": "node --test"
