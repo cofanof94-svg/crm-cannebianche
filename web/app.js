@@ -6,6 +6,23 @@ async function api(path, opts = {}) {
   return { status: res.status, body: await res.json().catch(() => ({})) };
 }
 
+// --- Indicatori di caricamento (uno solo per tutta l'app) ---
+// Ogni punto in cui si attende una risposta mostra lo stesso spinner, così
+// l'attesa non si confonde mai con "non c'è niente".
+const loaderHTML = (testo = 'Caricamento…') => `<span class="caricamento"><span class="spinner"></span>${esc(testo)}</span>`;
+
+// Riquadro di stato a tutta larghezza (aree .state delle pagine).
+function mostraLoader(el, testo) {
+  if (!el) return;
+  el.hidden = false;
+  el.innerHTML = loaderHTML(testo);
+}
+
+// Riga di attesa dentro un elenco o una card già a video.
+function loaderRiga(testo = 'Caricamento…') {
+  return `<li class="nota-vuota">${loaderHTML(testo)}</li>`;
+}
+
 let currentUser = null;
 let vistaPrecedente = 'arrivi'; // per il link "Torna a…" nella scheda ospite
 
@@ -85,8 +102,15 @@ function dataEstesa(iso) {
 
 async function loadHome() {
   $('#home-error').textContent = '';
+  // I tre numeri non restano su '–' senza spiegazione: durante l'attesa girano.
+  ['#kpi-arrivi', '#kpi-partenze', '#kpi-presenti'].forEach((sel) => { $(sel).innerHTML = '<span class="spinner"></span>'; });
+  $('#home-date').textContent = '';
   const { status, body } = await api('/api/dashboard');
-  if (status !== 200) { $('#home-error').textContent = 'Impossibile leggere i dati dal PMS.'; return; }
+  if (status !== 200) {
+    ['#kpi-arrivi', '#kpi-partenze', '#kpi-presenti'].forEach((sel) => { $(sel).textContent = '–'; });
+    $('#home-error').textContent = 'Impossibile leggere i dati dal PMS.';
+    return;
+  }
   $('#home-date').textContent = dataEstesa(body.data);
   $('#kpi-arrivi').textContent = body.arrivi;
   $('#kpi-partenze').textContent = body.partenze;
@@ -224,7 +248,7 @@ async function loadArrivi() {
   const input = $('#arrivi-data');
   const tab = $('#arrivi-cards');
   const msg = $('#arrivi-msg');
-  tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…';
+  tab.hidden = true; mostraLoader(msg, 'Carico gli arrivi…');
   $('#arrivi-briefing').hidden = true; $('#arrivi-stato').textContent = '';
   filtroBriefing = 'all';
   const q = input.value ? `?data=${encodeURIComponent(input.value)}` : '';
@@ -450,7 +474,7 @@ async function loadInCasa() {
   const tab = $('#incasa-cards');
   const msg = $('#incasa-msg');
   const stato = $('#incasa-stato');
-  tab.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…'; stato.textContent = '';
+  tab.hidden = true; mostraLoader(msg, 'Carico i clienti in casa…'); stato.textContent = '';
   const { status, body } = await api('/api/incasa');
   if (status !== 200) { msg.textContent = 'Errore nel leggere i dati dal PMS.'; return; }
   incasaAll = body.clienti || [];
@@ -637,7 +661,7 @@ async function loadRicerca(q) {
   const list = $('#ricerca-list');
   const msg = $('#ricerca-msg');
   if (q.length < 2) { list.hidden = true; msg.hidden = false; msg.textContent = 'Digita almeno 2 caratteri per cercare.'; return; }
-  msg.hidden = false; msg.textContent = 'Ricerca…'; list.hidden = true;
+  mostraLoader(msg, 'Ricerca in corso…'); list.hidden = true;
   const { status, body } = await api(`/api/clienti?q=${encodeURIComponent(q)}`);
   if (status !== 200) { msg.textContent = 'Errore nella ricerca.'; return; }
   const r = body.risultati || [];
@@ -665,6 +689,7 @@ let usersCache = [];
 let editingId = null;
 
 async function loadUsers() {
+  $('#user-list').innerHTML = `<tr><td colspan="6">${loaderHTML('Carico gli utenti…')}</td></tr>`;
   const { body } = await api('/api/admin/users');
   usersCache = body.users || [];
   $('#user-list').innerHTML = usersCache.map((u) => `
@@ -748,12 +773,18 @@ $('#user-list').addEventListener('click', (e) => {
 $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
+  // L'accesso passa dal DB: senza attesa visibile un login lento sembra ignorato.
+  const btn = f.querySelector('button[type="submit"]');
+  const testo = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>Accesso…`; }
+  $('#login-error').textContent = '';
   const { status } = await api('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username: f.username.value, password: f.password.value }),
   });
+  if (btn) { btn.disabled = false; btn.textContent = testo; }
   if (status === 200) { f.reset(); $('#login-error').textContent = ''; refresh(); }
-  else $('#login-error').textContent = 'Credenziali non valide';
+  else $('#login-error').textContent = status === 401 ? 'Credenziali non valide' : 'Errore di collegamento al server.';
 });
 
 $('#logout-btn').addEventListener('click', async () => {
@@ -781,7 +812,7 @@ function renderVip(v) {
 async function loadCliente(codCli) {
   const body = $('#cliente-body');
   const msg = $('#cliente-msg');
-  body.hidden = true; msg.hidden = false; msg.textContent = 'Caricamento…';
+  body.hidden = true; mostraLoader(msg, 'Carico la scheda ospite…');
   const { status, body: d } = await api(`/api/clienti/${encodeURIComponent(codCli)}`);
   if (status === 404 || status === 400) { msg.textContent = 'Ospite non trovato.'; return; }
   if (status !== 200) { msg.textContent = 'Errore nel leggere l\'ospite dal PMS.'; return; }
@@ -888,6 +919,7 @@ function popolaSelect(sel, valori, placeholder) {
 
 // --- Profilo 1:1 (lingua preferita + note personali) ---
 async function caricaLingua(codCli) {
+  $('#notepers-box').innerHTML = loaderHTML('Carico le note personali…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/profilo`);
   $('#cli-lingua').value = (body.profilo && body.profilo.lingua) || '';
   notePersData = {
@@ -987,6 +1019,7 @@ $('#notepers-box').addEventListener('click', async (e) => {
 
 // --- Preferenze (reparto + categoria + testo + ambito) ---
 async function caricaPreferenze(codCli) {
+  $('#cli-preferenze').innerHTML = loaderRiga('Carico le preferenze…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/preferenze`);
   const pref = body.preferenze || [];
   const cond = body.condivise || [];
@@ -1126,6 +1159,7 @@ $('#cli-suggerimenti').addEventListener('click', async (e) => {
 // la spiegazione sta nella (i) della sezione.
 let nucleoEditId = null;
 async function caricaNucleo(codCli) {
+  $('#cli-nucleo').innerHTML = loaderRiga('Carico il nucleo di viaggio…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/nucleo`);
   const membri = body.nucleo || [];
   $('#cli-nucleo').innerHTML = membri.map((m) => {
@@ -1194,7 +1228,7 @@ $('#cli-nucleo').addEventListener('click', async (e) => {
 // --- Gusti F&B (consumi ristorante/bar aggregati dal PMS) ---
 async function caricaGusti(codCli) {
   const el = $('#cli-gusti');
-  el.innerHTML = '<div class="nota-vuota">Caricamento consumi…</div>';
+  el.innerHTML = `<div class="nota-vuota">${loaderHTML('Carico i consumi F&B…')}</div>`;
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/gusti`);
   const g = (body && body.gusti) || { items: [] };
   if (!g.items || !g.items.length) { el.innerHTML = '<div class="nota-vuota">Nessun consumo F&B registrato.</div>'; return; }
@@ -1210,7 +1244,7 @@ async function caricaGusti(codCli) {
 // --- Trattamenti SPA (consumi benessere aggregati dagli extra) ---
 async function caricaSpa(codCli) {
   const el = $('#cli-spa');
-  el.innerHTML = '<div class="nota-vuota">Caricamento trattamenti…</div>';
+  el.innerHTML = `<div class="nota-vuota">${loaderHTML('Carico i trattamenti SPA…')}</div>`;
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/spa`);
   const s = (body && body.spa) || { items: [] };
   if (!s.items || !s.items.length) { el.innerHTML = '<div class="nota-vuota">Nessun trattamento SPA registrato.</div>'; return; }
@@ -1242,6 +1276,8 @@ function renderMergeBanner(codCli, merge) {
 
 async function caricaDuplicati(codCli) {
   const el = $('#cli-duplicati');
+  el.hidden = false;
+  el.innerHTML = loaderHTML('Cerco possibili duplicati…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/duplicati`);
   duplicatiCorrenti = (body && body.candidati) || [];
   if (!duplicatiCorrenti.length) { el.hidden = true; el.innerHTML = ''; return; }
@@ -1286,6 +1322,10 @@ const LABEL_CAMPO = { codiceFiscale: 'codice fiscale', email: 'email', telefono:
 
 async function apriConfronto(ids) {
   const first = ids[0];
+  // La modale si apre subito con lo spinner: il confronto interroga il PMS su
+  // più anagrafiche e senza questo il clic sembrerebbe non aver fatto nulla.
+  $('#merge-dialog-body').innerHTML = `<div class="merge-body"><div class="modal-title">Confronto</div><p>${loaderHTML('Carico le anagrafiche da confrontare…')}</p></div>`;
+  if (!$('#merge-dialog').open) $('#merge-dialog').showModal();
   const { status, body } = await api(`/api/clienti/${encodeURIComponent(first)}/confronto?ids=${encodeURIComponent(ids.join(','))}`);
   if (status !== 200) { $('#merge-dialog-body').innerHTML = `<div class="merge-body"><div class="modal-title">Confronto</div><p class="error">Impossibile aprire il confronto.</p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="merge-annulla">Chiudi</button></div></div>`; if (!$('#merge-dialog').open) $('#merge-dialog').showModal(); return; }
   mergeData = body;
@@ -1324,7 +1364,9 @@ function renderMerge() {
 }
 
 async function confermaMerge() {
-  const btn = $('#merge-conferma'); if (btn) { btn.disabled = true; btn.textContent = 'Unione…'; }
+  // Una POST per ogni membro da collegare: con più anagrafiche l'attesa si sente.
+  const btn = $('#merge-conferma');
+  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>Unione in corso…`; }
   const membri = mergeData.anagrafiche.map((a) => a.codCli).filter((id) => id !== mergePrincipale);
   for (const m of membri) {
     await api(`/api/clienti/${encodeURIComponent(mergePrincipale)}/merge`, {
@@ -1369,7 +1411,7 @@ let duplicatiGruppi = [];   // solo quelli su cui manca una decisione
 let duplicatiGestiti = 0;   // già associati: fuori dalla coda, gestiti dalla scheda ospite
 async function loadDuplicatiPage() {
   const msg = $('#duplicati-msg'); const wrap = $('#duplicati-wrap');
-  msg.hidden = false; msg.textContent = 'Caricamento…'; wrap.hidden = true;
+  mostraLoader(msg, 'Cerco i possibili duplicati…'); wrap.hidden = true;
   const { status, body } = await api('/api/duplicati');
   if (status !== 200) { msg.textContent = 'Errore nel caricamento dei duplicati.'; return; }
   duplicatiGruppi = body.gruppi || [];
@@ -1457,6 +1499,7 @@ $('#dup-rivedi').addEventListener('click', () => {
 
 // --- Intolleranze / allergie (dato di sicurezza) ---
 async function caricaIntolleranze(codCli) {
+  $('#cli-intolleranze').innerHTML = loaderRiga('Carico intolleranze e allergie…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/intolleranze`);
   const intol = body.intolleranze || [];
   $('#cli-intolleranze').innerHTML = intol.map((i) => `
@@ -1492,6 +1535,7 @@ $('#cli-intolleranze').addEventListener('click', async (e) => {
 
 // --- Complaints ---
 async function caricaComplaints(codCli) {
+  $('#cli-complaints').innerHTML = loaderRiga('Carico i complaints…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/complaints`);
   const compl = body.complaints || [];
   $('#cli-complaints').innerHTML = compl.map((c) => {
