@@ -91,13 +91,16 @@ async function loadHome() {
   $('#kpi-presenti').textContent = body.presenti;
 }
 
-// Ricerca unica: numero camera, numero prenotazione (codpratica) o cliente.
-function matchRicerca(a, term) {
+// Ricerca condivisa da Arrivi e In casa: numero di pratica, camera, referente o
+// occupante. La pratica è l'unico identificativo davvero univoco di una
+// prenotazione (i nominativi si ripetono, le camere cambiano nel soggiorno).
+function matchPrenotazione(x, term) {
   const t = (term || '').trim().toLowerCase();
   if (!t) return true;
-  return String(a.codpratica).includes(t)
-    || (a.camere || '').toLowerCase().includes(t)
-    || (a.nominativo || '').toLowerCase().includes(t);
+  return String(x.codpratica || '').includes(t)
+    || (x.camere || '').toLowerCase().includes(t)
+    || (x.nominativo || '').toLowerCase().includes(t)
+    || (x.ospiti || []).some((o) => (o.nominativo || '').toLowerCase().includes(t));
 }
 
 // --- Arrivi ---
@@ -257,7 +260,7 @@ function renderArrivi() {
   renderBriefing();
   const chip = BRIEF_CHIPS.find((c) => c.key === filtroBriefing) || BRIEF_CHIPS[0];
   const lista = arriviAll
-    .filter((a) => matchRicerca(a, $('#arrivi-search').value))
+    .filter((a) => matchPrenotazione(a, $('#arrivi-search').value))
     .filter(chip.pred);
   if (lista.length === 0) {
     cards.hidden = true; msg.hidden = false;
@@ -465,15 +468,6 @@ function renderBriefingInCasa() {
   bar.hidden = false;
 }
 
-// Ricerca: solo nome e camera (in casa non si cerca per numero di pratica).
-function matchInCasa(c, term) {
-  const t = (term || '').trim().toLowerCase();
-  if (!t) return true;
-  return (c.camere || '').toLowerCase().includes(t)
-    || (c.nominativo || '').toLowerCase().includes(t)
-    || (c.ospiti || []).some((o) => (o.nominativo || '').toLowerCase().includes(t));
-}
-
 function renderInCasa() {
   const cards = $('#incasa-cards');
   const msg = $('#incasa-msg');
@@ -482,7 +476,7 @@ function renderInCasa() {
   const chip = INCASA_CHIPS.find((c) => c.key === filtroInCasa) || INCASA_CHIPS[0];
   // Senza filtro esplicito i check-out restano in lista (in fondo, attenuati).
   const lista = incasaAll
-    .filter((c) => matchInCasa(c, $('#incasa-search').value))
+    .filter((c) => matchPrenotazione(c, $('#incasa-search').value))
     .filter(chip.pred);
   const presenti = incasaBriefing ? incasaBriefing.presenti : incasaAll.length;
   if (lista.length === 0) {
