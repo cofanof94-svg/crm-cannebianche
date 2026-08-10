@@ -1027,10 +1027,15 @@ function popolaSelect(sel, valori, placeholder) {
 }
 
 // --- Profilo 1:1 (lingua preferita + note personali) ---
+// Le due sezioni stanno sulla stessa riga di DB (customer_profile), quindi una
+// sola chiamata le carica entrambe.
 async function caricaLingua(codCli) {
   $('#notepers-box').innerHTML = loaderHTML('Carico le note personali…');
+  $('#lingua-box').innerHTML = loaderHTML('Carico la lingua…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/profilo`);
-  $('#cli-lingua').value = (body.profilo && body.profilo.lingua) || '';
+  linguaData = (body.profilo && body.profilo.lingua) || null;
+  linguaEdit = false;
+  renderLingua();
   notePersData = {
     testo: (body.profilo && body.profilo.note_personali) || null,
     autore: (body.profilo && body.profilo.note_autore) || null,
@@ -1040,14 +1045,61 @@ async function caricaLingua(codCli) {
   renderNotePersonali();
 }
 
-$('#lingua-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
+// --- Lingua preferita: stesse due viste delle Note personali ---
+// Prima era una casella sempre aperta con "Salva" sempre acceso: non si capiva
+// se il valore fosse quello salvato o quello che stavi scrivendo. Ora il valore
+// salvato è testo, e per cambiarlo si passa da ✎ — come ovunque nella scheda.
+let linguaEdit = false;
+let linguaData = null;
+
+function renderLingua() {
+  const box = $('#lingua-box');
+  if (!box) return;
+  const val = (linguaData || '').trim();
+  if (val && !linguaEdit) {
+    // Niente riga "chi/quando": customer_profile tiene un solo updated_at per
+    // tutta la riga, che può essere quello delle note. Meglio nulla che una data sbagliata.
+    box.innerHTML = `
+      <div class="nota-testo lingua-valore">${esc(val)}</div>
+      <div class="nota-meta">
+        <span></span>
+        <span class="nota-az">
+          <button type="button" class="btn-icon" data-edit-lingua title="Modifica">✎ Modifica</button>
+          <button type="button" class="btn-icon danger" data-del-lingua title="Elimina">Elimina</button>
+        </span>
+      </div>`;
+    return;
+  }
+  box.innerHTML = `
+    <form id="lingua-form" class="lingua-form">
+      <input id="cli-lingua" name="lingua" placeholder="Es. IT, EN, DE…" autocomplete="off" maxlength="40" value="${esc(val)}" />
+      <button type="submit" class="btn btn-primary">Salva</button>
+      ${val ? '<button type="button" id="btn-lingua-annulla" class="btn btn-ghost">Annulla</button>' : ''}
+    </form>`;
+}
+
+async function salvaLingua(lingua) {
   if (!clienteCorrente) return;
-  const lingua = $('#cli-lingua').value.trim();
+  const btn = $('#lingua-form') && $('#lingua-form').querySelector('button[type=submit]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
   const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/profilo`, {
     method: 'PUT', body: JSON.stringify({ lingua }),
   });
-  if (status === 200) { const b = $('#lingua-form').querySelector('button'); const t = b.textContent; b.textContent = 'Salvato ✓'; setTimeout(() => { b.textContent = t; }, 1200); }
+  // Ricarica dal server = conferma: si torna in vista col valore che c'è davvero.
+  if (status === 200) { await caricaLingua(clienteCorrente); }
+  else if (btn) { btn.disabled = false; btn.textContent = 'Salva'; }
+}
+
+// Il form viene ricostruito a ogni render: gli ascoltatori stanno sul contenitore.
+$('#lingua-box').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await salvaLingua($('#cli-lingua').value.trim());
+});
+
+$('#lingua-box').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-edit-lingua]')) { linguaEdit = true; renderLingua(); $('#cli-lingua').focus(); return; }
+  if (e.target.closest('#btn-lingua-annulla')) { linguaEdit = false; renderLingua(); return; }
+  if (e.target.closest('[data-del-lingua]')) { await salvaLingua(''); }
 });
 
 // --- Note personali: vista (nota salvata + Modifica/Elimina, stile allergie) /

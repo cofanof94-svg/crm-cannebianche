@@ -483,7 +483,8 @@ dialog.modal-wide { width: min(780px, calc(100vw - 32px)); }
 .cc-empty { color: var(--muted); }
 
 /* Lingua: box compatto */
-.lingua-box { max-width: 320px; }
+.lingua-box { max-width: 380px; }
+.lingua-valore { font-weight: 600; }
 .lingua-form { display: flex; gap: 10px; }
 .lingua-form input { flex: 1; min-width: 0; }
 .periodo-sep { color: var(--faint); }
