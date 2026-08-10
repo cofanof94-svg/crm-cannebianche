@@ -658,8 +658,20 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .badge-scope { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-radius: 6px; padding: 1px 7px; vertical-align: 1px; }
 .scope-nucleo { background: var(--sea-050); color: var(--sea-700); }
 .scope-personale { background: var(--brand-050); color: var(--brand); }
-.scope-toggle { cursor: pointer; border: none; font-family: inherit; margin-left: 6px; }
-.scope-toggle:hover { filter: brightness(0.95); }
+
+/* Riga dei tag della preferenza: reparto·categoria + ambito, allineati. */
+.pref-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.pref-head .pref-tag { margin-right: 0; vertical-align: baseline; }
+
+/* Interruttore dell'ambito: si vedono tutte e due le scelte, quella attiva è
+   accesa. Mostrare l'alternativa è ciò che rende evidente che si può cambiare. */
+.scope-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; }
+.scope-opt { font: inherit; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; line-height: 1.6; padding: 1px 8px; border: none; background: var(--surface); color: var(--faint); cursor: pointer; }
+.scope-opt + .scope-opt { border-left: 1px solid var(--border-strong); }
+.scope-opt:hover:not(.scope-on) { background: var(--surface-2); color: var(--text); }
+.scope-on { cursor: default; }
+.scope-on-personale { background: var(--brand-050); color: var(--brand); }
+.scope-on-nucleo { background: var(--sea-050); color: var(--sea-700); }
 .pref-cond-head { list-style: none; font-size: 12px; font-weight: 700; color: var(--sea-700); margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--accent); }
 .pref-condivisa { background: var(--sea-050); border-radius: var(--radius-sm); }
 .compl-top { display: flex; align-items: baseline; gap: 10px; }

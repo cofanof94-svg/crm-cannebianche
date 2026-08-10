@@ -1193,28 +1193,52 @@ $('#notepers-box').addEventListener('click', async (e) => {
 });
 
 // --- Preferenze (reparto + categoria + testo + ambito) ---
+// L'ambito era una pastiglia sola che cambiava valore al clic: chi non lo sapeva
+// già non poteva indovinarlo. Ora si vedono ENTRAMBE le scelte, con quella attiva
+// accesa — si legge lo stato e si capisce che si può cambiare, senza spiegazioni.
+const AMBITI_PREF = ['personale', 'nucleo'];
+
+function interruttoreAmbito(ambito) {
+  const opzioni = AMBITI_PREF.map((v) => {
+    const attiva = v === ambito;
+    const tit = attiva
+      ? `Questa preferenza è ${v === 'nucleo' ? 'condivisa con il nucleo' : 'solo di questo cliente'}`
+      : `Rendila ${v === 'nucleo' ? 'del nucleo (visibile a chi viaggia con lui)' : 'personale (solo questo cliente)'}`;
+    return `<button type="button" class="scope-opt${attiva ? ` scope-on scope-on-${v}` : ''}"`
+      + ` data-set-ambito="${v}" aria-pressed="${attiva}" title="${esc(tit)}">${v}</button>`;
+  }).join('');
+  return `<span class="scope-seg" role="group" aria-label="Ambito della preferenza">${opzioni}</span>`;
+}
+
 async function caricaPreferenze(codCli) {
   $('#cli-preferenze').innerHTML = loaderRiga('Carico le preferenze…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/preferenze`);
   const pref = body.preferenze || [];
   const cond = body.condivise || [];
-  const proprie = pref.map((p) => {
-    const amb = p.ambito || 'nucleo';
-    return `
+  // Tag in cima e testo sotto: reparto, categoria e ambito sono tutti "che tipo
+  // di preferenza è", quindi stanno insieme invece di pendere in fondo alla frase.
+  const proprie = pref.map((p) => `
     <li data-pref="${p.id}">
-      <div class="nota-testo"><span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>${esc(p.testo)}
-        <button type="button" class="badge-scope scope-toggle scope-${esc(amb)}" data-toggle-ambito="${p.id}" data-ambito="${esc(amb)}" title="Ambito: ${amb === 'nucleo' ? 'condivisa dal nucleo' : 'personale'} — clic per cambiare">${esc(amb)}</button></div>
+      <div class="pref-head">
+        <span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>
+        ${interruttoreAmbito(p.ambito || 'nucleo')}
+      </div>
+      <div class="nota-testo">${esc(p.testo)}</div>
       <div class="nota-meta">
         <span>${esc(p.autore || '?')} · ${new Date(p.created_at).toLocaleString('it-IT')}</span>
         <span class="nota-az"><button class="btn-icon danger" data-del-pref="${p.id}">Elimina</button></span>
       </div>
-    </li>`;
-  }).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
-  // Preferenze 'nucleo' di altri membri del nucleo: sola lettura, con provenienza.
+    </li>`).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
+  // Preferenze 'nucleo' di altri membri del nucleo: sola lettura (si cambiano
+  // sulla scheda di chi le possiede), quindi pastiglia ferma, non interruttore.
   const condivise = cond.length ? `<li class="pref-cond-head">👪 Condivise dal nucleo <span class="cell-muted">(sola lettura, si modificano sulla scheda del proprietario)</span></li>` + cond.map((p) => `
     <li class="pref-condivisa">
-      <div class="nota-testo"><span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>${esc(p.testo)}</div>
-      <div class="nota-meta"><span>👪 dal nucleo · ${linkCliente(p.pms_customer_id, p.proprietario || '?')}</span></div>
+      <div class="pref-head">
+        <span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>
+        <span class="badge-scope scope-nucleo" title="Preferenza del nucleo: arriva dalla scheda di un altro membro">nucleo</span>
+      </div>
+      <div class="nota-testo">${esc(p.testo)}</div>
+      <div class="nota-meta"><span>👪 dal nucleo · ${linkCliente(p.pms_customer_id, p.proprietario || '?', { titolo: 'Apri la scheda di chi possiede questa preferenza' })}</span></div>
     </li>`).join('') : '';
   $('#cli-preferenze').innerHTML = proprie + condivise;
 }
@@ -1234,10 +1258,12 @@ $('#pref-form').addEventListener('submit', async (e) => {
 $('#cli-preferenze').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-pref]');
   if (del) { await api(`/api/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); return; }
-  const tog = e.target.closest('[data-toggle-ambito]');
-  if (tog) {
-    const nuovo = tog.dataset.ambito === 'nucleo' ? 'personale' : 'nucleo';
-    await api(`/api/preferenze/${tog.dataset.toggleAmbito}`, { method: 'PATCH', body: JSON.stringify({ ambito: nuovo }) });
+  const opt = e.target.closest('[data-set-ambito]');
+  if (opt) {
+    const li = opt.closest('[data-pref]');
+    // Clic sulla voce già attiva: non è un cambio, non si chiama il server.
+    if (!li || opt.classList.contains('scope-on')) return;
+    await api(`/api/preferenze/${li.dataset.pref}`, { method: 'PATCH', body: JSON.stringify({ ambito: opt.dataset.setAmbito }) });
     caricaPreferenze(clienteCorrente);
   }
 });
