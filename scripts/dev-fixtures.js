@@ -131,6 +131,14 @@ const CRM_INIZIALE = {
   profili: [
     { pms_customer_id: 1001, lingua: 'IT', note_personali: 'Direttore generale di un gruppo industriale pugliese. Rivolgersi come "Dottore".', data_nascita: null, autore: 'admin' },
     { pms_customer_id: 1004, lingua: 'EN', note_personali: null, data_nascita: null, autore: 'admin' },
+    // 1003 arriva oggi ED è in casa: la stessa nota si vede su entrambe le pagine.
+    // Volutamente più lunga di una riga, per vedere la sintesi nella card e il
+    // testo intero nel suggerimento del mouse.
+    {
+      pms_customer_id: 1003, lingua: 'DE', data_nascita: null, autore: 'admin',
+      note_personali: 'Amministratore delegato di un gruppo del fashion; viaggia spesso per lavoro. '
+        + 'Chiede una scrivania in camera e la stampante alla reception per i documenti. Cena presto, mai dopo le 21.',
+    },
   ],
   merge: [], // { pms_customer_id, canonical_id }
   // Marker one-shot dell'auto-popolamento del nucleo: per chi ha già un nucleo

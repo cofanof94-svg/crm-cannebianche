@@ -113,6 +113,36 @@ test('linkCliente: nome ed eventuale titolo sono sempre con escape', () => {
   assert.match(h, /&lt;img/);
 });
 
+// --- Nota personale nelle card (stessa nota dell'anagrafica, versione corta) ---
+const rigaNotaPersonale = caricaFunzione('rigaNotaPersonale', estraiConst('esc'));
+
+test('rigaNotaPersonale: senza nota non aggiunge nulla alla card', () => {
+  assert.strictEqual(rigaNotaPersonale(null, 'arr'), '');
+  assert.strictEqual(rigaNotaPersonale({}, 'arr'), '');
+  assert.strictEqual(rigaNotaPersonale({ notaPersonale: { sintesi: '' } }, 'arr'), '');
+});
+
+test('rigaNotaPersonale: mostra la sintesi e usa lo stile della pagina', () => {
+  const s = { notaPersonale: { sintesi: 'Direttore LUISS · Economista', testo: 'Direttore LUISS · Economista', troncata: false } };
+  const arr = rigaNotaPersonale(s, 'arr');
+  assert.match(arr, /class="arr-nota"/);
+  assert.match(arr, />Direttore LUISS · Economista</);
+  assert.doesNotMatch(arr, /nota-piu/); // nota intera: niente segno "c'è altro"
+  assert.match(rigaNotaPersonale(s, 'ic'), /class="ic-nota"/);
+});
+
+test('rigaNotaPersonale: se troncata segnala il seguito e mette il testo pieno nel tooltip', () => {
+  const h = rigaNotaPersonale({ notaPersonale: { sintesi: 'CEO settore Fashion', testo: 'CEO settore Fashion\n\nCena sempre alle 20.', troncata: true } }, 'ic');
+  assert.match(h, /nota-piu/);
+  assert.match(h, /title="[^"]*Cena sempre alle 20/);
+});
+
+test('rigaNotaPersonale: la nota finisce in un attributo title, quindi va con escape', () => {
+  const h = rigaNotaPersonale({ notaPersonale: { sintesi: 'x', testo: '"><img src=x onerror=alert(1)>', troncata: true } }, 'arr');
+  assert.doesNotMatch(h, /<img/);
+  assert.match(h, /&quot;&gt;&lt;img/);
+});
+
 // --- Registro dei pulsanti AI: "generato una volta, finché resti qui" ---
 function registroAi() {
   return caricaModulo(['aiGiaFatto', 'aiSegnaFatto', 'aiAzzera', 'aiApplicaStato'], estraiConst('aiEseguiti'));

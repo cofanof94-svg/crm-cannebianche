@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   arricchisciArrivi, raccogliIds, costruisciSnapshot, calcolaBriefing,
-  compleannoNelSoggiorno, idsPrenotazione,
+  compleannoNelSoggiorno, idsPrenotazione, sintetizzaNota,
 } = require('../src/crm/arrivi-brief');
 
 test('raccogliIds: referenti + occupanti, deduplicati, solo interi', () => {
@@ -26,6 +26,49 @@ test('idsPrenotazione: espande referente e occupanti ai gruppi di fusione', () =
   assert.deepStrictEqual(ids.sort((a, b) => a - b), [100, 101, 200, 300]);
 });
 
+test('sintetizzaNota: nota corta → invariata e non troncata', () => {
+  const n = sintetizzaNota('Direttore LUISS · Economista');
+  assert.strictEqual(n.sintesi, 'Direttore LUISS · Economista');
+  assert.strictEqual(n.troncata, false);
+  assert.strictEqual(n.testo, 'Direttore LUISS · Economista');
+});
+
+test('sintetizzaNota: nota su più righe → prima riga, il resto resta nel testo pieno', () => {
+  const n = sintetizzaNota('CEO settore Fashion\n\nPreferisce la scrivania in camera.');
+  assert.strictEqual(n.sintesi, 'CEO settore Fashion');
+  assert.strictEqual(n.troncata, true); // c'è dell'altro nell'anagrafica
+  assert.match(n.testo, /scrivania/);
+});
+
+test('sintetizzaNota: riga lunga → taglio a fine frase, senza punto e virgola in coda', () => {
+  const n = sintetizzaNota('Amministratore delegato di un gruppo del fashion; viaggia spesso per lavoro. '
+    + 'Chiede una scrivania in camera e la stampante alla reception per i documenti. Cena presto, mai dopo le 21.');
+  assert.strictEqual(n.sintesi, 'Amministratore delegato di un gruppo del fashion');
+  assert.strictEqual(n.troncata, true);
+  assert.match(n.testo, /Cena presto/); // il dettaglio non si perde: resta nell'anagrafica
+});
+
+test('sintetizzaNota: una riga sotto la soglia resta intera (soglia esplicita)', () => {
+  const n = sintetizzaNota('Direttore Generale LUISS; membro CdA Pirelli.', 90);
+  assert.strictEqual(n.sintesi, 'Direttore Generale LUISS; membro CdA Pirelli.');
+  assert.strictEqual(n.troncata, false);
+});
+
+test('sintetizzaNota: senza fine frase taglia a parola intera, mai a metà', () => {
+  const testo = 'Ospite abituale della struttura che ogni anno torna nello stesso periodo con la famiglia allargata';
+  const n = sintetizzaNota(testo, 40);
+  assert.ok(n.sintesi.length <= 40);
+  assert.ok(testo.startsWith(n.sintesi), 'la sintesi è un prefisso della nota');
+  assert.doesNotMatch(n.sintesi, /\s$/);
+  assert.ok(!n.sintesi.endsWith('…'), 'i puntini li mette la card, non il server');
+});
+
+test('sintetizzaNota: vuoto, spazi e null → nessuna nota', () => {
+  assert.strictEqual(sintetizzaNota(null), null);
+  assert.strictEqual(sintetizzaNota(''), null);
+  assert.strictEqual(sintetizzaNota('   \n  '), null);
+});
+
 function ctxDiProva() {
   return {
     gruppi: new Map([[100, [100, 101]]]),
@@ -42,6 +85,12 @@ function ctxDiProva() {
     complBy: new Map([[100, [{ stato: 'aperto' }, { stato: 'risolto' }]]]),
     intolBy: new Map([[100, [{ testo: 'Lattosio' }]], [200, [{ testo: 'lattosio' }]]]), // dup case
     relBy: new Map([['100|200', 'Coniuge']]),
+    // La nota sta sul 101, anagrafica FUSA col referente 100 = stessa persona.
+    // Il 200 è un occupante: la sua nota non deve finire sulla card del referente.
+    noteBy: new Map([
+      [101, [{ pms_customer_id: 101, note_personali: 'Direttore LUISS · Economista' }]],
+      [200, [{ pms_customer_id: 200, note_personali: 'Nota di un altro ospite' }]],
+    ]),
   };
 }
 
@@ -59,6 +108,21 @@ test('costruisciSnapshot: VIP, indesiderato, preferenze nucleo dedup, intolleran
   assert.strictEqual(s.compleanno.data, '2026-08-05');
   assert.strictEqual(s.compleanno.nome, 'ROSSI MARIO');
   assert.strictEqual(s.compleanno.codCli, 100); // serve a rendere il nome cliccabile
+});
+
+test('costruisciSnapshot: la nota personale è quella del referente (anche fuso), non degli occupanti', () => {
+  const arrivo = { codCliente: 100, dtarrivo: '2026-08-01', dtpartenza: '2026-08-10', ospiti: [{ codCli: 200 }] };
+  const s = costruisciSnapshot(arrivo, ctxDiProva());
+  assert.strictEqual(s.notaPersonale.sintesi, 'Direttore LUISS · Economista');
+  assert.doesNotMatch(s.notaPersonale.testo, /un altro ospite/);
+});
+
+test('costruisciSnapshot: senza note personali il campo è null (card senza riga Nota)', () => {
+  const ctx = ctxDiProva();
+  ctx.noteBy = new Map();
+  assert.strictEqual(costruisciSnapshot({ codCliente: 100, ospiti: [] }, ctx).notaPersonale, null);
+  delete ctx.noteBy; // fonte non disponibile → degrada, non esplode
+  assert.strictEqual(costruisciSnapshot({ codCliente: 100, ospiti: [] }, ctx).notaPersonale, null);
 });
 
 test('costruisciSnapshot: preferenzeTop limitato a 3', () => {
@@ -104,6 +168,8 @@ function crmMock() {
       if (/FROM customer_complaints/.test(text)) return [{ pms_customer_id: 100, stato: 'aperto' }];
       if (/FROM customer_intolerances/.test(text)) return [{ pms_customer_id: 100, testo: 'Lattosio' }];
       if (/FROM customer_travel_party/.test(text)) return [{ pms_customer_id: 100, pms_occupant_id: 200, tipo_relazione: 'Coniuge' }];
+      // Stessa colonna letta dall'anagrafica: la nota è una sola, la card la sintetizza.
+      if (/FROM customer_profile/.test(text)) return [{ pms_customer_id: 100, note_personali: 'Direttore LUISS · Economista', updated_at: '2026-08-01T10:00:00Z' }];
       return [];
     },
   };
@@ -118,6 +184,7 @@ test('arricchisciArrivi: allega snapshot e calcola il briefing', async () => {
   assert.strictEqual(s.relazioni[200], 'Coniuge');
   assert.strictEqual(s.compleanno.data, '2026-08-05');
   assert.strictEqual(s.indesiderato, true);
+  assert.strictEqual(s.notaPersonale.sintesi, 'Direttore LUISS · Economista');
   assert.strictEqual(enr.briefing.reclami, 1);
   assert.strictEqual(enr.briefing.alert, 1);
 });

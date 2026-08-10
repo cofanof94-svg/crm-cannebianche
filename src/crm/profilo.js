@@ -32,6 +32,20 @@ async function getProfilo(db, ids) {
   };
 }
 
+// Note personali di più clienti in una sola query (card Arrivi / In casa: una per
+// riga sarebbe una query per card). Stessa colonna letta dall'anagrafica — la nota
+// è UNA sola, le card ne sono solo una vista sintetica.
+// Le righe senza nota non servono a nessuno: si scartano qui.
+async function listNotePersonali(db, ids) {
+  const rows = await db.query(
+    `SELECT p.pms_customer_id, p.note_personali, p.updated_at
+     FROM customer_profile p
+     WHERE p.pms_customer_id IN ${inClause(ids)} AND p.note_personali IS NOT NULL
+     ORDER BY p.updated_at DESC`
+  );
+  return (rows || []).filter((r) => r.note_personali != null && String(r.note_personali).trim() !== '');
+}
+
 async function upsertLingua(db, { pmsCustomerId, lingua, autoreUserId }) {
   await db.query(
     `MERGE customer_profile AS t
@@ -57,4 +71,4 @@ async function upsertNotePersonali(db, { pmsCustomerId, notePersonali, autoreUse
   return { pmsCustomerId, notePersonali };
 }
 
-module.exports = { getProfilo, upsertLingua, upsertNotePersonali };
+module.exports = { getProfilo, listNotePersonali, upsertLingua, upsertNotePersonali };

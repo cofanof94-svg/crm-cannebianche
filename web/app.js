@@ -256,7 +256,7 @@ async function salvaBriefingNelProfilo(btn) {
   const b = briefingTesti[cli];
   if (!b || !b.testo || aiGiaFatto(chiaveSalvaBrief(cli))) return; // un secondo clic accodava la nota due volte
   btn.disabled = true;
-  const { status } = await api(`/api/clienti/${encodeURIComponent(cli)}/note-personali`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(cli)}/note-personali`, {
     method: 'PUT', body: JSON.stringify({ testo: b.testo, mode: 'append' }),
   });
   if (status !== 200) { btn.disabled = false; btn.textContent = 'Errore nel salvataggio'; return; }
@@ -264,6 +264,23 @@ async function salvaBriefingNelProfilo(btn) {
   btn.textContent = '✓ Salvato nel profilo';
   btn.title = 'Già aggiunto alle Note personali del profilo';
   btn.classList.add('brief-save-done');
+  // La nota è salvata nell'anagrafica: la card la mostra subito, senza ricaricare.
+  // (In casa e la scheda ospite rileggono dal server quando le si apre.)
+  aggiornaNotaNelleCard(Number(cli), body.nota || null);
+}
+
+// Allinea la nota nelle card già a video dopo un salvataggio (stesso cliente su
+// più prenotazioni = più card). La nota resta una sola: qui si aggiorna la copia
+// mostrata, non se ne crea un'altra.
+function aggiornaNotaNelleCard(codCli, nota) {
+  if (!Number.isInteger(codCli)) return;
+  let toccate = 0;
+  for (const a of arriviAll) {
+    if (a.codCliente !== codCli || !a.snapshot) continue;
+    a.snapshot.notaPersonale = nota;
+    toccate += 1;
+  }
+  if (toccate) renderArrivi();
 }
 
 function briefMsg(t) { return `<div class="brief-card"><div class="ai-msg">${esc(t)}</div></div>`; }
@@ -379,6 +396,17 @@ function badgeVip(v) {
   return `<span class="pill pill-vip" title="Classificazione VIP: ${esc(v.descrizione)} (${esc(v.cod)})">★ VIP</span>${cl}`;
 }
 
+// Nota personale in versione da card (Arrivi e In casa usano lo stesso pezzo).
+// È la STESSA nota dell'anagrafica, solo accorciata: si modifica solo da lì.
+// prefisso: 'arr' o 'ic', per restare nello stile della pagina che la ospita.
+function rigaNotaPersonale(s, prefisso) {
+  const n = s && s.notaPersonale;
+  if (!n || !n.sintesi) return '';
+  const tip = n.troncata && n.testo ? n.testo : 'Nota personale (dall\'anagrafica)';
+  return `<div class="${prefisso}-nota"><span class="${prefisso}-lbl">Nota</span>`
+    + `<span class="nota-sint" title="${esc(tip)}">${esc(n.sintesi)}${n.troncata ? ' <span class="nota-piu">…</span>' : ''}</span></div>`;
+}
+
 // Banda snapshot: le informazioni per l'accoglienza, in evidenza. Vuota → non renderizza.
 function snapshotBand(s) {
   if (!s) return '';
@@ -399,9 +427,10 @@ function snapshotBand(s) {
     .map((p) => `<span class="arr-pref" title="${esc(p.reparto || '')}${p.categoria ? ' / ' + esc(p.categoria) : ''}">${esc(p.testo)}</span>`)
     .join('');
   const prefBlock = prefs ? `<div class="arr-prefs"><span class="arr-lbl">Preferenze</span>${prefs}</div>` : '';
-  if (!flags.length && !prefBlock) return '';
+  const notaBlock = rigaNotaPersonale(s, 'arr');
+  if (!flags.length && !prefBlock && !notaBlock) return '';
   const flagBlock = flags.length ? `<div class="arr-flags">${flags.join('')}</div>` : '';
-  return `<div class="arr-snap">${flagBlock}${prefBlock}</div>`;
+  return `<div class="arr-snap">${flagBlock}${notaBlock}${prefBlock}</div>`;
 }
 
 // Occupanti in camera con l'eventuale relazione col referente (dallo snapshot).
@@ -670,6 +699,7 @@ function schedaInCasa(c) {
     .map((p) => `<span class="pref" title="${esc(p.reparto || '')}${p.categoria ? ' / ' + esc(p.categoria) : ''}">${esc(p.testo)}</span>`)
     .join('');
   const prefBlock = prefs ? `<div class="ic-prefs"><span class="ic-lbl">Preferenze</span>${prefs}</div>` : '';
+  const notaBlock = rigaNotaPersonale(s, 'ic');
 
   const tratt = [c.trattamento, c.tariffa].filter(Boolean).map(esc).join(' / ');
   const note = c.note
@@ -688,6 +718,7 @@ function schedaInCasa(c) {
       </div>
       <div class="ic-stay">${renderAvanzamento(c)}${badgeStorico(c.storico)}</div>
       ${flagBlock}
+      ${notaBlock}
       ${prefBlock}
       ${renderOspitiInCasa(c)}
       <div class="ic-op">

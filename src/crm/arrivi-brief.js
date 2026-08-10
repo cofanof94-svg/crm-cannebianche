@@ -17,6 +17,7 @@ const { getAnagraByIds } = require('../pms/clienti');
 const { listPreferenze } = require('./preferenze');
 const { listComplaints } = require('./complaint');
 const { listIntolleranze } = require('./intolleranze');
+const { listNotePersonali } = require('./profilo');
 
 function briefingVuoto(nArrivi) {
   // anniversari e suggerimentiAi: nessuna fonte dati affidabile per ora → 0 (TODO).
@@ -43,9 +44,11 @@ function indicizza(rows) {
   return m;
 }
 
-// Tutte le righe indicizzate per un insieme di codici.
+// Tutte le righe indicizzate per un insieme di codici. Una fonte assente (mappa
+// non passata) vale "nessuna riga": lo snapshot degrada, non esplode.
 function raccogli(map, ids) {
   const out = [];
+  if (!map) return out;
   for (const id of ids) for (const r of map.get(id) || []) out.push(r);
   return out;
 }
@@ -63,6 +66,30 @@ function compleannoNelSoggiorno(dtNascita, arrivo, partenza) {
     if (cand >= arrivo && cand <= partenza) return cand;
   }
   return null;
+}
+
+// Versione da card della nota personale. Non è un riassunto: è l'inizio della
+// nota, tagliato dove la frase finisce. Chi scrive mette il "chi è" in apertura
+// ("Direttore LUISS · Economista") e il dettaglio dopo — il dettaglio resta
+// nell'anagrafica, che è l'unico posto dove la nota si legge e si modifica.
+const NOTA_MAX = 90;
+function sintetizzaNota(testo, max = NOTA_MAX) {
+  const completo = String(testo == null ? '' : testo).trim();
+  if (!completo) return null;
+  // Prima riga non vuota: se la nota è su più righe, la prima è l'identikit.
+  const riga = completo.split(/\r?\n/).map((r) => r.trim()).find(Boolean) || '';
+  const piatta = riga.replace(/\s+/g, ' ');
+  if (piatta.length <= max) {
+    return { sintesi: piatta, testo: completo, troncata: piatta.length < completo.replace(/\s+/g, ' ').length };
+  }
+  // Taglio sulla fine di frase se cade nei limiti, altrimenti sull'ultima parola intera.
+  // Il punto e virgola chiude il concetto ma da solo, in coda, sembra un errore: si toglie.
+  const fineFrase = piatta.slice(0, max + 1).search(/[.;](\s|$)/);
+  if (fineFrase > 20) return { sintesi: piatta.slice(0, fineFrase + 1).replace(/;$/, ''), testo: completo, troncata: true };
+  // Niente puntini qui: il segno "c'è dell'altro" lo mette la card, una volta sola.
+  const taglio = piatta.slice(0, max);
+  const spazio = taglio.lastIndexOf(' ');
+  return { sintesi: (spazio > 20 ? taglio.slice(0, spazio) : taglio).trim(), testo: completo, troncata: true };
 }
 
 // Codici del gruppo (fusione) rilevanti per la prenotazione: referente + occupanti,
@@ -121,6 +148,13 @@ function costruisciSnapshot(a, ctx) {
     }
   }
 
+  // Nota personale del REFERENTE (e delle sue anagrafiche fuse: stessa persona).
+  // Non si pescano quelle degli occupanti: la card è intestata al referente e
+  // attribuirgli la nota di un altro sarebbe un'informazione sbagliata. Le loro
+  // restano sulle rispettive schede, raggiungibili dal nome cliccabile.
+  const rigaNota = raccogli(ctx.noteBy, ancore).find((r) => r.note_personali);
+  const notaPersonale = rigaNota ? sintetizzaNota(rigaNota.note_personali) : null;
+
   // Compleanno durante il soggiorno (primo membro che compie gli anni). Porta
   // con sé il codice cliente: nelle card il nome dev'essere cliccabile.
   let compleanno = null;
@@ -131,7 +165,7 @@ function costruisciSnapshot(a, ctx) {
     if (data) { compleanno = { codCli: id, nome: an.nominativo, data }; break; }
   }
 
-  return { vip, indesiderato, preferenzeTop: prefTop, intolleranze: intoll, reclami, relazioni, compleanno };
+  return { vip, indesiderato, preferenzeTop: prefTop, intolleranze: intoll, reclami, relazioni, compleanno, notaPersonale };
 }
 
 // Riepilogo giornata dai singoli snapshot.
@@ -157,12 +191,13 @@ async function arricchisciArrivi(pmsDb, crmDb, arrivi) {
 
   // Le date di nascita (quindi i compleanni) arrivano solo da Anagra: il PMS è
   // l'unica fonte del dato.
-  const [anagra, prefRows, complRows, intolRows, relRows] = await Promise.all([
+  const [anagra, prefRows, complRows, intolRows, relRows, noteRows] = await Promise.all([
     getAnagraByIds(pmsDb, allIds),
     listPreferenze(crmDb, allIds),
     listComplaints(crmDb, allIds),
     listIntolleranze(crmDb, allIds),
     getRelazioniByIds(crmDb, idOspiti),
+    listNotePersonali(crmDb, allIds),
   ]);
 
   const relBy = new Map();
@@ -174,6 +209,7 @@ async function arricchisciArrivi(pmsDb, crmDb, arrivi) {
     prefBy: indicizza(prefRows),
     complBy: indicizza(complRows),
     intolBy: indicizza(intolRows),
+    noteBy: indicizza(noteRows),
     relBy,
   };
 
@@ -189,4 +225,5 @@ module.exports = {
   calcolaBriefing,
   compleannoNelSoggiorno,
   idsPrenotazione,
+  sintetizzaNota,
 };

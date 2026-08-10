@@ -6,6 +6,7 @@ const { getTrattamentiSpa } = require('../pms/spa');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, deleteComplaint } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
 const { getProfilo, upsertLingua, upsertNotePersonali } = require('../crm/profilo');
+const { sintetizzaNota } = require('../crm/arrivi-brief');
 const { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../crm/preferenze');
 const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
 const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
@@ -289,7 +290,10 @@ function createClientiRouter(pmsDb, crmDb) {
       finale = attuale && attuale.trim() ? `${attuale.trim()}\n\n${testo}` : testo;
     }
     const out = await upsertNotePersonali(crmDb, { pmsCustomerId: codCli, notePersonali: finale, autoreUserId: req.session.user.id });
-    res.json({ notePersonali: out.notePersonali });
+    // `nota` è la stessa versione sintetica che finisce nelle card Arrivi/In casa:
+    // la calcola il server, così chi ha appena salvato la vede comparire subito
+    // nella card senza ricaricare — e senza una seconda regola di taglio nel browser.
+    res.json({ notePersonali: out.notePersonali, nota: sintetizzaNota(out.notePersonali) });
   });
 
   // --- Preferenze (reparto + categoria + testo, liste chiuse) ---
