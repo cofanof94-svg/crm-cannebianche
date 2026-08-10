@@ -8,14 +8,29 @@ const path = require('path');
 // anche il frontend ha una rete di sicurezza. matchPrenotazione la merita: la
 // ricerca per numero di pratica era già stata persa una volta nel redesign di
 // "In casa", e la pratica è l'unico identificativo univoco di una prenotazione.
-function caricaFunzione(nome) {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-  const inizio = src.indexOf(`function ${nome}(`);
+const SRC = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+
+function estrai(nome) {
+  const inizio = SRC.indexOf(`function ${nome}(`);
   assert.notStrictEqual(inizio, -1, `${nome} non trovata in web/app.js`);
-  const fine = src.indexOf('\n}', inizio);
+  const fine = SRC.indexOf('\n}', inizio);
   assert.notStrictEqual(fine, -1, `fine di ${nome} non trovata`);
+  return SRC.slice(inizio, fine + 2);
+}
+
+// `esc` è dichiarata come arrow su una riga (const esc = …): si preleva quella
+// vera invece di riscriverla, altrimenti il test verificherebbe una copia.
+function estraiConst(nome) {
+  const riga = SRC.split('\n').find((l) => l.startsWith(`const ${nome} =`));
+  assert.ok(riga, `const ${nome} non trovata in web/app.js`);
+  return riga;
+}
+
+// Carica una funzione insieme alle sue dipendenze nello STESSO scope
+// (linkCliente usa esc). `dipendenze` sono frammenti di sorgente già estratti.
+function caricaFunzione(nome, ...dipendenze) {
   // eslint-disable-next-line no-new-func
-  return new Function(`${src.slice(inizio, fine + 2)}\nreturn ${nome};`)();
+  return new Function(`${[...dipendenze, estrai(nome)].join('\n')}\nreturn ${nome};`)();
 }
 
 const matchPrenotazione = caricaFunzione('matchPrenotazione');
@@ -53,4 +68,39 @@ test('matchPrenotazione: regge i campi mancanti senza esplodere', () => {
   assert.strictEqual(matchPrenotazione(scarna, '70201'), true);
   assert.strictEqual(matchPrenotazione(scarna, 'rossi'), false);
   assert.strictEqual(matchPrenotazione({}, 'x'), false);
+});
+
+// --- linkCliente: la regola "ogni nome di cliente apre la sua anagrafica" ---
+const linkCliente = caricaFunzione('linkCliente', estraiConst('esc'));
+
+test('linkCliente: con un codice valido produce il link alla scheda ospite', () => {
+  const h = linkCliente(1001, 'TOSTI CARLO');
+  assert.match(h, /href="#cliente\/1001"/);
+  assert.match(h, />TOSTI CARLO</);
+  assert.match(h, /class="cli-ref"/);
+  assert.match(h, /title="Apri l&#39;anagrafica #1001"/); // apostrofo con escape
+});
+
+test('linkCliente: senza codice resta testo, nessun link morto', () => {
+  assert.strictEqual(linkCliente(null, 'MARIO ROSSI'), 'MARIO ROSSI');
+  assert.strictEqual(linkCliente(undefined, 'MARIO ROSSI'), 'MARIO ROSSI');
+  assert.strictEqual(linkCliente('', 'MARIO ROSSI'), 'MARIO ROSSI');
+  assert.strictEqual(linkCliente(0, 'MARIO ROSSI'), 'MARIO ROSSI');   // 0 non è un codice
+  assert.strictEqual(linkCliente('abc', 'MARIO ROSSI'), 'MARIO ROSSI');
+  // con una classe richiesta il testo resta comunque nel suo contenitore
+  assert.strictEqual(linkCliente(null, 'MARIO ROSSI', { classe: 'nucleo-nome' }), '<span class="nucleo-nome">MARIO ROSSI</span>');
+});
+
+test('linkCliente: testo assente → mostra il codice; classi e nuova scheda', () => {
+  assert.match(linkCliente(42, null), />#42</);
+  assert.match(linkCliente(42, 'X', { classe: 'dup-nome' }), /class="cli-ref dup-nome"/);
+  const nuova = linkCliente(42, 'X', { nuovaScheda: true });
+  assert.match(nuova, /target="_blank"/);
+  assert.match(nuova, /rel="noopener"/);
+});
+
+test('linkCliente: nome ed eventuale titolo sono sempre con escape', () => {
+  const h = linkCliente(7, '<img src=x onerror=alert(1)>');
+  assert.doesNotMatch(h, /<img/);
+  assert.match(h, /&lt;img/);
 });

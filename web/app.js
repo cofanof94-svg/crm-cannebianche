@@ -23,6 +23,26 @@ function loaderRiga(testo = 'Caricamento…') {
   return `<li class="nota-vuota">${loaderHTML(testo)}</li>`;
 }
 
+// --- Riferimenti a un cliente ---
+// Regola dell'app: ovunque compaia il nome di un cliente si deve poter aprire la
+// sua anagrafica. Un unico helper, così nessun elenco se ne dimentica.
+// Senza codice non c'è scheda da aprire (es. un accompagnatore scritto a mano nel
+// nucleo, mai registrato nel PMS): resta testo, senza fingere un link morto.
+// nuovaScheda: apre in un'altra scheda del browser, per non perdere il contesto
+// (usato nella modale di confronto, dove si sta prendendo una decisione).
+function linkCliente(codCli, testo, opts = {}) {
+  const etichetta = esc(testo == null || testo === '' ? `#${codCli}` : testo);
+  const classi = ['cli-ref', opts.classe].filter(Boolean).join(' ');
+  // Attenzione: Number(null) e Number('') valgono 0, che passerebbe per un codice
+  // valido e produrrebbe un link a #cliente/0. Si scartano prima della conversione.
+  const id = (codCli == null || codCli === '') ? NaN : Number(codCli);
+  if (!Number.isInteger(id) || id <= 0) {
+    return opts.classe ? `<span class="${esc(opts.classe)}">${etichetta}</span>` : etichetta;
+  }
+  const extra = opts.nuovaScheda ? ' target="_blank" rel="noopener"' : '';
+  return `<a class="${esc(classi)}" href="#cliente/${id}"${extra} title="${esc(opts.titolo || `Apri l'anagrafica #${id}`)}">${etichetta}</a>`;
+}
+
 let currentUser = null;
 let vistaPrecedente = 'arrivi'; // per il link "Torna a…" nella scheda ospite
 
@@ -325,7 +345,7 @@ function snapshotBand(s) {
   const flags = [];
   if (s.indesiderato) flags.push('<span class="arr-flag flag-danger">⚠ Ospite indesiderato</span>');
   if (s.compleanno) {
-    const chi = s.compleanno.nome ? ` · ${esc(s.compleanno.nome)}` : '';
+    const chi = s.compleanno.nome ? ` · ${linkCliente(s.compleanno.codCli, s.compleanno.nome)}` : '';
     flags.push(`<span class="arr-flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);
   }
   if (s.intolleranze && s.intolleranze.length) {
@@ -356,7 +376,7 @@ function renderOspitiArrivo(a) {
     const relOsp = rel[o.codCli];
     const r = relOsp && relOsp.toLowerCase() !== 'altro' ? `<span class="arr-rel">${esc(relOsp)}</span>` : '';
     const nome = o.codCli
-      ? `<a class="ospite-link" href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
+      ? linkCliente(o.codCli, o.nominativo || '—', { classe: 'ospite-link' })
       : `<span class="ospite-x">${esc(o.nominativo || '—')}</span>`;
     return `${nome}${r}`;
   };
@@ -378,7 +398,7 @@ function schedaArrivo(a) {
   const s = a.snapshot || null;
   const pill = a.inCasa ? '<span class="pill pill-incasa">In casa</span>' : '<span class="pill pill-atteso">Atteso</span>';
   const nome = a.nominativo
-    ? (a.codCliente ? `<a class="arr-name-link" href="#cliente/${a.codCliente}">${esc(a.nominativo)}</a>` : esc(a.nominativo))
+    ? linkCliente(a.codCliente, a.nominativo, { classe: 'arr-name-link' })
     : '(senza nominativo)';
   const ora = a.oraArrivo ? `<span class="arr-ora">🕒 ${esc(a.oraArrivo)}</span>` : '';
   const notti = a.notti != null ? ` · ${a.notti} ${a.notti === 1 ? 'notte' : 'notti'}` : '';
@@ -561,9 +581,7 @@ function renderOspitiInCasa(c) {
   const voci = ospiti.map((o) => {
     const r = rel[o.codCli];
     const relTxt = r && r.toLowerCase() !== 'altro' ? ` <span class="ic-rel">${esc(r)}</span>` : '';
-    const nome = o.codCli
-      ? `<a href="#cliente/${o.codCli}">${esc(o.nominativo || '—')}</a>`
-      : esc(o.nominativo || '—');
+    const nome = linkCliente(o.codCli, o.nominativo || '—');
     return `<span>${nome}${relTxt}</span>`;
   }).join('');
   return `<div class="ic-ospiti">👤 ${voci}</div>`;
@@ -574,7 +592,7 @@ function schedaInCasa(c) {
   const uscito = c.statoPartenza === 'checkout';
   const accento = s && s.indesiderato ? ' ic-danger' : (s && s.vip ? ' ic-vip' : '');
   const nome = c.nominativo
-    ? (c.codCliente ? `<a class="ic-name" href="#cliente/${c.codCliente}">${esc(c.nominativo)}</a>` : `<span class="ic-name">${esc(c.nominativo)}</span>`)
+    ? linkCliente(c.codCliente, c.nominativo, { classe: 'ic-name' })
     : '<span class="ic-name">(senza nominativo)</span>';
   const camere = c.camere
     ? c.camere.split(',').map((x) => `<span class="ic-room">${esc(x.trim())}</span>`).join('')
@@ -592,7 +610,7 @@ function schedaInCasa(c) {
     flags.push(`<span class="flag flag-safety" title="Allergie / intolleranze — sicurezza">⚠ ${s.intolleranze.map(esc).join(', ')}</span>`);
   }
   if (s && s.compleanno) {
-    const chi = s.compleanno.nome ? ` · ${esc(s.compleanno.nome)}` : '';
+    const chi = s.compleanno.nome ? ` · ${linkCliente(s.compleanno.codCli, s.compleanno.nome)}` : '';
     flags.push(`<span class="flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);
   }
   if (s && s.reclami && s.reclami.totali) {
@@ -844,7 +862,7 @@ async function loadCliente(codCli) {
   $('#cli-prima').textContent = fmtData(s.primaVisita);
   $('#cli-ultima').textContent = fmtData(s.ultimaVisita);
   const anBox = $('#cli-anagnote-box');
-  const noteNucleo = (d.noteNucleo || []).map((n) => `<div class="an-nucleo">👪 <b>${esc(n.nominativo)}</b> — ${esc(n.nota)}</div>`).join('');
+  const noteNucleo = (d.noteNucleo || []).map((n) => `<div class="an-nucleo">👪 <b>${linkCliente(n.codCli, n.nominativo)}</b> — ${esc(n.nota)}</div>`).join('');
   if (a.note || noteNucleo) {
     anBox.hidden = false;
     $('#cli-anagnote').innerHTML = (a.note ? `<div>${esc(a.note)}</div>` : '') + noteNucleo;
@@ -1039,7 +1057,7 @@ async function caricaPreferenze(codCli) {
   const condivise = cond.length ? `<li class="pref-cond-head">👪 Condivise dal nucleo <span class="cell-muted">(sola lettura, si modificano sulla scheda del proprietario)</span></li>` + cond.map((p) => `
     <li class="pref-condivisa">
       <div class="nota-testo"><span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>${esc(p.testo)}</div>
-      <div class="nota-meta"><span>👪 dal nucleo · ${esc(p.proprietario || '?')}</span></div>
+      <div class="nota-meta"><span>👪 dal nucleo · ${linkCliente(p.pms_customer_id, p.proprietario || '?')}</span></div>
     </li>`).join('') : '';
   $('#cli-preferenze').innerHTML = proprie + condivise;
 }
@@ -1178,7 +1196,7 @@ async function caricaNucleo(codCli) {
     return `<li class="nucleo-item" data-nucleo="${m.id}">
       <div class="nucleo-view">
         <span class="pref-tag">${esc(m.tipo_relazione)}</span>
-        <span class="nucleo-nome">${esc(nomeCompl)}</span>
+        ${linkCliente(m.pms_occupant_id, nomeCompl, { classe: 'nucleo-nome' })}
         ${m.nota ? `<span class="cell-muted">— ${esc(m.nota)}</span>` : ''}
       </div>
       <span class="nucleo-az">
@@ -1266,7 +1284,10 @@ function renderMergeBanner(codCli, merge) {
   if (!merge || !merge.membri || merge.membri.length < 2) { el.hidden = true; el.innerHTML = ''; return; }
   const rows = (merge.anagrafiche || []).map((x) => {
     const isPrinc = x.codCli === merge.canonicalId;
-    const nome = x.codCli === codCli ? `<b>${esc(x.nominativo || ('#' + x.codCli))}</b>` : `<a href="#cliente/${x.codCli}">${esc(x.nominativo || ('#' + x.codCli))}</a>`;
+    // L'anagrafica che si sta già guardando non è un link: è dove sei.
+    const nome = x.codCli === codCli
+      ? `<b>${esc(x.nominativo || `#${x.codCli}`)}</b>`
+      : linkCliente(x.codCli, x.nominativo);
     const scollega = isPrinc ? '' : ` <button class="btn-icon danger" data-unmerge="${x.codCli}" title="Scollega dal gruppo">×</button>`;
     return `<span class="merge-chip">${nome} <span class="cell-muted">#${x.codCli}${isPrinc ? ' · principale' : ''}</span>${scollega}</span>`;
   }).join(' ');
@@ -1283,7 +1304,7 @@ async function caricaDuplicati(codCli) {
   if (!duplicatiCorrenti.length) { el.hidden = true; el.innerHTML = ''; return; }
   const righe = duplicatiCorrenti.map((c) => `<li class="dup-item">
       <span class="dup-match ${c.match === 'CF' ? 'm-cf' : 'm-an'}">${c.match === 'CF' ? 'stesso CF' : 'stesso nome+nascita'}</span>
-      <span class="dup-nome">${esc(c.nominativo || ('#' + c.codCli))}</span>
+      ${linkCliente(c.codCli, c.nominativo, { classe: 'dup-nome' })}
       <span class="cell-muted">#${c.codCli}${c.dtNascita ? ' · ' + fmtData(c.dtNascita) : ''} · ${c.nPrenotazioni} pren.</span>
       <button type="button" class="btn btn-sm" data-merge="${c.codCli}">Confronta e unisci…</button>
     </li>`).join('');
@@ -1339,12 +1360,20 @@ function renderMerge() {
   const princ = mergePrincipale;
   const conflSet = new Set((d.conflitti || []).map((c) => c.campo));
   const cell = (v, fmt) => { const x = fmt ? fmt(v) : v; return (x == null || x === '') ? '<span class="dash">—</span>' : esc(String(x)); };
+  // Il codice in intestazione apre l'anagrafica in una NUOVA scheda: si può
+  // controllare un profilo senza perdere il confronto in corso.
   const head = d.anagrafiche.map((a) => `<th class="${a.codCli === princ ? 'merge-princ-col' : ''}">
-      <label class="merge-princ"><input type="radio" name="princ" value="${a.codCli}" ${a.codCli === princ ? 'checked' : ''}/> #${a.codCli}</label>
+      <label class="merge-princ"><input type="radio" name="princ" value="${a.codCli}" ${a.codCli === princ ? 'checked' : ''}/> ${linkCliente(a.codCli, `#${a.codCli}`, { nuovaScheda: true, titolo: `Apri l'anagrafica #${a.codCli} in una nuova scheda` })}</label>
       ${a.codCli === princ ? '<span class="merge-badge">principale</span>' : ''}</th>`).join('');
   const rows = CAMPI_MERGE.map(([k, label, fmt]) => {
     const conf = conflSet.has(k);
-    const tds = d.anagrafiche.map((a) => `<td class="${a.codCli === princ ? 'merge-princ-col' : ''}${conf ? ' merge-conf-cell' : ''}">${cell(a[k], fmt)}</td>`).join('');
+    const tds = d.anagrafiche.map((a) => {
+      // Anche il nominativo apre la scheda, in una nuova scheda del browser.
+      const val = k === 'nominativo' && a.nominativo
+        ? linkCliente(a.codCli, a.nominativo, { nuovaScheda: true, titolo: `Apri l'anagrafica di ${a.nominativo} in una nuova scheda` })
+        : cell(a[k], fmt);
+      return `<td class="${a.codCli === princ ? 'merge-princ-col' : ''}${conf ? ' merge-conf-cell' : ''}">${val}</td>`;
+    }).join('');
     return `<tr><td class="merge-lbl">${esc(label)}${conf ? ' <span class="merge-warn" title="Dati diversi tra le anagrafiche">⚠</span>' : ''}</td>${tds}</tr>`;
   }).join('');
   const avviso = conflSet.size
@@ -1446,13 +1475,19 @@ function renderDuplicatiPage() {
   }
   msg.hidden = true; wrap.hidden = false;
   $('#duplicati-tbody').innerHTML = lista.map((g) => {
-    const codici = g.membri.map((id) => `<a href="#cliente/${id}">#${id}</a>`).join(', ');
+    const codici = g.membri.map((id) => linkCliente(id, `#${id}`)).join(', ');
     const crit = g.tipo === 'CF' ? 'stesso CF' : 'stesso nome+nascita';
     const fusi = g.fusiCount ? ` <span class="cell-muted">(${g.fusiCount} già fusi)</span>` : '';
     const membriAttr = g.membri.join(',');
+    // La riga è un GRUPPO, non una persona: il nome apre la prima anagrafica
+    // (da lì il box "Possibili duplicati" porta alle altre), i codici aprono
+    // ciascuno la propria.
+    const nomeGruppo = linkCliente(g.membri[0], g.nominativo || '—', {
+      titolo: `Apri l'anagrafica #${g.membri[0]} — il gruppo ne contiene ${g.n}`,
+    });
     return `<tr>
       <td class="dup-check"><input type="checkbox" class="dup-row" data-membri="${membriAttr}" /></td>
-      <td>${esc(g.nominativo || '—')}</td>
+      <td>${nomeGruppo}</td>
       <td><span class="dup-match ${g.tipo === 'CF' ? 'm-cf' : 'm-an'}">${crit}</span></td>
       <td>${codici}${fusi}</td>
       <td class="num">${g.n}</td>

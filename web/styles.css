@@ -422,6 +422,15 @@ dialog.modal-wide { width: min(780px, calc(100vw - 32px)); }
   .content { padding: 18px; }
 }
 
+/* Riferimento a un cliente: ovunque compaia un nome si apre la sua anagrafica.
+   Discreto (eredita colore e peso del contesto, così non spezza tabelle ed
+   elenchi fitti) ma riconoscibile al passaggio del mouse. */
+.cli-ref { color: inherit; font: inherit; text-decoration: none; border-bottom: 1px dotted var(--faint); cursor: pointer; }
+.cli-ref:hover { color: var(--brand); border-bottom: 1px solid var(--accent); }
+/* Dove il nome è già l'elemento forte della card mantiene il suo stile */
+.cli-ref.arr-name-link, .cli-ref.ic-name { border-bottom-color: transparent; }
+.cli-ref.arr-name-link:hover, .cli-ref.ic-name:hover { border-bottom-color: var(--accent); }
+
 /* Nome ospite cliccabile nelle card Arrivi/In casa */
 .cli-link { color: inherit; text-decoration: none; border-bottom: 1px dashed rgba(255,255,255,.5); }
 .cli-link:hover { border-bottom-style: solid; }

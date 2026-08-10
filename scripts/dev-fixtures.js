@@ -30,7 +30,9 @@ const ANAGRAFICHE = [
   // occupanti / accompagnatori
   { CodCli: 1101, Cognome: 'TOSTI', Nome: 'GIULIA', email: '', Telefono: '', Cellulare: '', Citta: 'BARI', CodNaz: 'I', dtNascita: '1972-09-15', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1102, Cognome: 'PAGLIUSO', Nome: 'ROSEMARIE', email: '', Telefono: '', Cellulare: '', Citta: 'NEW YORK', CodNaz: 'USA', dtNascita: null, CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
-  { CodCli: 1103, Cognome: 'PAGLIUSO', Nome: 'NATALIA', email: '', Telefono: '', Cellulare: '', Citta: 'NEW YORK', CodNaz: 'USA', dtNascita: piu(2).replace(/^\d{4}/, '2014'), CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  // compleanno OGGI, dentro il soggiorno della pratica 70104: serve a vedere la
+  // ricorrenza (e il nome cliccabile) nelle card senza dover forzare i dati
+  { CodCli: 1103, Cognome: 'PAGLIUSO', Nome: 'NATALIA', email: '', Telefono: '', Cellulare: '', Citta: 'NEW YORK', CodNaz: 'USA', dtNascita: piu(0).replace(/^\d{4}/, '2014'), CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1104, Cognome: 'HAEFLIGER', Nome: 'MARKUS', email: '', Telefono: '', Cellulare: '', Citta: 'ZÜRICH', CodNaz: 'CH', dtNascita: null, CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   // duplicato volutamente simile a 1001 (stesso cognome/nome/data di nascita)
   { CodCli: 1201, Cognome: 'TOSTI', Nome: 'CARLO', email: 'carlo.tosti@example.it', Telefono: '', Cellulare: '3391001001', Citta: 'BARI', CodNaz: 'I', dtNascita: '1968-04-12', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },

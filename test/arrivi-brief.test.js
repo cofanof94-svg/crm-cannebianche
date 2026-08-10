@@ -58,6 +58,7 @@ test('costruisciSnapshot: VIP, indesiderato, preferenze nucleo dedup, intolleran
   assert.strictEqual(s.relazioni[300], undefined);
   assert.strictEqual(s.compleanno.data, '2026-08-05');
   assert.strictEqual(s.compleanno.nome, 'ROSSI MARIO');
+  assert.strictEqual(s.compleanno.codCli, 100); // serve a rendere il nome cliccabile
 });
 
 test('costruisciSnapshot: preferenzeTop limitato a 3', () => {

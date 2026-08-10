@@ -121,13 +121,14 @@ function costruisciSnapshot(a, ctx) {
     }
   }
 
-  // Compleanno durante il soggiorno (primo membro che compie gli anni).
+  // Compleanno durante il soggiorno (primo membro che compie gli anni). Porta
+  // con sé il codice cliente: nelle card il nome dev'essere cliccabile.
   let compleanno = null;
   for (const id of ids) {
     const an = ctx.anagra.get(id);
     if (!an) continue;
     const data = compleannoNelSoggiorno(an.dtNascita, a.dtarrivo, a.dtpartenza);
-    if (data) { compleanno = { nome: an.nominativo, data }; break; }
+    if (data) { compleanno = { codCli: id, nome: an.nominativo, data }; break; }
   }
 
   return { vip, indesiderato, preferenzeTop: prefTop, intolleranze: intoll, reclami, relazioni, compleanno };
