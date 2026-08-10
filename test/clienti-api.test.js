@@ -184,6 +184,26 @@ test('GET /api/duplicati → gruppi con conteggio fusi', async () => {
   assert.strictEqual(res.status, 200);
   assert.deepStrictEqual(res.body.gruppi[0].membri, [47186, 55491]);
   assert.strictEqual(res.body.gruppi[0].fusiCount, 0);
+  assert.strictEqual(res.body.gestiti, 0);
+});
+
+// Ciclo di vita della coda: possibile duplicato → associazione → esce dalla lista;
+// se l'associazione viene sciolta il gruppo torna da solo fra quelli da gestire.
+test('GET /api/duplicati: il gruppo associato esce dalla coda e torna dopo lo scollegamento', async () => {
+  const app = await makeApp();
+  const ag = await agente(app);
+  assert.strictEqual((await ag.get('/api/duplicati')).body.gruppi.length, 1);
+
+  const merge = await ag.post('/api/clienti/47186/merge').send({ memberId: 55491, canonicalId: 47186 });
+  assert.strictEqual(merge.status, 201);
+  const dopo = await ag.get('/api/duplicati');
+  assert.deepStrictEqual(dopo.body.gruppi, []);   // fuori dalla coda
+  assert.strictEqual(dopo.body.gestiti, 1);       // ma dichiarato, non sparito
+
+  assert.strictEqual((await ag.delete('/api/merge/55491')).status, 200);
+  const riaperto = await ag.get('/api/duplicati');
+  assert.strictEqual(riaperto.body.gruppi.length, 1); // rilevato di nuovo
+  assert.strictEqual(riaperto.body.gestiti, 0);
 });
 
 test('POST /api/clienti/:codCli/merge rifiuta auto-fusione', async () => {

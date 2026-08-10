@@ -209,7 +209,7 @@
           <div class="page-head">
             <div>
               <h1>Gestione duplicati</h1>
-              <p class="sub">Anagrafiche che sembrano la stessa persona (stesso codice fiscale, o stesso cognome+nome+data di nascita). Unire aggrega soggiorni, consumi e note. Reversibile.</p>
+              <p class="sub">Coda di lavoro: anagrafiche che sembrano la stessa persona (stesso codice fiscale, o stesso cognome+nome+data di nascita) e su cui manca ancora una decisione. Una volta associate escono da qui e si gestiscono dalla scheda dell'ospite. Unire aggrega soggiorni, consumi e note ed è reversibile.</p>
             </div>
             <div class="toolbar">
               <input type="search" id="dup-search" class="search" placeholder="Cerca per nome o codice…" autocomplete="off" />
@@ -220,6 +220,7 @@
             <label class="check"><input type="radio" name="dupf" value="CF" /> Stesso CF</label>
             <label class="check"><input type="radio" name="dupf" value="anagrafica" /> Stesso nome+nascita</label>
             <span class="dup-count" id="dup-count"></span>
+            <span class="dup-gestiti" id="dup-gestiti" hidden></span>
           </div>
           <div class="dup-actions" id="dup-actions" hidden>
             <span id="dup-sel-count">0 selezionati</span>

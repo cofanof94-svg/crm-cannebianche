@@ -13,7 +13,7 @@ const { aggregaCumulativi } = require('../stats');
 const { getAiClient } = require('../ai/client');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
 const briefingAi = require('../ai/briefing');
-const { getGruppo, mergeInto, unmerge, listMappature } = require('../crm/merge');
+const { getGruppo, mergeInto, unmerge, listMappature, separaGruppiDuplicati } = require('../crm/merge');
 const { getDuplicatiCandidati, getTuttiGruppiDuplicati, getAnagreConfronto, calcolaConflitti } = require('../pms/duplicati');
 
 // Eliminate e No-show restano nello storico ma non sono soggiorni reali:
@@ -132,13 +132,17 @@ function createClientiRouter(pmsDb, crmDb) {
   });
 
   // Tutti i gruppi di duplicati (pagina di gestione), con lo stato "già fuso".
+  // Coda di lavoro: escono solo i gruppi su cui serve ancora una decisione.
+  // Quelli già associati si gestiscono dalla scheda dell'ospite (banner "Scheda
+  // fusa"); qui se ne riporta solo il conteggio, per non far sembrare che siano
+  // spariti nel nulla.
   router.get('/duplicati', async (req, res) => {
     const [gruppi, mappature] = await Promise.all([
       getTuttiGruppiDuplicati(pmsDb),
       listMappature(crmDb),
     ]);
-    const fusi = new Set(mappature.map((m) => m.pms_customer_id));
-    res.json({ gruppi: gruppi.map((g) => ({ ...g, fusiCount: g.membri.filter((id) => fusi.has(id)).length })) });
+    const { daGestire, gestiti } = separaGruppiDuplicati(gruppi, mappature);
+    res.json({ gruppi: daGestire, gestiti: gestiti.length });
   });
 
   // Suggerisci preferenze (Fase 3 C, AI on-demand). Raccoglie i fatti dell'ospite

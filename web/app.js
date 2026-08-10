@@ -1365,13 +1365,15 @@ $('#cli-merge-banner').addEventListener('click', async (e) => {
 });
 
 // --- Pagina "Gestione duplicati" ---
-let duplicatiGruppi = [];
+let duplicatiGruppi = [];   // solo quelli su cui manca una decisione
+let duplicatiGestiti = 0;   // già associati: fuori dalla coda, gestiti dalla scheda ospite
 async function loadDuplicatiPage() {
   const msg = $('#duplicati-msg'); const wrap = $('#duplicati-wrap');
   msg.hidden = false; msg.textContent = 'Caricamento…'; wrap.hidden = true;
   const { status, body } = await api('/api/duplicati');
   if (status !== 200) { msg.textContent = 'Errore nel caricamento dei duplicati.'; return; }
   duplicatiGruppi = body.gruppi || [];
+  duplicatiGestiti = body.gestiti || 0;
   renderDuplicatiPage();
 }
 const senzaAccenti = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -1381,9 +1383,25 @@ function renderDuplicatiPage() {
   const q = senzaAccenti(($('#dup-search') && $('#dup-search').value) || '').trim();
   const lista = duplicatiGruppi.filter((g) => (f === 'tutti' || g.tipo === f)
     && (!q || senzaAccenti(g.nominativo).includes(q) || g.membri.some((id) => String(id).includes(q))));
-  $('#dup-count').textContent = `${lista.length} ${lista.length === 1 ? 'gruppo' : 'gruppi'}`;
+  $('#dup-count').textContent = `${lista.length} ${lista.length === 1 ? 'gruppo da gestire' : 'gruppi da gestire'}`;
+  // I gruppi già associati non spariscono nel nulla: se ne dichiara il numero,
+  // così è chiaro che la coda si è accorciata perché il lavoro è stato fatto.
+  const gest = $('#dup-gestiti');
+  if (gest) {
+    gest.hidden = !duplicatiGestiti;
+    gest.textContent = duplicatiGestiti
+      ? `· ${duplicatiGestiti} ${duplicatiGestiti === 1 ? 'gruppo già associato' : 'gruppi già associati'}, dalle schede ospite`
+      : '';
+  }
   const msg = $('#duplicati-msg'); const wrap = $('#duplicati-wrap');
-  if (!lista.length) { msg.hidden = false; msg.textContent = 'Nessun gruppo di duplicati.'; wrap.hidden = true; return; }
+  if (!lista.length) {
+    msg.hidden = false;
+    msg.textContent = duplicatiGruppi.length
+      ? 'Nessun risultato per il filtro.'
+      : 'Nessun duplicato da gestire: tutti i gruppi rilevati sono già stati associati.';
+    wrap.hidden = true;
+    return;
+  }
   msg.hidden = true; wrap.hidden = false;
   $('#duplicati-tbody').innerHTML = lista.map((g) => {
     const codici = g.membri.map((id) => `<a href="#cliente/${id}">#${id}</a>`).join(', ');

@@ -109,4 +109,29 @@ async function listMappature(crmDb) {
   );
 }
 
-module.exports = { getGruppo, getGruppiByIds, listMembri, mergeInto, unmerge, listMappature };
+// Divide i gruppi di possibili duplicati (rilevati sul PMS) in "da gestire" e
+// "già gestiti", per far funzionare la pagina Duplicati come una coda di lavoro.
+//
+// Un gruppo è GESTITO quando tutti i suoi codici convergono sullo stesso
+// principale: è il segno che l'operatore li ha riconosciuti come la stessa
+// persona. Se solo alcuni sono stati fusi, il gruppo resta da lavorare.
+// Il principale può stare anche fuori dal gruppo (A e B entrambi fusi in X):
+// conta che il punto d'arrivo sia lo stesso.
+//
+// Puro e derivato: nessuno stato "gestito" viene salvato. Se un'associazione
+// viene sciolta (unmerge), la riga sparisce da customer_merge e il gruppo
+// ricompare da solo fra quelli da gestire al caricamento successivo.
+function separaGruppiDuplicati(gruppi, mappature) {
+  const canonById = new Map((mappature || []).map((m) => [m.pms_customer_id, m.canonical_id]));
+  const daGestire = [];
+  const gestiti = [];
+  for (const g of gruppi || []) {
+    const membri = g.membri || [];
+    const canonici = new Set(membri.map((id) => (canonById.has(id) ? canonById.get(id) : id)));
+    const voce = { ...g, fusiCount: membri.filter((id) => canonById.has(id)).length };
+    (membri.length > 1 && canonici.size === 1 ? gestiti : daGestire).push(voce);
+  }
+  return { daGestire, gestiti };
+}
+
+module.exports = { getGruppo, getGruppiByIds, listMembri, mergeInto, unmerge, listMappature, separaGruppiDuplicati };

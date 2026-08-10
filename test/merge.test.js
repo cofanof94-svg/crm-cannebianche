@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { inClause } = require('../src/db/query');
-const { getGruppo, mergeInto, unmerge } = require('../src/crm/merge');
+const { getGruppo, mergeInto, unmerge, separaGruppiDuplicati } = require('../src/crm/merge');
 const { getDuplicatiCandidati, getTuttiGruppiDuplicati, getAnagreConfronto, calcolaConflitti } = require('../src/pms/duplicati');
 
 // --- inClause ---
@@ -151,4 +151,43 @@ test('getTuttiGruppiDuplicati: splitta i membri STRING_AGG', async () => {
   assert.deepStrictEqual(out[0].membri, [10, 20]);
   assert.deepStrictEqual(out[1].membri, [48758, 55491, 31355]);
   assert.strictEqual(out[1].tipo, 'anagrafica');
+});
+
+// --- separaGruppiDuplicati: la coda di lavoro della pagina Duplicati ---
+const gr = (nome, membri) => ({ tipo: 'CF', nominativo: nome, membri, n: membri.length });
+
+test('separaGruppiDuplicati: gestito solo quando TUTTI i codici convergono sullo stesso principale', () => {
+  const gruppi = [
+    gr('ROSSI', [10, 11]),          // fusi fra loro → gestito
+    gr('BIANCHI', [20, 21, 22]),    // solo 21 fuso in 20, 22 sciolto → da gestire
+    gr('VERDI', [30, 31]),          // nessuna fusione → da gestire
+    gr('NERI', [40, 41]),           // entrambi fusi in un principale ESTERNO al gruppo → gestito
+  ];
+  const mappature = [
+    { pms_customer_id: 11, canonical_id: 10 },
+    { pms_customer_id: 21, canonical_id: 20 },
+    { pms_customer_id: 40, canonical_id: 99 },
+    { pms_customer_id: 41, canonical_id: 99 },
+  ];
+  const { daGestire, gestiti } = separaGruppiDuplicati(gruppi, mappature);
+  assert.deepStrictEqual(daGestire.map((g) => g.nominativo), ['BIANCHI', 'VERDI']);
+  assert.deepStrictEqual(gestiti.map((g) => g.nominativo), ['ROSSI', 'NERI']);
+});
+
+test('separaGruppiDuplicati: fusiCount conta i membri già associati', () => {
+  const { daGestire } = separaGruppiDuplicati([gr('BIANCHI', [20, 21, 22])], [{ pms_customer_id: 21, canonical_id: 20 }]);
+  assert.strictEqual(daGestire[0].fusiCount, 1);
+});
+
+test('separaGruppiDuplicati: senza mappature resta tutto da gestire', () => {
+  const gruppi = [gr('ROSSI', [10, 11]), gr('VERDI', [30, 31])];
+  assert.strictEqual(separaGruppiDuplicati(gruppi, []).daGestire.length, 2);
+  assert.strictEqual(separaGruppiDuplicati(gruppi, undefined).gestiti.length, 0);
+  assert.deepStrictEqual(separaGruppiDuplicati([], []), { daGestire: [], gestiti: [] });
+});
+
+test('separaGruppiDuplicati: non muta i gruppi in ingresso', () => {
+  const gruppi = [gr('ROSSI', [10, 11])];
+  separaGruppiDuplicati(gruppi, [{ pms_customer_id: 11, canonical_id: 10 }]);
+  assert.strictEqual(gruppi[0].fusiCount, undefined);
 });
