@@ -67,7 +67,7 @@ function route() {
   // Rientro negli Arrivi: reset a oggi, tranne quando si torna da una scheda ospite
   // (in quel caso si conserva la data che si stava consultando).
   else if (v === 'arrivi') initArrivi(!cameFrom.startsWith('cliente/'));
-  else if (v === 'incasa') initInCasa();
+  else if (v === 'incasa') initInCasa(!cameFrom.startsWith('cliente/'));
   else if (v === 'ricerca') initRicerca();
   else if (v === 'duplicati') loadDuplicatiPage();
   else if (v === 'utenti') { if (currentUser && currentUser.role === 'admin') loadUsers(); }
@@ -414,7 +414,10 @@ const INCASA_CHIPS = [
   { key: 'usciti', label: 'Usciti', field: 'usciti', pred: (c) => c.statoPartenza === 'checkout' },
 ];
 
-function initInCasa() {
+// resetFiltri: rientrando nella pagina si riparte dalla lista completa. Fa
+// eccezione il ritorno da una scheda ospite, dove si conserva quello che si
+// stava consultando (stessa regola degli Arrivi).
+function initInCasa(resetFiltri) {
   if (!incasaInited) {
     $('#incasa-search').addEventListener('input', renderInCasa);
     $('#incasa-briefing').addEventListener('click', (e) => {
@@ -426,7 +429,7 @@ function initInCasa() {
     });
     incasaInited = true;
   }
-  filtroInCasa = 'all';
+  if (resetFiltri) { filtroInCasa = 'all'; $('#incasa-search').value = ''; }
   loadInCasa();
 }
 
