@@ -396,6 +396,20 @@ function badgeVip(v) {
   return `<span class="pill pill-vip" title="Classificazione VIP: ${esc(v.descrizione)} (${esc(v.cod)})">★ VIP</span>${cl}`;
 }
 
+// Allergie/intolleranze nelle card. Senza etichetta "Noci" da solo sembra una
+// preferenza: la parola davanti è ciò che rende l'alert leggibile in un colpo
+// d'occhio. Fonte unica: le intolleranze dell'anagrafica, già nello snapshot —
+// qui non si aggiunge né si copia nulla. Campo vuoto → nessun alert (non un
+// alert vuoto). classe: 'arr-flag' negli Arrivi, 'flag' In casa.
+function flagAllergie(s, classe) {
+  const voci = ((s && s.intolleranze) || []).filter((x) => String(x || '').trim());
+  if (!voci.length) return '';
+  // Il titolo tiene la distinzione precisa (allergia ≠ intolleranza) senza
+  // allungare l'etichetta: in card serve la parola che fa alzare la guardia.
+  return `<span class="${esc(classe)} flag-safety" title="Allergie / intolleranze — dato di sicurezza">`
+    + `<span class="flag-lbl">⚠ Allergie:</span>${esc(voci.join(', '))}</span>`;
+}
+
 // Nota personale in versione da card (Arrivi e In casa usano lo stesso pezzo).
 // È la STESSA nota dell'anagrafica, solo accorciata: si modifica solo da lì.
 // prefisso: 'arr' o 'ic', per restare nello stile della pagina che la ospita.
@@ -416,9 +430,8 @@ function snapshotBand(s) {
     const chi = s.compleanno.nome ? ` · ${linkCliente(s.compleanno.codCli, s.compleanno.nome)}` : '';
     flags.push(`<span class="arr-flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);
   }
-  if (s.intolleranze && s.intolleranze.length) {
-    flags.push(`<span class="arr-flag flag-safety" title="Allergie / intolleranze — sicurezza">⚠ ${s.intolleranze.map(esc).join(', ')}</span>`);
-  }
+  const allergie = flagAllergie(s, 'arr-flag');
+  if (allergie) flags.push(allergie);
   if (s.reclami && s.reclami.totali) {
     const ap = s.reclami.aperti ? `${s.reclami.aperti} aperti / ` : '';
     flags.push(`<span class="arr-flag flag-warning">⚑ Reclami: ${ap}${s.reclami.totali}</span>`);
@@ -682,9 +695,8 @@ function schedaInCasa(c) {
 
   const flags = [];
   if (s && s.indesiderato) flags.push('<span class="flag flag-danger">⚠ Ospite indesiderato</span>');
-  if (s && s.intolleranze && s.intolleranze.length) {
-    flags.push(`<span class="flag flag-safety" title="Allergie / intolleranze — sicurezza">⚠ ${s.intolleranze.map(esc).join(', ')}</span>`);
-  }
+  const allergie = flagAllergie(s, 'flag');
+  if (allergie) flags.push(allergie);
   if (s && s.compleanno) {
     const chi = s.compleanno.nome ? ` · ${linkCliente(s.compleanno.codCli, s.compleanno.nome)}` : '';
     flags.push(`<span class="flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);

@@ -303,6 +303,12 @@ tbody tr:hover { background: var(--surface-2); }
 .arr-snap { margin: 12px 0 4px; display: flex; flex-direction: column; gap: 8px; }
 .arr-flags { display: flex; flex-wrap: wrap; gap: 8px; }
 .arr-flag { display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 600; border-radius: 8px; padding: 4px 10px; }
+/* Stessa pastiglia in versione compatta per le card "In casa", che sono più
+   dense: prima i colori c'erano ma la forma no, e l'alert sembrava testo colorato. */
+.flag { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; border-radius: 8px; padding: 3px 9px; }
+/* "Allergie:" davanti al valore: è l'etichetta che distingue un alert di
+   sicurezza da una preferenza. Un filo più marcata del contenuto. */
+.flag-lbl { font-weight: 700; margin-right: 5px; }
 .flag-danger { background: #f6e4e2; color: var(--danger); }
 .flag-safety { background: #fbeee0; color: #a5581a; }
 .flag-warning { background: #f3ead9; color: #8a6d2f; }

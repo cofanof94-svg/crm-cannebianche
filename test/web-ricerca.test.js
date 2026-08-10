@@ -113,6 +113,36 @@ test('linkCliente: nome ed eventuale titolo sono sempre con escape', () => {
   assert.match(h, /&lt;img/);
 });
 
+// --- Allergie nelle card: il valore da solo non basta, serve la parola ---
+const flagAllergie = caricaFunzione('flagAllergie', estraiConst('esc'));
+
+test('flagAllergie: etichetta esplicita davanti al valore', () => {
+  const h = flagAllergie({ intolleranze: ['Noci'] }, 'arr-flag');
+  assert.match(h, /Allergie:/);
+  assert.match(h, /Noci/);
+  assert.match(h, /flag-safety/); // resta l'evidenza di sicurezza già in uso
+  assert.match(h, /class="arr-flag flag-safety"/);
+});
+
+test('flagAllergie: più voci separate da virgola, classe della pagina', () => {
+  const h = flagAllergie({ intolleranze: ['Noci', 'arachidi'] }, 'flag');
+  assert.match(h, />⚠ Allergie:<\/span>Noci, arachidi</);
+  assert.match(h, /class="flag flag-safety"/);
+});
+
+test('flagAllergie: campo vuoto → nessun alert (niente pastiglia vuota)', () => {
+  assert.strictEqual(flagAllergie(null, 'flag'), '');
+  assert.strictEqual(flagAllergie({}, 'flag'), '');
+  assert.strictEqual(flagAllergie({ intolleranze: [] }, 'flag'), '');
+  assert.strictEqual(flagAllergie({ intolleranze: ['', '   '] }, 'flag'), ''); // solo spazi = vuoto
+});
+
+test('flagAllergie: il testo arriva dall\'anagrafica, quindi va con escape', () => {
+  const h = flagAllergie({ intolleranze: ['<img src=x onerror=alert(1)>'] }, 'flag');
+  assert.doesNotMatch(h, /<img/);
+  assert.match(h, /&lt;img/);
+});
+
 // --- Nota personale nelle card (stessa nota dell'anagrafica, versione corta) ---
 const rigaNotaPersonale = caricaFunzione('rigaNotaPersonale', estraiConst('esc'));
 
