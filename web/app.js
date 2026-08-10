@@ -1231,7 +1231,8 @@ async function caricaPreferenze(codCli) {
     </li>`).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
   // Preferenze 'nucleo' di altri membri del nucleo: sola lettura (si cambiano
   // sulla scheda di chi le possiede), quindi pastiglia ferma, non interruttore.
-  const condivise = cond.length ? `<li class="pref-cond-head">👪 Condivise dal nucleo <span class="cell-muted">(sola lettura, si modificano sulla scheda del proprietario)</span></li>` + cond.map((p) => `
+  const condivise = cond.length ? `<li class="pref-cond-head">👪 Condivise dal nucleo <span class="cell-muted">(sola lettura)</span>`
+    + `<span class="info info-wide" data-tip="Preferenze di nucleo create sulla scheda di un altro cliente: qui si leggono soltanto. Per cambiarne l'ambito, correggerle o toglierle, apri la sua anagrafica dal nome cliccabile sotto la preferenza — è lì che la preferenza vive.">i</span></li>` + cond.map((p) => `
     <li class="pref-condivisa">
       <div class="pref-head">
         <span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>
