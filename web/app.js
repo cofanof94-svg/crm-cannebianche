@@ -674,7 +674,7 @@ async function loadUsers() {
       <td>${cell(u.cognome)}</td>
       <td class="cell-muted">${cell(u.email)}</td>
       <td><span class="role-tag">${esc(u.role)}</span></td>
-      <td>${u.attivo ? '<span class="pill pill-incasa">Attivo</span>' : '<span class="pill pill-atteso">Disattivato</span>'}</td>
+      <td>${u.attivo ? '<span class="pill pill-attivo">Attivo</span>' : '<span class="pill pill-disattivato">Disattivato</span>'}</td>
       <td class="row-actions">
         <button class="btn-icon" data-edit="${u.id}">Modifica</button>
         <button class="btn-icon danger" data-del="${u.id}">Elimina</button>
@@ -839,14 +839,16 @@ async function loadCliente(codCli) {
   msg.hidden = true; body.hidden = false;
 }
 
+// Colore dello stato nello storico soggiorni. 'Partito' è un soggiorno finito,
+// non una partenza da gestire: va col grigio dei conclusi, non con l'arancione
+// di "Parte oggi".
 function statoSoggPill(stato) {
   if (stato === 'In casa') return 'pill-incasa';
-  if (stato === 'Concluso') return 'pill-checkout';
-  if (stato === 'Partito') return 'pill-partenza';
+  if (stato === 'Concluso' || stato === 'Partito') return 'pill-checkout';
   if (stato === 'Eliminata') return 'pill-eliminata';
   if (stato === 'Pianificata') return 'pill-pianificata';
   if (stato === 'No-show') return 'pill-noshow';
-  return 'pill-atteso';
+  return 'pill-atteso'; // 'Confermato': arriva oggi
 }
 
 // Mini-card di un dato di contatto (Email, Telefono, …). Vuoto → nessuna card.
@@ -1536,7 +1538,7 @@ async function caricaComplaints(codCli) {
     return `
     <li data-compl="${c.id}" data-periodo="${esc(c.periodo || '')}" class="${risolto ? 'compl-risolto' : ''}">
       <div class="compl-top">
-        <span class="pill ${risolto ? 'pill-checkout' : 'pill-atteso'}">${risolto ? 'Risolto' : 'Aperto'}</span>
+        <span class="pill ${risolto ? 'pill-risolto' : 'pill-aperto'}">${risolto ? 'Risolto' : 'Aperto'}</span>
         ${c.periodo ? `<span class="pref-tag">${esc(c.periodo)}</span>` : ''}
         <span class="compl-testo nota-testo">${esc(c.testo)}</span>
       </div>

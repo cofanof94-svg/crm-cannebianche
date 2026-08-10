@@ -28,6 +28,19 @@
   --faint: #b0a596;
   --danger: #b0453a;
 
+  /* Stati della prenotazione — una tinta per ogni momento del soggiorno, così
+     lo stato si legge dal colore prima che dall'etichetta. Ogni stato ha
+     sfondo (-bg), testo (-fg) e pallino (-dot). Il ROSSO resta riservato alle
+     anomalie (no-show, ospite indesiderato, allergie): se lo si usasse anche
+     per un check-out normale, chi scorre la lista cercando i problemi
+     troverebbe falsi allarmi. */
+  --st-futuro-bg: #e9f1f5; --st-futuro-fg: #3f6379; --st-futuro-dot: #6d93ab; /* Pianificata */
+  --st-atteso-bg: #f7edda; --st-atteso-fg: #7c5f28; --st-atteso-dot: #c9a24e; /* Atteso oggi */
+  --st-presente-bg: #e6efe0; --st-presente-fg: #4c5b41; --st-presente-dot: #6f9153; /* In casa */
+  --st-partenza-bg: #fbe7d6; --st-partenza-fg: #8f4d18; --st-partenza-dot: #d2762f; /* Parte oggi */
+  --st-concluso-bg: #eceae5; --st-concluso-fg: #6b6257; --st-concluso-dot: #a89f93; /* Partito/Concluso */
+  --st-anomalia-bg: #f7e3e0; --st-anomalia-fg: #98392f; --st-anomalia-dot: #c05a4e; /* No-show */
+
   --radius: 14px;
   --radius-sm: 9px;
   --shadow-sm: 0 1px 2px rgba(73,59,52,.05), 0 2px 6px rgba(73,59,52,.06);
@@ -164,12 +177,15 @@ a.kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-
 .kpi-n { font-family: var(--font-display); font-weight: 600; font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text); }
 .kpi-l { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .045em; color: var(--muted); }
 
-.kpi-arrivi::before { background: var(--accent); }
-.kpi-arrivi .kpi-ico { background: var(--accent-050); color: var(--accent-700); }
-.kpi-partenze::before { background: var(--brand); }
-.kpi-partenze .kpi-ico { background: var(--brand-050); color: var(--brand); }
-.kpi-presenti::before { background: var(--sea); }
-.kpi-presenti .kpi-ico { background: var(--sea-050); color: var(--sea-700); }
+/* Le tre card della Home usano gli stessi colori degli stati in cui portano:
+   Arrivi = "Atteso", Presenti = "In casa", Partenze = "Parte oggi". Così il
+   colore che clicchi è quello che ritrovi sulle card della lista. */
+.kpi-arrivi::before { background: var(--st-atteso-dot); }
+.kpi-arrivi .kpi-ico { background: var(--st-atteso-bg); color: var(--st-atteso-fg); }
+.kpi-presenti::before { background: var(--st-presente-dot); }
+.kpi-presenti .kpi-ico { background: var(--st-presente-bg); color: var(--st-presente-fg); }
+.kpi-partenze::before { background: var(--st-partenza-dot); }
+.kpi-partenze .kpi-ico { background: var(--st-partenza-bg); color: var(--st-partenza-fg); }
 
 /* ===== Card / tabella ===== */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
@@ -202,20 +218,38 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
-.pill-incasa { background: var(--sea-050); color: var(--sea-700); }
-.pill-incasa::before { background: var(--sea); }
-.pill-atteso { background: var(--accent-050); color: var(--accent-700); }
-.pill-atteso::before { background: var(--accent); }
-.pill-partenza { background: var(--accent-050); color: var(--accent-700); }
-.pill-partenza::before { background: var(--accent); }
-.pill-checkout { background: #edf0f2; color: var(--muted); }
-.pill-checkout::before { background: var(--faint); }
-.pill-eliminata { background: #fbeaea; color: #b23b3b; }
-.pill-eliminata::before { background: #cf5a5a; }
-.pill-pianificata { background: var(--sand-050); color: var(--brand); }
-.pill-pianificata::before { background: var(--accent); }
-.pill-noshow { background: #f0ebe4; color: #9a8467; }
-.pill-noshow::before { background: #b79b6f; }
+/* Ciclo di vita della prenotazione, dal futuro al concluso.
+   Pianificata → Atteso → In casa → Parte oggi → Partito/Concluso, più le
+   anomalie (No-show, Eliminata). Ogni stato ha una tinta diversa: prima
+   "Atteso" e "Parte oggi" erano identici, e "Partito" usava il colore di
+   "Parte oggi". */
+.pill-pianificata { background: var(--st-futuro-bg); color: var(--st-futuro-fg); }
+.pill-pianificata::before { background: var(--st-futuro-dot); }
+.pill-atteso { background: var(--st-atteso-bg); color: var(--st-atteso-fg); }
+.pill-atteso::before { background: var(--st-atteso-dot); }
+.pill-incasa { background: var(--st-presente-bg); color: var(--st-presente-fg); }
+.pill-incasa::before { background: var(--st-presente-dot); }
+.pill-partenza { background: var(--st-partenza-bg); color: var(--st-partenza-fg); }
+.pill-partenza::before { background: var(--st-partenza-dot); }
+.pill-checkout { background: var(--st-concluso-bg); color: var(--st-concluso-fg); }
+.pill-checkout::before { background: var(--st-concluso-dot); }
+.pill-noshow { background: var(--st-anomalia-bg); color: var(--st-anomalia-fg); }
+.pill-noshow::before { background: var(--st-anomalia-dot); }
+/* Eliminata: prenotazione annullata, non un soggiorno andato male → grigio con
+   etichetta barrata, così non si confonde col No-show (rosso). */
+.pill-eliminata { background: var(--st-concluso-bg); color: var(--st-concluso-fg); text-decoration: line-through; text-decoration-color: var(--st-concluso-dot); }
+.pill-eliminata::before { background: var(--st-concluso-dot); text-decoration: none; }
+
+/* Stati NON di prenotazione: hanno classi proprie per non ereditare i colori
+   del soggiorno (un reclamo "Aperto" non deve sembrare un ospite "Atteso"). */
+.pill-attivo { background: var(--st-presente-bg); color: var(--st-presente-fg); }
+.pill-attivo::before { background: var(--st-presente-dot); }
+.pill-disattivato { background: var(--st-concluso-bg); color: var(--st-concluso-fg); }
+.pill-disattivato::before { background: var(--st-concluso-dot); }
+.pill-aperto { background: #f4ecdd; color: #8a6a2f; }
+.pill-aperto::before { background: #c9a24e; }
+.pill-risolto { background: var(--st-concluso-bg); color: var(--st-concluso-fg); }
+.pill-risolto::before { background: var(--st-concluso-dot); }
 
 /* ===== Stati (loading / vuoto / errore) ===== */
 .state { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
@@ -404,9 +438,13 @@ dialog.modal-wide { width: min(780px, calc(100vw - 32px)); }
 }
 .cli-header h1 { margin: 0; }
 .cli-ident > div:not(.cli-avatar) { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* VIP e ospite indesiderato non sono stati del soggiorno ma qualità dell'ospite:
+   oro il primo, rosso il secondo (il rosso resta riservato alle anomalie).
+   Hanno già ★ e ⚠ nel testo, quindi niente pallino. */
 .pill-vip { background: var(--accent-050); color: var(--accent-700); font-size: 12px; padding: 4px 12px; }
 .cli-vip-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pill-warning { background: #f6e4e2; color: var(--danger); font-size: 12px; padding: 4px 12px; font-weight: 600; }
+.pill-vip::before, .pill-warning::before { display: none; }
 .vip-class { font-size: 12px; color: var(--muted); font-style: italic; }
 
 /* Contatti in mini-card */
@@ -690,9 +728,11 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
 .note-body { margin-top: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 12.5px; line-height: 1.55; color: var(--text); white-space: pre-wrap; max-height: 220px; overflow: auto; }
 
 /* Chip filtranti specifiche di In Casa (riusano .brief-chip degli Arrivi) */
-.brief-partenze .brief-n { color: var(--sea-700); }
+/* Stessi colori dei tag di stato: il chip "Partono oggi" è arancione come la
+   pill "Parte oggi", "Usciti" grigio come "Check-out effettuato". */
+.brief-partenze .brief-n { color: var(--st-partenza-fg); }
 .brief-ricorrenze .brief-n { color: var(--accent); }
-.brief-usciti .brief-n { color: var(--muted); }
+.brief-usciti .brief-n { color: var(--st-concluso-fg); }
 .brief-chip-on .brief-partenze .brief-n, .brief-chip-on.brief-partenze .brief-n,
 .brief-chip-on.brief-ricorrenze .brief-n, .brief-chip-on.brief-usciti .brief-n { color: #fff; }
 
