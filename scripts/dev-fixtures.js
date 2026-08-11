@@ -45,6 +45,7 @@ const ANAGRAFICHE = [
   { CodCli: 1012, Cognome: 'BIANCHI', Nome: 'FEDERICO', email: 'f.bianchi@example.it', Telefono: '', Cellulare: '3491012012', Citta: 'ROMA', CodNaz: 'I', dtNascita: '1965-07-19', CodFis: '', CodVip: 'IN', DesVip: 'OSPITE INDESIDERATO', Annotazioni: 'Contestazioni ripetute, valutare con la direzione.', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'S', PrivacyCessioneDati: 'S' },
   { CodCli: 1013, Cognome: 'DUBOIS', Nome: 'CLAIRE', email: 'c.dubois@example.fr', Telefono: '', Cellulare: '+33612345678', Citta: 'LYON', CodNaz: 'F', dtNascita: '1982-05-23', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1014, Cognome: 'SCHMIDT', Nome: 'LUKAS', email: 'l.schmidt@example.de', Telefono: '', Cellulare: '+491701234567', Citta: 'HAMBURG', CodNaz: 'D', dtNascita: '1976-09-30', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
+  { CodCli: 1016, Cognome: 'CONTE', Nome: 'VALERIA', email: 'v.conte@example.it', Telefono: '', Cellulare: '3281016016', Citta: 'LECCE', CodNaz: 'I', dtNascita: '1985-04-27', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1015, Cognome: 'AL-FARSI', Nome: 'NOURA', email: 'n.alfarsi@example.com', Telefono: '', Cellulare: '+971501234567', Citta: 'DUBAI', CodNaz: 'UAE', dtNascita: null, CodFis: '', CodVip: 'V1', DesVip: 'BOLLICINE + FRUTTA FRESCA', Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   // occupanti delle prenotazioni future
   { CodCli: 1105, Cognome: 'ZANARDELLI', Nome: 'BEATRICE', email: '', Telefono: '', Cellulare: '', Citta: 'BRESCIA', CodNaz: 'I', dtNascita: '1974-02-11', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
@@ -79,6 +80,18 @@ const PRENOTAZIONI = [
   // arrivi di oggi
   { codpratica: 70201, codCliente: 1201, camere: '211', tipologie: 'SUP', dtarrivo: piu(0), dtpartenza: piu(5), trattamento: 'Mezza Pensione', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 310, oraArrivo: '15.30', note: 'Prima volta in hotel. Arrivo previsto nel pomeriggio. Allergia alle arachidi segnalata al momento della prenotazione.', occupanti: [] },
   { codpratica: 70202, codCliente: 1003, camere: '215', tipologie: 'CLS', dtarrivo: piu(0), dtpartenza: piu(2), trattamento: 'B&B', tariffa: 'BAR', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 245, oraArrivo: '', note: '', occupanti: [] },
+
+  // OGGI — due proposte nella stessa card, una giusta e una sbagliata:
+  // "intollerante al lattosio" è dell'ospite (da accettare), mentre il menù
+  // "senza glutine" riguarda un GRUPPO DI SETTEMBRE, non lei (da ignorare).
+  // È il falso positivo tipico: le regole vedono marcatore + sostanza, ma il
+  // contesto lo capisce solo una persona. Serve a provare il pulsante Ignora.
+  {
+    codpratica: 70211, codCliente: 1016, camere: '208', tipologie: 'CLS', dtarrivo: piu(0), dtpartenza: piu(4),
+    trattamento: 'Mezza Pensione', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 255, oraArrivo: '18.00',
+    note: 'Ospite intollerante al lattosio. Il tour operator chiede un menù senza glutine per il gruppo di settembre, da confermare con la cucina.',
+    occupanti: [],
+  },
 
   // --- Arrivi dei prossimi giorni -------------------------------------------
   // Ogni pratica è pensata per mettere alla prova una cosa precisa: si naviga con
