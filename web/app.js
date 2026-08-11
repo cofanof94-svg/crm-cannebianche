@@ -37,6 +37,13 @@ function puo(permesso) {
   return !!(currentUser && Array.isArray(currentUser.permessi) && currentUser.permessi.includes(permesso));
 }
 
+// Il server non manda l'elenco dei permessi? Non è un ruolo senza diritti: è una
+// versione del server più vecchia di questi file. Succede se si copiano i file e
+// non si riavvia node, e senza un avviso sembrerebbe che l'applicazione abbia
+// perso metà delle funzioni — a tutti insieme, il giorno del rilascio.
+// Si resta prudenti (nessun permesso), ma si dice cos'è davvero.
+const permessiIgnoti = () => !currentUser || !Array.isArray(currentUser.permessi);
+
 // --- Indicatori di caricamento (uno solo per tutta l'app) ---
 // Ogni punto in cui si attende una risposta mostra lo stesso spinner, così
 // l'attesa non si confonde mai con "non c'è niente".
@@ -115,8 +122,17 @@ async function refresh() {
   // Un attributo sul body e i comandi che scrivono spariscono via CSS, anche da
   // quello che verrà disegnato dopo: nessun render deve ricordarsi di chiedere.
   document.body.classList.toggle('sola-lettura', !puo('scrivi'));
-  $('#ruolo-badge').textContent = puo('scrivi') ? '' : 'Sola lettura';
-  $('#ruolo-badge').hidden = puo('scrivi');
+  const badge = $('#ruolo-badge');
+  badge.hidden = puo('scrivi');
+  badge.classList.toggle('ruolo-badge-guasto', permessiIgnoti());
+  if (permessiIgnoti()) {
+    badge.textContent = 'Server da riavviare';
+    badge.title = "L'applicazione è più recente del server: i permessi non arrivano, quindi per prudenza è tutto in sola lettura.";
+    avviso('Il server è più vecchio dei file dell\'applicazione: riavvialo per rientrare in possesso delle funzioni. Fino ad allora si può solo consultare.');
+  } else {
+    badge.textContent = 'Sola lettura';
+    badge.title = 'Il tuo profilo consente di consultare, non di modificare.';
+  }
   if (!location.hash) location.hash = '#home';
   route();
 }

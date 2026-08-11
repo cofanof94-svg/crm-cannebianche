@@ -59,6 +59,19 @@ test('l\'interfaccia ragiona per permesso, non per ruolo', () => {
   assert.match(APP, /function puo\(permesso\)/);
 });
 
+test('permessi assenti = server disallineato, non un ruolo senza diritti', () => {
+  // Successo davvero: server acceso da prima del rilascio + file nuovi sul disco.
+  // /api/me rispondeva senza `permessi` e l'admin si è ritrovato in sola lettura,
+  // convinto di avere un problema di ruolo. Prudenza sì, ma detta com'è.
+  assert.match(APP, /const permessiIgnoti = \(\) =>/);
+  assert.match(APP, /Server da riavviare/);
+  const i = APP.indexOf('const badge = $(\'#ruolo-badge\')');
+  assert.notStrictEqual(i, -1, 'manca la gestione del badge di ruolo');
+  const blocco = APP.slice(i, i + 900);
+  assert.match(blocco, /permessiIgnoti\(\)/);
+  assert.match(blocco, /Sola lettura/); // il caso normale resta distinto
+});
+
 test('le sezioni riservate sono elencate, Analytics compresa', () => {
   // Analytics non esiste ancora, ma la regola di accesso sì: è un requisito
   // esplicito del ticket, non una dimenticanza da correggere quando arriverà.

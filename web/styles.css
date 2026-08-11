@@ -917,3 +917,5 @@ body.sola-lettura :is(
 /* .role-tag non ha bordo: qui serve, altrimenti border-color non si vedrebbe. */
 .role-tag-ignoto { background: #f7edda; border: 1px solid #c9a24e; color: #7c5f28; cursor: help; }
 .campo-nota { display: block; margin-top: 4px; font-size: 11.5px; color: var(--muted); line-height: 1.35; min-height: 1.35em; }
+/* Non è un ruolo, è un guasto di allineamento fra server e file: si distingue. */
+.ruolo-badge-guasto { background: #f7edda; border-color: #c9a24e; color: #7c5f28; }
