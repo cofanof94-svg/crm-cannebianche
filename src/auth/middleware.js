@@ -46,11 +46,20 @@ const REGOLE = [
 const SOLA_LETTURA = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 function permessoPer(metodo, percorso) {
+  // Il percorso si normalizza PRIMA di confrontarlo. Express instrada senza
+  // guardare le maiuscole (`case sensitive routing` è spento di serie), quindi
+  // /api/ADMIN/users arrivava al router degli utenti mentre la regola
+  // /^\/admin/ non ci vedeva niente: la richiesta ricadeva sulla regola generica
+  // e bastava scrivere una lettera maiuscola perché la reception si creasse un
+  // amministratore. Chi decide il permesso deve vedere il percorso come lo vede
+  // chi instrada, non come lo ha scritto il chiamante.
+  const p = String(percorso || '').toLowerCase();
+  const m = String(metodo || '').toUpperCase();
   for (const r of REGOLE) {
-    if (r.metodo && r.metodo !== metodo) continue;
-    if (r.re.test(percorso)) return r.permesso;
+    if (r.metodo && r.metodo !== m) continue;
+    if (r.re.test(p)) return r.permesso;
   }
-  return SOLA_LETTURA.has(metodo) ? PERMESSI.LEGGI : PERMESSI.SCRIVI;
+  return SOLA_LETTURA.has(m) ? PERMESSI.LEGGI : PERMESSI.SCRIVI;
 }
 
 const SPIEGAZIONI = {

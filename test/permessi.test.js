@@ -88,6 +88,22 @@ test('le eccezioni: AI, amministrazione e la futura Analytics', () => {
   assert.strictEqual(permessoPer('GET', '/analytics/preferenze'), PERMESSI.VEDI_ANALYTICS);
 });
 
+test('le maiuscole nell\'URL non aggirano le eccezioni', () => {
+  // Buco vero, trovato durante il collaudo: Express instrada senza guardare le
+  // maiuscole, le regole invece le guardavano. /api/ADMIN/users finiva sul router
+  // degli utenti con il permesso "scrivi", quindi la reception si creava un
+  // amministratore con una lettera maiuscola.
+  for (const p of ['/ADMIN/users', '/Admin/users', '/aDmIn/users', '/admin/USERS']) {
+    assert.strictEqual(permessoPer('GET', p), PERMESSI.GESTISCI_UTENTI, p);
+    assert.strictEqual(permessoPer('POST', p), PERMESSI.GESTISCI_UTENTI, p);
+  }
+  assert.strictEqual(permessoPer('GET', '/Analytics'), PERMESSI.VEDI_ANALYTICS);
+  assert.strictEqual(permessoPer('POST', '/CLIENTI/47186/BRIEFING'), PERMESSI.USA_AI);
+  // Anche il metodo: minuscolo non deve diventare "sconosciuto" e cambiare esito.
+  assert.strictEqual(permessoPer('get', '/clienti/1'), PERMESSI.LEGGI);
+  assert.strictEqual(permessoPer('post', '/clienti/1/preferenze'), PERMESSI.SCRIVI);
+});
+
 test('le eccezioni non sono più larghe di quanto sembrano', () => {
   // "/administratore" non è "/admin/", e una GET su un cliente non diventa AI
   // solo perché la parola compare nel percorso.

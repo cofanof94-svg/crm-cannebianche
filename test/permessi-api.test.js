@@ -129,6 +129,23 @@ test('un ruolo vecchio nel database non diventa un permesso in più', async () =
   assert.notStrictEqual((await ag.get('/api/clienti/47186')).status, 403);
 });
 
+test('nessuna scorciatoia: le maiuscole nell\'URL non scavalcano la guardia', async () => {
+  // Successo davvero al primo collaudo: con /api/ADMIN/users la reception si e'
+  // creata un amministratore. Qui si rifa' l'attacco per intero, perche' un test
+  // sulla funzione pura non basterebbe: il punto era proprio che Express
+  // instradava una forma che la guardia non riconosceva.
+  const app = await appConUtenti();
+  const { ag } = await entra(app, 'banco'); // reception
+  for (const url of ['/api/ADMIN/users', '/api/Admin/users', '/api/aDmIn/users']) {
+    assert.strictEqual((await ag.get(url)).status, 403, `GET ${url}`);
+    const creato = await ag.post(url).send({ username: 'backdoor', password: 'x', role: 'admin' });
+    assert.strictEqual(creato.status, 403, `POST ${url} ha creato un utente`);
+  }
+  // E la promozione di un utente esistente, che era l'altra strada.
+  assert.strictEqual((await ag.patch('/api/ADMIN/users/1').send({ role: 'admin' })).status, 403);
+  assert.strictEqual((await ag.get('/api/ANALYTICS')).status, 403);
+});
+
 test('senza sessione tutto è 401, anche le rotte che non esistono', async () => {
   const app = await appConUtenti();
   assert.strictEqual((await request(app).get('/api/clienti/47186')).status, 401);
