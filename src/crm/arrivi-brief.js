@@ -18,6 +18,7 @@ const { listPreferenze } = require('./preferenze');
 const { listComplaints } = require('./complaint');
 const { listIntolleranze } = require('./intolleranze');
 const { listNotePersonali } = require('./profilo');
+const { proponiDaNote } = require('./allergie-note');
 
 function briefingVuoto(nArrivi) {
   // anniversari e suggerimentiAi: nessuna fonte dati affidabile per ora → 0 (TODO).
@@ -181,7 +182,12 @@ function costruisciSnapshot(a, ctx) {
     if (data) { compleanno = { codCli: id, nome: an.nominativo, data }; break; }
   }
 
-  return { vip, indesiderato, preferenzeTop: prefTop, intolleranze: intoll, reclami, relazioni, compleanno, notaPersonale };
+  // Possibili allergie lette nella nota della prenotazione: PROPOSTE, non dati.
+  // Chi le conferma sceglie anche a quale ospite attribuirle (la nota è della
+  // pratica, non della persona). Già registrate → non si ripropongono.
+  const allergieProposte = proponiDaNote(a.note, intoll);
+
+  return { vip, indesiderato, preferenzeTop: prefTop, intolleranze: intoll, reclami, relazioni, compleanno, notaPersonale, allergieProposte };
 }
 
 // Riepilogo giornata dai singoli snapshot.

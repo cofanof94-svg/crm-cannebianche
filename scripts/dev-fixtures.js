@@ -47,6 +47,7 @@ Rosemarie Pagliuso, Natalia Pagliuso, Raphael Pagliuso, Robert Pagliuso JR
 Transfer da BRI il giorno dell'arrivo, volo AZ1613 ore 14:20.
 Culla in camera 226. Tavolo riservato ristorante ore 20:30 per tutta la permanenza.
 Cena di compleanno da concordare con la maître — la signora compie gli anni durante il soggiorno.
+La bambina è intollerante al lattosio, avvisare la cucina. La signora è allergica ai crostacei. I genitori non hanno altre allergie.
 TOT: € 13.640,00 — saldo alla partenza con AMEX.`;
 
 // --- Prenotazioni ----------------------------------------------------------
@@ -61,7 +62,7 @@ const PRENOTAZIONI = [
   { codpratica: 70107, codCliente: 1007, camere: '232, 234', tipologie: 'JSF', dtarrivo: piu(-1), dtpartenza: piu(0), trattamento: 'B&B', tariffa: 'DIRETTO', extra: 220, stato: 'partenza', paxAdulti: 3, paxBambini: 1, tariffaNotte: 620, note: 'Navetta per aeroporto alle 11:00.', occupanti: [{ codCli: 1007, camera: '232' }] },
   { codpratica: 70108, codCliente: 1008, camere: '205', tipologie: 'SUP', dtarrivo: piu(-2), dtpartenza: piu(5), trattamento: 'Mezza Pensione', tariffa: 'BAR', extra: 315, stato: 'incasa', paxAdulti: 2, paxBambini: 0, tariffaNotte: 300, note: '', occupanti: [{ codCli: 1008, camera: '205' }] },
   // arrivi di oggi
-  { codpratica: 70201, codCliente: 1201, camere: '211', tipologie: 'SUP', dtarrivo: piu(0), dtpartenza: piu(5), trattamento: 'Mezza Pensione', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 310, oraArrivo: '15.30', note: 'Prima volta in hotel. Arrivo previsto nel pomeriggio.', occupanti: [] },
+  { codpratica: 70201, codCliente: 1201, camere: '211', tipologie: 'SUP', dtarrivo: piu(0), dtpartenza: piu(5), trattamento: 'Mezza Pensione', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 310, oraArrivo: '15.30', note: 'Prima volta in hotel. Arrivo previsto nel pomeriggio. Allergia alle arachidi segnalata al momento della prenotazione.', occupanti: [] },
   { codpratica: 70202, codCliente: 1003, camere: '215', tipologie: 'CLS', dtarrivo: piu(0), dtpartenza: piu(2), trattamento: 'B&B', tariffa: 'BAR', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 245, oraArrivo: '', note: '', occupanti: [] },
 ];
 

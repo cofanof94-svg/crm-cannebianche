@@ -806,6 +806,21 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
   * { transition: none !important; }
 }
 
+/* ===== Allergie proposte dalle note PMS ==================================== */
+/* Riquadro tratteggiato: si vede che è una proposta, non un dato registrato. */
+.prop-box { margin: 10px 0 4px; padding: 9px 11px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--surface-2); }
+.prop-testa { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
+.prop-riga { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0; }
+.prop-riga + .prop-riga { border-top: 1px solid var(--border); }
+.prop-termine { font-size: 12.5px; font-weight: 700; color: #a5581a; background: #fbeee0; border-radius: 7px; padding: 2px 9px; white-space: nowrap; }
+/* La frase originale è ciò che rende giudicabile la proposta: sta in evidenza,
+   non nascosta in un suggerimento. */
+.prop-frase { flex: 1 1 220px; min-width: 0; font-size: 12px; font-style: italic; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prop-chi { font: inherit; font-size: 12px; padding: 2px 6px; border: 1px solid var(--border-strong); border-radius: 7px; max-width: 190px; }
+.prop-ok { font-weight: 700; color: var(--sea-700); }
+.prop-ok:hover { background: var(--sea-050); }
+.prop-no { color: var(--muted); }
+
 /* ===== Export per i reparti ================================================ */
 /* Il pulsante sta su fondo chiaro: .btn-ghost è pensato per la barra scura e qui
    sarebbe bianco su bianco. Questo è il secondario su chiaro. */

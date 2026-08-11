@@ -1,0 +1,99 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const { estraiAllergie, proponiDaNote, frasi } = require('../src/crm/allergie-note');
+
+const termini = (nota) => estraiAllergie(nota).map((p) => p.termine);
+
+test('riconosce le dichiarazioni esplicite', () => {
+  assert.deepStrictEqual(termini('Allergia alle arachidi.'), ['Arachidi']);
+  assert.deepStrictEqual(termini('La signora è celiaca.'), ['Celiachia']);
+  assert.deepStrictEqual(termini('Ospite intollerante al lattosio'), ['Lattosio']);
+  assert.deepStrictEqual(termini('SENZA GLUTINE per tutta la permanenza'), ['Glutine']);
+  assert.deepStrictEqual(termini('Evitare crostacei e molluschi.'), ['Crostacei', 'Molluschi']);
+});
+
+test('una sostanza da sola NON è un\'allergia', () => {
+  // Il caso che rende inutile una ricerca per sole parole chiave.
+  assert.deepStrictEqual(termini('Gradisce la torta alle noci ogni mattina.'), []);
+  assert.deepStrictEqual(termini('Cena a base di pesce prenotata per le 20:30.'), []);
+  assert.deepStrictEqual(termini('Colazione con uova strapazzate.'), []);
+});
+
+test('la negazione non diventa un\'allergia', () => {
+  assert.deepStrictEqual(termini('Il bambino non è allergico alle arachidi, mangia tutto.'), []);
+  assert.deepStrictEqual(termini('Nessuna allergia segnalata.'), []);
+  assert.deepStrictEqual(termini('No allergie.'), []);
+  assert.deepStrictEqual(termini('Non ci sono allergie in famiglia.'), []);
+  assert.deepStrictEqual(termini('Non risulta intollerante al lattosio.'), []);
+  // Con un aggettivo in mezzo: è il modo in cui si scrive davvero in reception.
+  assert.deepStrictEqual(termini('I genitori non hanno altre allergie.'), []);
+  assert.deepStrictEqual(termini('Non ha particolari intolleranze.'), []);
+  assert.deepStrictEqual(termini('Non ha alcuna allergia alimentare.'), []);
+});
+
+test('"no glutine" resta una restrizione: il no cade sulla sostanza', () => {
+  // Differenza sottile ma decisiva rispetto a "no allergie".
+  assert.deepStrictEqual(termini('No glutine per la signora.'), ['Glutine']);
+  assert.deepStrictEqual(termini('Niente lattosio a colazione.'), ['Lattosio']);
+});
+
+test('la negazione vale solo per la sua frase, non contagia il resto', () => {
+  const t = termini('Nessuna allergia per i genitori. La bambina è celiaca.');
+  assert.deepStrictEqual(t, ['Celiachia']);
+});
+
+test('sostanze fuori elenco: si propone comunque il testo dopo il marcatore', () => {
+  assert.deepStrictEqual(termini('La signora è allergica ai pollini di betulla.'), ['Pollini di betulla']);
+  assert.deepStrictEqual(termini('Intolleranza al nichel.'), ['Nichel']); // questa è in elenco
+});
+
+test('niente doppioni, né fra frasi né nella stessa', () => {
+  assert.deepStrictEqual(termini('Allergia al glutine. Ricordare: senza glutine anche a cena.'), ['Glutine']);
+});
+
+test('la proposta porta con sé la frase da cui nasce', () => {
+  const p = estraiAllergie('Transfer alle 14. La signora è celiaca, avvisare la cucina. Saldo con AMEX.');
+  assert.strictEqual(p.length, 1);
+  assert.strictEqual(p[0].termine, 'Celiachia');
+  assert.strictEqual(p[0].frase, 'La signora è celiaca, avvisare la cucina');
+  assert.doesNotMatch(p[0].frase, /AMEX/); // solo la frase pertinente, non tutta la nota
+});
+
+test('frasi lunghissime vengono accorciate, non troncate a metà parola', () => {
+  const lunga = `Allergia alle arachidi ${'e alla frutta secca in generale '.repeat(8)}`;
+  const p = estraiAllergie(lunga);
+  assert.ok(p[0].frase.length <= 120);
+  assert.ok(p[0].frase.endsWith('…'));
+});
+
+test('note vuote, nulle o senza allergie → nessuna proposta', () => {
+  assert.deepStrictEqual(estraiAllergie(null), []);
+  assert.deepStrictEqual(estraiAllergie(''), []);
+  assert.deepStrictEqual(estraiAllergie('   \n  '), []);
+  assert.deepStrictEqual(estraiAllergie('Camera alta, lontano ascensore. Cuscino rigido.'), []);
+});
+
+test('nota reale del PMS: rumore commerciale, nessun falso positivo', () => {
+  const nota = `PAGANO TUTTO
+4 camere: 1 MJS + 2 SUP + 1 CLS — 6AD + 2CH (under 10y) BB
+€ 1.870,00 PER 2 NOTTI 1550 + €320 sofabed
+Transfer da BRI il giorno dell'arrivo, volo AZ1613 ore 14:20.
+Culla in camera 226. Tavolo riservato ristorante ore 20:30.
+TOT: € 13.640,00 — saldo alla partenza con AMEX.`;
+  assert.deepStrictEqual(termini(nota), []);
+  // la stessa nota, con una riga di allergia in mezzo
+  assert.deepStrictEqual(termini(`${nota}\nLa bambina è intollerante al lattosio.`), ['Lattosio']);
+});
+
+test('proponiDaNote: quello che è già in scheda non si ripropone', () => {
+  const nota = 'Allergia alle arachidi. La signora è celiaca.';
+  assert.deepStrictEqual(proponiDaNote(nota, []).map((p) => p.termine), ['Arachidi', 'Celiachia']);
+  assert.deepStrictEqual(proponiDaNote(nota, ['arachidi']).map((p) => p.termine), ['Celiachia']);
+  assert.deepStrictEqual(proponiDaNote(nota, ['ARACHIDI', 'Celiachia']), []);
+  assert.deepStrictEqual(proponiDaNote(nota, [null, '  ']).length, 2); // valori sporchi ignorati
+});
+
+test('frasi: spezza su punti, punti e virgola e a capo', () => {
+  assert.deepStrictEqual(frasi('Uno. Due; tre\nquattro'), ['Uno', 'Due', 'tre', 'quattro']);
+  assert.deepStrictEqual(frasi('a. b'), []); // frammenti troppo corti per dire qualcosa
+});

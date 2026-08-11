@@ -208,6 +208,8 @@ function initArrivi(resetOggi) {
     });
     // Guest Briefing AI (on-demand) dai pulsanti nelle card.
     $('#arrivi-cards').addEventListener('click', (e) => {
+      const prop = e.target.closest('[data-add-prop], [data-ign-prop]');
+      if (prop) { gestisciProposta(prop, renderArrivi); return; }
       const salva = e.target.closest('[data-save-cli]');
       if (salva) { salvaBriefingNelProfilo(salva); return; }
       const btn = e.target.closest('[data-brief-cli]');
@@ -412,6 +414,69 @@ function flagAllergie(s, classe) {
     + `<span class="flag-lbl">⚠ Allergie:</span>${esc(voci.join(', '))}</span>`;
 }
 
+// --- Possibili allergie lette nelle note PMS ---
+// Sono PROPOSTE: il CRM non scrive niente da solo in un dato di sicurezza.
+// L'operatore vede la frase da cui nasce la proposta, sceglie a chi attribuirla
+// e conferma. Scartate → spariscono finché resta su questa pagina.
+const proposteScartate = new Set();
+const chiaveProposta = (x, termine) => `${x.codpratica}|${String(termine).toLowerCase()}`;
+
+// Chi può essere il destinatario: il referente e gli occupanti con un codice.
+// La nota è della pratica, quindi la persona la sceglie chi sa leggerla.
+function personeDellaPrenotazione(x) {
+  const out = [];
+  if (Number.isInteger(x.codCliente)) out.push({ codCli: x.codCliente, nome: x.nominativo || `#${x.codCliente}` });
+  for (const o of x.ospiti || []) {
+    if (!Number.isInteger(o.codCli) || o.codCli === x.codCliente) continue;
+    out.push({ codCli: o.codCli, nome: o.nominativo || `#${o.codCli}` });
+  }
+  return out;
+}
+
+function proposteAllergie(x) {
+  const proposte = ((x.snapshot && x.snapshot.allergieProposte) || [])
+    .filter((p) => p && p.termine && !proposteScartate.has(chiaveProposta(x, p.termine)));
+  if (!proposte.length) return '';
+  const persone = personeDellaPrenotazione(x);
+  if (!persone.length) return ''; // senza un ospite a cui attribuirla non si propone
+  const opzioni = persone.map((p) => `<option value="${p.codCli}">${esc(p.nome)}</option>`).join('');
+  const righe = proposte.map((p) => `
+    <div class="prop-riga" data-prop-pratica="${esc(x.codpratica)}" data-prop-termine="${esc(p.termine)}">
+      <span class="prop-termine">⚠ ${esc(p.termine)}</span>
+      <span class="prop-frase" title="${esc(p.frase)}">«${esc(p.frase)}»</span>
+      <select class="prop-chi" title="A chi attribuire l'allergia">${opzioni}</select>
+      <button type="button" class="btn-icon prop-ok" data-add-prop>Aggiungi</button>
+      <button type="button" class="btn-icon prop-no" data-ign-prop>Ignora</button>
+    </div>`).join('');
+  return `<div class="prop-box">
+    <div class="prop-testa">🔎 Possibili allergie dalle note della prenotazione
+      <span class="info info-wide" data-tip="Trovate cercando parole come allergia, intolleranza o celiachia nelle note del PMS. Sono proposte: nulla viene salvato finché non premi Aggiungi, e sei tu a scegliere l'ospite — la nota è della prenotazione, non della persona.">i</span></div>
+    ${righe}</div>`;
+}
+
+// Conferma o scarto di una proposta. `contenitore` è la card da ridisegnare.
+async function gestisciProposta(btn, ricarica) {
+  const riga = btn.closest('[data-prop-termine]');
+  if (!riga) return;
+  const termine = riga.dataset.propTermine;
+  const chiave = `${riga.dataset.propPratica}|${termine.toLowerCase()}`;
+  if (btn.hasAttribute('data-ign-prop')) { proposteScartate.add(chiave); ricarica(); return; }
+  const codCli = Number(riga.querySelector('.prop-chi').value);
+  if (!Number.isInteger(codCli)) return;
+  riga.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  const { status } = await api(`/api/clienti/${encodeURIComponent(codCli)}/intolleranze`, {
+    method: 'POST', body: JSON.stringify({ testo: termine }),
+  });
+  if (status !== 201) {
+    riga.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+    riga.querySelector('.prop-frase').textContent = 'Errore nel salvataggio, riprova.';
+    return;
+  }
+  // Salvata: non si ripropone (e alla prossima lettura la scarta già il server).
+  proposteScartate.add(chiave);
+  ricarica();
+}
+
 // Reclami nelle card. "Reclami: 1 aperti / 2" dice che c'è un problema ma non
 // quale: chi accoglie l'ospite deve poterlo leggere senza aprire la scheda.
 // Si mostra il testo di quelli APERTI (i risolti restano un conteggio: sono
@@ -534,6 +599,7 @@ function schedaArrivo(a) {
         <div class="arr-meta">${ora}${pill}${briefBtn}</div>
       </header>
       ${snapshotBand(s)}
+      ${proposteAllergie(a)}
       ${briefFatto && briefingTesti[a.codCliente]
     ? `<div class="arr-brief-result">${renderBriefResult(briefingTesti[a.codCliente], a.codCliente)}</div>`
     : '<div class="arr-brief-result" hidden></div>'}
@@ -591,6 +657,11 @@ function initInCasa(resetFiltri, filtroIniziale) {
       const key = chip.dataset.incasa;
       filtroInCasa = (filtroInCasa === key || key === 'all') ? 'all' : key;
       renderInCasa();
+    });
+    // Conferma/scarto delle allergie proposte dalle note.
+    $('#incasa-cards').addEventListener('click', (e) => {
+      const prop = e.target.closest('[data-add-prop], [data-ign-prop]');
+      if (prop) gestisciProposta(prop, renderInCasa);
     });
     incasaInited = true;
   }
@@ -754,6 +825,7 @@ function schedaInCasa(c) {
       ${flagBlock}
       ${notaBlock}
       ${prefBlock}
+      ${proposteAllergie(c)}
       ${renderOspitiInCasa(c)}
       <div class="ic-op">
         ${tratt ? `<span><i>Trattamento</i><b>${tratt}</b></span>` : ''}
