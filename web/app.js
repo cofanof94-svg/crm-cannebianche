@@ -454,6 +454,37 @@ function proposteAllergie(x) {
     ${righe}</div>`;
 }
 
+// Un'allergia appena salvata compare subito nelle card già a video: si aggiorna
+// la copia in memoria invece di rileggere tutta la pagina dal server, così non
+// si perdono il filtro e la ricerca attivi e non c'è attesa.
+// Si tocca ogni prenotazione che coinvolge quel cliente — come referente o come
+// occupante — perché la banda allergie della card è del soggiorno, non del solo
+// intestatario.
+function aggiungiAllergiaNelleCard(codCli, termine) {
+  const chiave = String(termine).trim().toLowerCase();
+  for (const lista of [arriviAll, incasaAll]) {
+    for (const x of lista || []) {
+      const s = x.snapshot;
+      if (!s) continue;
+      const coinvolto = x.codCliente === codCli || (x.ospiti || []).some((o) => o.codCli === codCli);
+      if (!coinvolto) continue;
+      s.intolleranze = s.intolleranze || [];
+      if (!s.intolleranze.some((t) => String(t).trim().toLowerCase() === chiave)) s.intolleranze.push(termine);
+    }
+  }
+  ricalcolaAlert();
+}
+
+// L'allergia appena aggiunta può far entrare la prenotazione fra gli "Alert":
+// il contatore del chip si ricalcola con LA STESSA regola che filtra le card
+// (presa dai chip, non riscritta: due copie divergerebbero).
+function ricalcolaAlert() {
+  const predArrivi = BRIEF_CHIPS.find((c) => c.key === 'alert').pred;
+  const predInCasa = INCASA_CHIPS.find((c) => c.key === 'alert').pred;
+  if (arriviBriefing) arriviBriefing.alert = arriviAll.filter(predArrivi).length;
+  if (incasaBriefing) incasaBriefing.alert = incasaAll.filter(predInCasa).length;
+}
+
 // Conferma o scarto di una proposta. `contenitore` è la card da ridisegnare.
 async function gestisciProposta(btn, ricarica) {
   const riga = btn.closest('[data-prop-termine]');
@@ -474,6 +505,7 @@ async function gestisciProposta(btn, ricarica) {
   }
   // Salvata: non si ripropone (e alla prossima lettura la scarta già il server).
   proposteScartate.add(chiave);
+  aggiungiAllergiaNelleCard(codCli, termine);
   ricarica();
 }
 
