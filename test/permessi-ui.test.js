@@ -43,11 +43,38 @@ test('la regola non contiene selettori morti', () => {
 test('sono coperti anche i comandi che non seguono la convenzione', () => {
   // Questi non si chiamano data-del-/data-edit-: vanno tenuti a mano, quindi il
   // test li elenca. Merge, classificazione reclamo, ambito preferenza, AI.
-  for (const a of ['data-merge', 'data-unmerge', 'data-confronta', 'data-classe-compl', 'data-set-ambito', 'data-brief', 'data-brief-cli']) {
+  // `data-toggle-compl` è il caso che è sfuggito alla prima stesura: si chiama
+  // toggle, sembra un espandi, ma è il pulsante Risolvi/Riapri di un reclamo.
+  for (const a of ['data-merge', 'data-unmerge', 'data-confronta', 'data-classe-compl', 'data-set-ambito', 'data-brief', 'data-brief-cli', 'data-toggle-compl']) {
     assert.ok(coperti.has(a), `${a} non è nascosto in sola lettura`);
   }
-  for (const sel of ['.prop-box', '#btn-suggerisci', '#pref-form', '#intol-form', '#compl-form', '#nucleo-form']) {
+  for (const sel of ['.prop-box', '#btn-suggerisci', '#pref-form', '#intol-form', '#compl-form', '#nucleo-form', '#lingua-form', '#btn-notepers-ai', '#dup-actions']) {
     assert.ok(REGOLA.includes(sel), `${sel} non è nascosto in sola lettura`);
+  }
+});
+
+test('nessun pulsante d\'azione resta fuori dalla regola', () => {
+  // Rete più larga: ogni id che comincia per "btn-" deve essere o nella regola,
+  // o in questa lista di cose che si possono fare anche consultando.
+  const LECITI = new Set([
+    'btn-export-arrivi', 'btn-export-incasa', // l'export è una lettura
+  ]);
+  const ids = new Set([...APP.matchAll(/id="(btn-[a-z0-9-]+)"/g)].map((m) => m[1]));
+  for (const m of web('index.html').matchAll(/id="(btn-[a-z0-9-]+)"/g)) ids.add(m[1]);
+  const scoperti = [...ids].filter((id) => !LECITI.has(id) && !REGOLA.includes(`#${id}`));
+  assert.deepStrictEqual(scoperti, [], `pulsanti visibili in sola lettura: ${scoperti.join(', ')}`);
+});
+
+test('i riquadri che senza dato mostrano un form non lo mostrano in sola lettura', () => {
+  // Lingua e note personali, quando il dato non c'è, disegnano direttamente il
+  // form. Nasconderlo col CSS lascerebbe un buco bianco: si mostra invece che il
+  // dato non c'è.
+  for (const fn of ['function renderLingua()', 'function renderNotePersonali()']) {
+    const i = APP.indexOf(fn);
+    assert.notStrictEqual(i, -1, `${fn} non trovata`);
+    const corpo = APP.slice(i, i + 1400);
+    assert.match(corpo, /if \(!puo\('scrivi'\)\)/, `${fn} non gestisce la sola lettura`);
+    assert.match(corpo, /nota-vuota/, `${fn} non dice che il dato non c'è`);
   }
 });
 

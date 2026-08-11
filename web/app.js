@@ -1328,6 +1328,15 @@ function renderLingua() {
   const box = $('#lingua-box');
   if (!box) return;
   const val = (linguaData || '').trim();
+  // Senza valore questo riquadro mostra direttamente il form di inserimento: a chi
+  // non può scrivere si dice invece che il dato non c'è. Nascondere il form con il
+  // CSS lascerebbe un buco bianco, che sembra un guasto.
+  if (!puo('scrivi')) {
+    box.innerHTML = val
+      ? `<div class="nota-testo lingua-valore">${esc(val)}</div>`
+      : '<div class="nota-vuota">Nessuna lingua preferita registrata.</div>';
+    return;
+  }
   if (val && !linguaEdit) {
     // Niente riga "chi/quando": customer_profile tiene un solo updated_at per
     // tutta la riga, che può essere quello delle note. Meglio nulla che una data sbagliata.
@@ -1387,6 +1396,15 @@ function renderNotePersonali() {
   if (!box) return;
   const d = notePersData;
   const haNota = d.testo && d.testo.trim();
+  // Come per la lingua: senza nota il riquadro è un form. In sola lettura si
+  // mostra il testo, o il fatto che non ce n'è.
+  if (!puo('scrivi')) {
+    const meta = [d.autore, d.data ? new Date(d.data).toLocaleString('it-IT') : null].filter(Boolean).join(' · ');
+    box.innerHTML = haNota
+      ? `<div class="nota-testo notepers-testo">${esc(d.testo)}</div><div class="nota-meta"><span>${esc(meta)}</span></div>`
+      : '<div class="nota-vuota">Nessuna nota personale registrata.</div>';
+    return;
+  }
   if (haNota && !notePersEdit) {
     const meta = [d.autore, d.data ? new Date(d.data).toLocaleString('it-IT') : null].filter(Boolean).join(' · ');
     box.innerHTML = `
@@ -1672,7 +1690,9 @@ async function caricaNucleo(codCli) {
         <button type="button" class="btn-icon danger" data-del-nucleo="${m.id}" title="Elimina">🗑</button>
       </span>
     </li>`;
-  }).join('') || '<li class="nota-vuota">Nessun componente. Aggiungine uno qui sopra.</li>';
+  // L'invito ad aggiungere ha senso solo per chi può farlo: al form sotto, in sola
+  // lettura, manderebbe a cercare qualcosa che non c'è.
+  }).join('') || `<li class="nota-vuota">Nessun componente.${puo('scrivi') ? ' Aggiungine uno qui sopra.' : ''}</li>`;
 }
 
 $('#nucleo-form').addEventListener('submit', async (e) => {

@@ -910,9 +910,18 @@ body.sola-lettura :is(
   [data-edit-compl], [data-edit-lingua], [data-edit-notepers], [data-edit-nucleo],
   [data-brief], [data-brief-cli], [data-classe-compl], [data-set-ambito],
   [data-merge], [data-unmerge], [data-confronta],
+  /* Risolvi / Riapri un reclamo: cambia lo stato, quindi è una scrittura.
+     Il nome (toggle) faceva pensare a un semplice espandi. */
+  [data-toggle-compl],
   .prop-box, .brief-save,
-  #btn-suggerisci, #btn-nuovo-utente,
-  #pref-form, #intol-form, #compl-form, #nucleo-form
+  #btn-suggerisci, #btn-salva-sugg, #btn-scarta-sugg,
+  #btn-notepers-ai, #btn-notepers-salva, #btn-notepers-annulla, #btn-lingua-annulla,
+  #btn-nuovo-utente,
+  #pref-form, #intol-form, #compl-form, #nucleo-form, #lingua-form,
+  #cli-note-personali, .notepers-bar,
+  /* Pagina Duplicati: la coda di revisione serve a fondere, quindi via le
+     caselle di selezione e la barra che le comanda. L'elenco resta consultabile. */
+  #dup-actions, .dup-check
 ) { display: none !important; }
 /* .role-tag non ha bordo: qui serve, altrimenti border-color non si vedrebbe. */
 .role-tag-ignoto { background: #f7edda; border: 1px solid #c9a24e; color: #7c5f28; cursor: help; }
