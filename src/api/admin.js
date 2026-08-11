@@ -1,5 +1,4 @@
 const express = require('express');
-const { requireRole } = require('../auth/middleware');
 const {
   listUsers,
   createUser,
@@ -9,15 +8,30 @@ const {
   deleteUser,
 } = require('../crm/users');
 const { hashPassword } = require('../auth/password');
+const { NOMI_RUOLI, RUOLI } = require('../auth/permessi');
 
-const ROLES = ['admin', 'reception', 'marketing'];
+// I ruoli assegnabili sono quelli definiti in auth/permessi.js: qui non se ne
+// inventano altri, altrimenti si potrebbe creare un utente con un ruolo che il
+// controllo dei permessi non conosce.
+const ROLES = NOMI_RUOLI;
 
 function createAdminRouter(db) {
   const router = express.Router();
-  router.use(requireRole('admin'));
+  // L'accesso è già filtrato dalla guardia su /api (serve 'gestisci-utenti'):
+  // non si ripete qui il nome del ruolo, che è esattamente la cosa da non fare.
 
   router.get('/users', async (req, res) => {
     res.json({ users: await listUsers(db) });
+  });
+
+  // Elenco dei ruoli assegnabili, con etichetta e descrizione: il menu a tendina
+  // della pagina Utenti si costruisce da qui, così un ruolo nuovo compare da solo.
+  router.get('/ruoli', (req, res) => {
+    res.json({
+      ruoli: NOMI_RUOLI.map((nome) => ({
+        nome, etichetta: RUOLI[nome].etichetta, descrizione: RUOLI[nome].descrizione, permessi: RUOLI[nome].permessi,
+      })),
+    });
   });
 
   router.post('/users', async (req, res) => {

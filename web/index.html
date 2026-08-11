@@ -76,6 +76,9 @@
         <div class="user">
           <span class="avatar" id="avatar">A</span>
           <span id="welcome" class="user-name"></span>
+          <!-- Compare solo a chi non può scrivere: senza, uno vede sparire i
+               pulsanti e pensa a un guasto invece che al proprio profilo. -->
+          <span id="ruolo-badge" class="ruolo-badge" hidden></span>
           <button id="logout-btn" class="btn btn-ghost">Esci</button>
         </div>
       </header>
@@ -185,11 +188,10 @@
               <div class="modal-grid">
                 <label class="field">Username <input name="username" required /></label>
                 <label class="field">Ruolo
-                  <select name="role">
-                    <option value="reception">reception</option>
-                    <option value="marketing">marketing</option>
-                    <option value="admin">admin</option>
-                  </select>
+                  <!-- Le voci arrivano da /api/admin/ruoli: l'elenco dei ruoli sta
+                       in un posto solo (auth/permessi.js) e qui non si duplica. -->
+                  <select name="role"></select>
+                  <span class="campo-nota" id="ruolo-descrizione"></span>
                 </label>
                 <label class="field">Nome <input name="nome" /></label>
                 <label class="field">Cognome <input name="cognome" /></label>

@@ -1,6 +1,7 @@
 const express = require('express');
 const { findUserByUsername } = require('../crm/users');
 const { verifyPassword } = require('./password');
+const { utenteConPermessi } = require('./permessi');
 
 function createAuthRouter(db) {
   const router = express.Router();
@@ -23,7 +24,10 @@ function createAuthRouter(db) {
       req.session.user = { id: user.id, username: user.username, role: user.role };
       req.session.save((saveErr) => {
         if (saveErr) return res.status(500).json({ error: 'Errore di sessione' });
-        res.json({ user: req.session.user });
+        // In sessione si tiene il ruolo, non i permessi: se domani la tabella dei
+        // permessi cambia, valgono subito anche per chi è già connesso. Al
+        // frontend invece si mandano risolti, così non deve interpretare nulla.
+        res.json({ user: utenteConPermessi(req.session.user) });
       });
     });
   });

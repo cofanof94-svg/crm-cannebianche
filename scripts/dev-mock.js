@@ -416,11 +416,21 @@ function elimina(arr, id) {
 // Esportata anche come funzione così la si può montare in un test senza aprire
 // una porta (vedi `require.main` in fondo).
 async function creaApp() {
-  store.users.push({
-    id: 1, username: 'admin', password_hash: await hashPassword(PASSWORD_DEV),
-    role: 'admin', attivo: 1, nome: 'Admin', cognome: 'Dev', email: 'admin@dev.local',
+  // Un utente per ruolo, stessa password: i permessi si provano solo entrando e
+  // uscendo. Il quarto ha il vecchio ruolo 'marketing', per vedere come si
+  // comporta l'applicazione con un utente rimasto da una versione precedente.
+  const hash = await hashPassword(PASSWORD_DEV);
+  const utenti = [
+    { username: 'admin', role: 'admin', nome: 'Admin', cognome: 'Dev' },
+    { username: 'reception', role: 'reception', nome: 'Anna', cognome: 'Ricevimento' },
+    { username: 'lettore', role: 'readonly', nome: 'Luca', cognome: 'Consulta' },
+    { username: 'vecchio', role: 'marketing', nome: 'Marta', cognome: 'Ruolovecchio' },
+  ];
+  utenti.forEach((u, i) => store.users.push({
+    id: i + 1, username: u.username, password_hash: hash, role: u.role, attivo: 1,
+    nome: u.nome, cognome: u.cognome, email: `${u.username}@dev.local`,
     created_at: new Date().toISOString(),
-  });
+  }));
   return createApp({ crmDb, pmsDb, sessionSecret: 'dev-mock' });
 }
 
@@ -432,7 +442,9 @@ async function main() {
     console.log('  │  CRM Direct Holiday — MODALITÀ SVILUPPO (dati finti) │');
     console.log('  └─────────────────────────────────────────────────────┘');
     console.log(`  http://localhost:${PORT}`);
-    console.log(`  utente: admin   password: ${PASSWORD_DEV}`);
+    console.log(`  utenti: admin · reception · lettore · vecchio   password: ${PASSWORD_DEV}`);
+    console.log('          (admin=tutto, reception=opera, lettore=sola lettura,');
+    console.log('           vecchio=ruolo non più previsto → sola lettura)');
     console.log(`  data di lavoro simulata: ${F.DATA_LAVORO}`);
     console.log('');
     console.log('  Nessuna connessione al DB dell\'hotel. Le modifiche ai dati CRM');

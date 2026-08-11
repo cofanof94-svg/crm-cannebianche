@@ -3,7 +3,38 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { cache: 'no-store', headers: { 'Content-Type': 'application/json' }, ...opts });
-  return { status: res.status, body: await res.json().catch(() => ({})) };
+  const body = await res.json().catch(() => ({}));
+  // 403 = permesso mancante. L'interfaccia nasconde già i comandi che l'utente non
+  // può usare, quindi se un 403 arriva qui vuol dire che qualcosa è sfuggito: si
+  // dice a schermo il motivo, invece di lasciare un pulsante che non fa niente.
+  if (res.status === 403 && body && body.error) avviso(body.error);
+  return { status: res.status, body };
+}
+
+// --- Avviso in sovrimpressione ---------------------------------------------
+// Sparisce da solo. Serve per le cose che non appartengono a nessun riquadro in
+// particolare, tipo un permesso negato mentre si sta lavorando su una scheda.
+let avvisoTimer = null;
+function avviso(testo) {
+  let el = $('#avviso');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'avviso';
+    el.setAttribute('role', 'status');
+    document.body.appendChild(el);
+  }
+  el.textContent = testo;
+  el.classList.add('visibile');
+  clearTimeout(avvisoTimer);
+  avvisoTimer = setTimeout(() => el.classList.remove('visibile'), 6000);
+}
+
+// --- Permessi dell'utente collegato -----------------------------------------
+// L'interfaccia non ragiona mai per ruolo ("è admin?") ma per permesso ("può
+// scrivere?"): il giorno che i ruoli cambiano, o che ne arriva uno di reparto,
+// qui non si tocca niente. La lista arriva già risolta da /api/me.
+function puo(permesso) {
+  return !!(currentUser && Array.isArray(currentUser.permessi) && currentUser.permessi.includes(permesso));
 }
 
 // --- Indicatori di caricamento (uno solo per tutta l'app) ---
@@ -80,7 +111,12 @@ async function refresh() {
   $('#app').hidden = false;
   $('#welcome').textContent = currentUser.username;
   $('#avatar').textContent = (currentUser.username[0] || '?').toUpperCase();
-  $('#nav-utenti').hidden = currentUser.role !== 'admin';
+  $('#nav-utenti').hidden = !puo('gestisci-utenti');
+  // Un attributo sul body e i comandi che scrivono spariscono via CSS, anche da
+  // quello che verrà disegnato dopo: nessun render deve ricordarsi di chiedere.
+  document.body.classList.toggle('sola-lettura', !puo('scrivi'));
+  $('#ruolo-badge').textContent = puo('scrivi') ? '' : 'Sola lettura';
+  $('#ruolo-badge').hidden = puo('scrivi');
   if (!location.hash) location.hash = '#home';
   route();
 }
@@ -116,8 +152,12 @@ function route() {
   const [view, param] = hash.split('/');
   const known = ['home', 'arrivi', 'incasa', 'ricerca', 'duplicati', 'utenti'];
   let v = known.includes(view) ? view : 'home';
-  // Utenti è riservato agli admin: reindirizza gli altri alla home
-  if (v === 'utenti' && !(currentUser && currentUser.role === 'admin')) {
+  // Sezioni riservate: chi non ha il permesso viene rimandato alla home, anche
+  // arrivandoci da URL diretto. Il backend rifiuta comunque le chiamate, questo
+  // serve a non mostrare una pagina vuota e piena di errori.
+  const permessoDellaVista = { utenti: 'gestisci-utenti', analytics: 'vedi-analytics' };
+  if (permessoDellaVista[v] && !puo(permessoDellaVista[v])) {
+    avviso('Sezione riservata: il tuo profilo non vi ha accesso.');
     location.hash = '#home';
     return;
   }
@@ -134,7 +174,7 @@ function route() {
   else if (v === 'incasa') initInCasa(!cameFrom.startsWith('cliente/'), param);
   else if (v === 'ricerca') initRicerca();
   else if (v === 'duplicati') loadDuplicatiPage();
-  else if (v === 'utenti') { if (currentUser && currentUser.role === 'admin') loadUsers(); }
+  else if (v === 'utenti') loadUsers();
 }
 window.addEventListener('hashchange', route);
 
@@ -951,9 +991,30 @@ function cardRicerca(c) {
 // --- Utenti (admin) ---
 let usersCache = [];
 let editingId = null;
+let ruoliCache = []; // { nome, etichetta, descrizione, permessi }
+
+const ruoloDi = (nome) => ruoliCache.find((r) => r.nome === nome);
+const etichettaRuolo = (nome) => (ruoloDi(nome) || {}).etichetta || nome;
+
+// L'elenco dei ruoli arriva dal server, non è scritto qui: un ruolo aggiunto in
+// auth/permessi.js compare nel menu senza toccare il frontend. È anche il motivo
+// per cui la descrizione la scrive chi definisce il ruolo, non chi disegna il form.
+async function caricaRuoli() {
+  if (ruoliCache.length) return;
+  const { status, body } = await api('/api/admin/ruoli');
+  if (status === 200) ruoliCache = body.ruoli || [];
+  const sel = $('#user-form').role;
+  sel.innerHTML = ruoliCache.map((r) => `<option value="${esc(r.nome)}">${esc(r.etichetta)}</option>`).join('');
+}
+
+function mostraDescrizioneRuolo() {
+  const r = ruoloDi($('#user-form').role.value);
+  $('#ruolo-descrizione').textContent = r ? r.descrizione : '';
+}
 
 async function loadUsers() {
   $('#user-list').innerHTML = `<tr><td colspan="6">${loaderHTML('Carico gli utenti…')}</td></tr>`;
+  await caricaRuoli();
   const { body } = await api('/api/admin/users');
   usersCache = body.users || [];
   $('#user-list').innerHTML = usersCache.map((u) => `
@@ -962,7 +1023,7 @@ async function loadUsers() {
       <td>${cell(u.nome)}</td>
       <td>${cell(u.cognome)}</td>
       <td class="cell-muted">${cell(u.email)}</td>
-      <td><span class="role-tag">${esc(u.role)}</span></td>
+      <td><span class="role-tag${ruoloDi(u.role) ? '' : ' role-tag-ignoto'}" title="${esc(ruoloDi(u.role) ? ruoloDi(u.role).descrizione : 'Ruolo non più previsto: l\'utente può solo consultare finché non gliene assegni uno valido.')}">${esc(etichettaRuolo(u.role))}</span></td>
       <td>${u.attivo ? '<span class="pill pill-attivo">Attivo</span>' : '<span class="pill pill-disattivato">Disattivato</span>'}</td>
       <td class="row-actions">
         <button class="btn-icon" data-edit="${u.id}">Modifica</button>
@@ -971,8 +1032,9 @@ async function loadUsers() {
     </tr>`).join('');
 }
 
-function openUserDialog(user) {
+async function openUserDialog(user) {
   editingId = user ? user.id : null;
+  await caricaRuoli(); // senza le opzioni il menu sarebbe vuoto
   const f = $('#user-form');
   f.reset();
   $('#user-form-error').textContent = '';
@@ -980,7 +1042,10 @@ function openUserDialog(user) {
   $('#attivo-wrap').hidden = !user;
   if (user) {
     f.username.value = user.username || '';
-    f.role.value = user.role || 'reception';
+    // Un ruolo non più previsto non si può riselezionare: il menu resta sul primo
+    // valore valido, così salvando si assegna un ruolo vero invece di riscrivere
+    // quello vecchio.
+    f.role.value = ruoloDi(user.role) ? user.role : (ruoliCache[0] || {}).nome || '';
     f.nome.value = user.nome || '';
     f.cognome.value = user.cognome || '';
     f.email.value = user.email || '';
@@ -991,6 +1056,7 @@ function openUserDialog(user) {
     f.password.placeholder = '';
     f.password.required = true;
   }
+  mostraDescrizioneRuolo();
   $('#user-dialog').showModal();
 }
 
@@ -1026,6 +1092,9 @@ async function eliminaUtente(id) {
 $('#btn-nuovo-utente').addEventListener('click', () => openUserDialog(null));
 $('#user-cancel').addEventListener('click', () => $('#user-dialog').close());
 $('#user-form').addEventListener('submit', salvaUtente);
+// La descrizione del ruolo segue il menu: chi assegna un permesso deve vedere
+// cosa sta dando, non ricordarselo.
+$('#user-form').role.addEventListener('change', mostraDescrizioneRuolo);
 $('#user-list').addEventListener('click', (e) => {
   const ed = e.target.closest('[data-edit]');
   const dl = e.target.closest('[data-del]');

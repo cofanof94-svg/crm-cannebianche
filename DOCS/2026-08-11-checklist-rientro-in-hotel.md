@@ -27,6 +27,19 @@ sqlcmd -S CB-DH -d HolidayCanneBianche_CRM -i scripts/crm-complaint-reparto.sql
 | `crm-complaint-followup.sql` | `customer_complaints.follow_up` | il campo "come è stato risolto", obbligatorio alla risoluzione |
 | `crm-complaint-reparto.sql` | `customer_complaints.reparto`, `.categoria` (+ CHECK) | classificazione per reparto |
 
+Una terza, **non obbligatoria ma consigliata**, per i ruoli utente:
+
+```bash
+sqlcmd -S CB-DH -d HolidayCanneBianche_CRM -i scripts/crm-ruoli.sql
+```
+
+Non cambia lo schema (`users.role` è già `NVARCHAR(20)` senza CHECK): converte gli
+utenti con il vecchio ruolo `marketing` in `readonly` ed elenca eventuali ruoli
+inattesi. Anche senza lanciarlo l'applicazione è sicura — un ruolo sconosciuto vale
+sola lettura — ma nella pagina Utenti quel ruolo compare con l'etichetta gialla
+"non previsto". **Leggere l'elenco che stampa prima di proseguire**: se saltano
+fuori ruoli che non ti aspetti, guardali uno per uno.
+
 **Le allergie non richiedono nulla**: scrivono in `customer_intolerances`, che esiste
 già da mesi.
 
@@ -89,6 +102,21 @@ Dettagli e regole: [2026-08-11-allergie-da-note-pms.md](2026-08-11-allergie-da-n
 
 ### Merge / duplicati
 - [ ] Provare su casi reali, es. Brolin 48758 / 55491 / 31355
+
+### Ruoli e permessi
+I tre ruoli sono `readonly`, `reception`, `admin`. Sul server finto ci sono quattro
+utenti (`admin`, `reception`, `lettore`, `vecchio`), tutti con password `admin`.
+
+- [ ] Guardare **quali ruoli hanno davvero gli utenti dell'hotel** e assegnare a
+      ciascuno quello giusto: chi sta al banco `reception`, la direzione `admin`,
+      chi consulta e basta `readonly`
+- [ ] Entrare come `readonly` e verificare che la reception **non si senta
+      bloccata per errore**: se qualcuno che deve lavorare finisce con quel ruolo,
+      vede sparire i pulsanti e pensa a un guasto (per questo c'è il badge
+      "Sola lettura" accanto al nome — verificare che si noti)
+- [ ] Provare il giro completo: creare un utente, cambiargli ruolo, disattivarlo
+- [ ] Controllare che resti **almeno un admin attivo**: l'applicazione lo impedisce,
+      ma vale la pena vederlo succedere
 
 ### Funzioni AI
 Dall'11/08 `dev-mock.js` carica il `.env`, quindi **si provano anche da casa**: le
