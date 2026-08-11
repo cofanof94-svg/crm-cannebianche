@@ -110,6 +110,18 @@ test('parseBriefing: niente righe vuote fra le etichette', () => {
   assert.strictEqual(out.testo, 'Ruolo: manager\nNotorietà: ex direttore generale\nAppellativo: "Direttore"');
 });
 
+test('SYSTEM: fuori i dati che alla reception non servono', () => {
+  // Visto dal vivo su un imprenditore: "38 anni, di Cuneo, laureato in Economia,
+  // la sua azienda vale 1 miliardo". Pubblico, ma inutile all'accoglienza — e la
+  // riga era una frase copiata dalla fonte, col nome dell'ospite dentro.
+  assert.match(SYSTEM, /VIETATI anche se pubblici/);
+  for (const v of ['età', 'luogo di nascita', 'titoli di studio', 'patrimonio personale']) {
+    assert.ok(SYSTEM.includes(v), `manca il divieto: ${v}`);
+  }
+  assert.match(SYSTEM, /NON copiare frasi dalle fonti/);
+  assert.match(SYSTEM, /riga SBAGLIATA/); // l'esempio negativo accanto a quello giusto
+});
+
 test('SYSTEM: si scrive in italiano anche con fonti in inglese', () => {
   // Trovato dal vivo su un dirigente con pagine Wikipedia in inglese: il briefing
   // usciva in inglese, con frasi intere e il nome dell'ospite ripetuto.
@@ -248,16 +260,18 @@ test('parseBriefing: senza marcatore resta l\'esito storico; niente informazioni
   assert.strictEqual(niente.salvabile, false);
 });
 
-test('estraiFonti: LinkedIn ammesso, social personali scartati', () => {
+test('estraiFonti: di LinkedIn passa il profilo, non i post', () => {
   const fonti = estraiFonti([
     { type: 'text', text: 'x', citations: [
       { url: 'https://www.linkedin.com/in/mario-rossi', title: 'LinkedIn' },
+      // Un post è contenuto personale, non la scheda professionale (visto dal vivo).
+      { url: 'https://www.linkedin.com/posts/mario-rossi_valori-activity-7122626003847266305', title: 'post' },
       { url: 'https://www.facebook.com/mario.rossi', title: 'Facebook' },
       { url: 'https://www.instagram.com/mrossi', title: 'Instagram' },
     ] },
   ]);
   assert.strictEqual(fonti.length, 1);
-  assert.match(fonti[0].url, /linkedin/);
+  assert.match(fonti[0].url, /linkedin\.com\/in\//);
   // 'x.com' non è in elenco: scartarlo per sottostringa affosserebbe anche questi.
   const leciti = estraiFonti([{ type: 'text', text: 'x', citations: [{ url: 'https://www.linux.com/a', title: 'L' }, { url: 'https://essex.com/b', title: 'E' }] }]);
   assert.strictEqual(leciti.length, 2);

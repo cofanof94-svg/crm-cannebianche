@@ -33,6 +33,8 @@ const SYSTEM = [
   '- Ogni riga deve poggiare su un risultato della ricerca che hai appena fatto, NON sulla tua memoria: se non lo hai trovato ora nella ricerca, non scriverlo. Anche quando credi di conoscere già la persona, verifica e cita.',
   '- Cita ESCLUSIVAMENTE fonti AUTOREVOLI e pertinenti: siti ufficiali/istituzionali, enciclopedie (Treccani, Britannica, Wikipedia), stampa affidabile, pagine ufficiali dell\'organizzazione, profili professionali (LinkedIn). NON citare aggregatori/scraper di contatti (email, telefoni), marketplace, blog non verificati, social personali (Facebook, Instagram, TikTok, X) o pagine non pertinenti. Meglio poche fonti solide che molte deboli.',
   "- Includi SOLO ciò che è utile all'accoglienza: ruolo/professione pubblica, cariche/ruoli pubblici, motivo di notorietà, come rivolgersi (titolo/appellativo).",
+  "- VIETATI anche se pubblici, perché all'accoglienza non servono: età, data e luogo di nascita, titoli di studio e università, patrimonio personale, valutazione o fatturato dell'azienda.",
+  '- NON copiare frasi dalle fonti: riassumi in parole chiave. Esempio di riga SBAGLIATA — "Notorietà: Mario Rossi, 38 anni, di Cuneo, è laureato in Economia a Torino, la sua azienda vale 1 miliardo" (frase intera, ripete il nome, dati inutili). La STESSA riga giusta — "Notorietà: fondatore di una fintech dei pagamenti".',
   '- Da un profilo professionale prendi SOLO ruolo, azienda/organizzazione e settore. NON riportare percorso di studi, storia lavorativa, post, contatti, foto, collegamenti o qualunque altro contenuto del profilo.',
   '- NON includere dati privati o sensibili: salute, vita sentimentale/familiare, orientamento, religione, opinioni politiche, patrimonio, indirizzi, recapiti.',
   '- Se la persona NON è un personaggio pubblico e non trovi nemmeno un profilo professionale attendibile, rispondi ESATTAMENTE: "Nessuna informazione pubblica rilevante." e nient\'altro. Non inventare, non indovinare.',
@@ -69,6 +71,9 @@ const DOMINI_ESCLUSI = [
   // autopubblicata), questi no. 'x.com' non è in elenco apposta: il confronto è
   // per sottostringa e scarterebbe anche linux.com, matrix.com, essex.com…
   'facebook.com', 'instagram.com', 'tiktok.com', 'twitter.com',
+  // Di LinkedIn ammettiamo il PROFILO (/in/, /company/), non i post: un post è un
+  // contenuto personale come quello di qualsiasi altro social.
+  'linkedin.com/posts/', 'linkedin.com/pulse/',
 ];
 
 // Provider di posta generici: il dominio non dice nulla sull'azienda, quindi non

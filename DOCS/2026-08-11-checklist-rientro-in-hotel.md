@@ -136,6 +136,12 @@ nulla: è per questo che l'etichetta ora distingue i due casi.
 - [ ] Se restano link deboli fra quelli citati, ormai è una scelta del modello:
       il passo successivo sarebbe una lista bianca di domini, da decidere con
       casi veri in mano
+- [ ] ⚠️ **Fra i link non citati compaiono OMONIMI**: su un imprenditore sono
+      usciti la pagina Wikipedia di un attore quasi omonimo e la scheda di un
+      ricercatore con lo stesso nome. Chi apre quel link legge di un'altra
+      persona. È il motivo per cui l'etichetta li separa dalle fonti vere:
+      verificare che in reception si capisca, altrimenti valutare di non
+      mostrarli affatto quando l'AI non cita
 
 ---
 
