@@ -262,8 +262,10 @@ const crmDb = {
     const ids = idsDaIn(t);
 
     // --- users ---
-    if (/FROM users WHERE username/.test(t)) return store.users.filter((u) => u.username === params.username);
-    if (/FROM users WHERE id/.test(t)) return store.users.filter((u) => u.id === params.id);
+    // Le SCRITTURE prima delle letture, sempre. "DELETE FROM users WHERE id = @id"
+    // contiene "FROM users WHERE id": messo dopo, finiva nella SELECT e la
+    // cancellazione rispondeva ok senza cancellare niente. Il DB vero non ha
+    // questo problema — è il mock che riconosce le query per pezzi di testo.
     if (/INSERT INTO users/.test(t)) {
       const u = { id: prossimoId(store.users), username: params.username, password_hash: params.passwordHash, role: params.role, attivo: 1, nome: params.nome, cognome: params.cognome, email: params.email, created_at: new Date().toISOString() };
       store.users.push(u);
@@ -279,6 +281,8 @@ const crmDb = {
       if (i >= 0) store.users.splice(i, 1);
       return [];
     }
+    if (/FROM users WHERE username/.test(t)) return store.users.filter((u) => u.username === params.username);
+    if (/FROM users WHERE id/.test(t)) return store.users.filter((u) => u.id === params.id);
     if (/FROM users ORDER BY username/.test(t)) return store.users.slice().sort((a, b) => a.username.localeCompare(b.username));
     if (/COUNT\(1\) AS n FROM users/.test(t)) return [{ n: store.users.filter((u) => u.role === 'admin' && u.attivo).length }];
 
@@ -417,14 +421,15 @@ function elimina(arr, id) {
 // una porta (vedi `require.main` in fondo).
 async function creaApp() {
   // Un utente per ruolo, stessa password: i permessi si provano solo entrando e
-  // uscendo. Il quarto ha il vecchio ruolo 'marketing', per vedere come si
-  // comporta l'applicazione con un utente rimasto da una versione precedente.
+  // uscendo.
   const hash = await hashPassword(PASSWORD_DEV);
+  // Si riparte sempre dagli stessi utenti: senza, chiamare creaApp() due volte
+  // (cosa che fanno i test) li accodava e la lista usciva doppia.
+  store.users.length = 0;
   const utenti = [
     { username: 'admin', role: 'admin', nome: 'Admin', cognome: 'Dev' },
     { username: 'reception', role: 'reception', nome: 'Anna', cognome: 'Ricevimento' },
     { username: 'lettore', role: 'readonly', nome: 'Luca', cognome: 'Consulta' },
-    { username: 'vecchio', role: 'marketing', nome: 'Marta', cognome: 'Ruolovecchio' },
   ];
   utenti.forEach((u, i) => store.users.push({
     id: i + 1, username: u.username, password_hash: hash, role: u.role, attivo: 1,
@@ -442,9 +447,8 @@ async function main() {
     console.log('  │  CRM Direct Holiday — MODALITÀ SVILUPPO (dati finti) │');
     console.log('  └─────────────────────────────────────────────────────┘');
     console.log(`  http://localhost:${PORT}`);
-    console.log(`  utenti: admin · reception · lettore · vecchio   password: ${PASSWORD_DEV}`);
-    console.log('          (admin=tutto, reception=opera, lettore=sola lettura,');
-    console.log('           vecchio=ruolo non più previsto → sola lettura)');
+    console.log(`  utenti: admin · reception · lettore   password: ${PASSWORD_DEV}`);
+    console.log('          (admin=tutto, reception=opera sui clienti, lettore=sola lettura)');
     console.log(`  data di lavoro simulata: ${F.DATA_LAVORO}`);
     console.log('');
     console.log('  Nessuna connessione al DB dell\'hotel. Le modifiche ai dati CRM');

@@ -27,8 +27,11 @@ FROM users
 GROUP BY role
 ORDER BY role;
 
--- 2. Il vecchio 'marketing' era un profilo di consultazione: diventa 'readonly'.
---    Nessun permesso in più di quelli che ha già oggi.
+-- 2. Il ruolo 'marketing' non esiste più. Se in hotel non ne è mai stato creato
+--    nessuno questa riga non tocca niente: resta come rete, perché un utente
+--    dimenticato costa più di una UPDATE che aggiorna zero righe.
+--    Era comunque un profilo di consultazione: diventa 'readonly', senza guadagnare
+--    nessun permesso rispetto a quelli che ha già oggi.
 UPDATE users SET role = 'readonly' WHERE role = 'marketing';
 PRINT CONCAT('Utenti marketing convertiti in readonly: ', @@ROWCOUNT);
 
