@@ -51,14 +51,39 @@ test('buildRequest: modello, web search tool e system', () => {
   assert.match(req.messages[0].content, /FATTI/);
 });
 
-test('estraiFonti: dedup da citazioni testo e risultati tool', () => {
+test('estraiFonti: dedup delle citazioni; senza citazioni restano i risultati', () => {
   const fonti = estraiFonti([
     { type: 'text', text: 'x', citations: [{ url: 'https://a.it', title: 'A' }, { url: 'https://a.it', title: 'A dup' }] },
+  ]);
+  assert.strictEqual(fonti.length, 1);
+  assert.deepStrictEqual(fonti[0], { url: 'https://a.it', titolo: 'A' });
+
+  const ripiego = estraiFonti([
     { type: 'web_search_tool_result', content: [{ url: 'https://b.it', title: 'B' }, { url: '', title: 'vuota' }] },
   ]);
-  assert.strictEqual(fonti.length, 2);
-  assert.deepStrictEqual(fonti[0], { url: 'https://a.it', titolo: 'A' });
-  assert.deepStrictEqual(fonti[1], { url: 'https://b.it', titolo: 'B' });
+  assert.deepStrictEqual(ripiego, [{ url: 'https://b.it', titolo: 'B' }]);
+});
+
+test('estraiFonti: se il modello ha citato, i risultati grezzi non si mostrano', () => {
+  // Il caso reale: 16 "fonti" per un ospite noto, quasi tutte mai lette. Nella
+  // risposta i risultati arrivano PRIMA del testo che li cita: se la citazione
+  // non sopravvive a questo ordine, l'elenco buono resta vuoto.
+  const fonti = estraiFonti([
+    { type: 'web_search_tool_result', content: [
+      { url: 'https://it.wikipedia.org/x', title: 'Wikipedia' }, // trovata E citata
+      { url: 'https://blog-qualsiasi.it/gossip', title: 'blog' },
+      { url: 'https://altro-sito.it/tizio', title: 'altro' },
+    ] },
+    { type: 'text', text: 'Ruolo: imprenditore', citations: [{ url: 'https://it.wikipedia.org/x', title: 'Wikipedia' }] },
+  ]);
+  assert.deepStrictEqual(fonti, [{ url: 'https://it.wikipedia.org/x', titolo: 'Wikipedia' }]);
+});
+
+test('estraiFonti: nessuna fonte utilizzabile → elenco vuoto', () => {
+  assert.deepStrictEqual(estraiFonti([]), []);
+  assert.deepStrictEqual(estraiFonti(null), []);
+  // solo domini esclusi: meglio nessuna fonte che una fonte che non vale nulla
+  assert.deepStrictEqual(estraiFonti([{ type: 'text', text: 'x', citations: [{ url: 'https://rocketreach.co/x' }] }]), []);
 });
 
 test('parseBriefing: personaggio pubblico → testo + fonti, pubblico=true', () => {

@@ -124,24 +124,35 @@ function buildRequest(fatti, { model = 'claude-sonnet-5', maxTokens = 2000, maxU
 }
 
 // Estrae {url, titolo} da una lista eterogenea di citazioni/risultati.
+//
+// Due sorgenti molto diverse, e non vanno mescolate:
+//   - le CITAZIONI agganciate al testo sono le fonti che il modello ha davvero
+//     usato per scrivere quelle righe;
+//   - i RISULTATI del tool di ricerca sono tutto ciò che il motore ha restituito,
+//     letto o no. Su un ospite noto sono decine, per lo più deboli (blog, siti di
+//     gossip, aggregatori). Mostrarli come "Fonti" è una promessa falsa.
+// Quindi: se ci sono citazioni si mostrano SOLO quelle. I risultati grezzi restano
+// come ripiego, per non lasciare la card senza nemmeno un link da controllare.
 function estraiFonti(blocchi) {
-  const fonti = [];
-  const visti = new Set();
-  const aggiungi = (url, titolo) => {
+  const citate = [];
+  const cercate = [];
+  // Un set per lista, non uno solo: nella risposta i risultati della ricerca
+  // arrivano PRIMA del testo che li cita, quindi un set condiviso svuoterebbe
+  // proprio l'elenco delle citazioni — cioè quello buono.
+  const visti = { citate: new Set(), cercate: new Set() };
+  const aggiungi = (dove, url, titolo) => {
     const u = (url == null ? '' : String(url)).trim();
-    if (!u || visti.has(u)) return;
+    if (!u || visti[dove].has(u)) return;
     if (DOMINI_ESCLUSI.some((d) => u.toLowerCase().includes(d))) return; // fonte non autorevole
-    visti.add(u);
-    fonti.push({ url: u, titolo: (titolo == null ? '' : String(titolo)).trim() || u });
+    visti[dove].add(u);
+    (dove === 'citate' ? citate : cercate).push({ url: u, titolo: (titolo == null ? '' : String(titolo)).trim() || u });
   };
   for (const b of blocchi || []) {
     if (!b) continue;
-    // citazioni agganciate ai blocchi di testo
-    for (const c of b.citations || []) aggiungi(c && c.url, c && c.title);
-    // risultati del tool di ricerca web
-    if (Array.isArray(b.content)) for (const r of b.content) if (r && r.url) aggiungi(r.url, r.title);
+    for (const c of b.citations || []) aggiungi('citate', c && c.url, c && c.title);
+    if (Array.isArray(b.content)) for (const r of b.content) if (r && r.url) aggiungi('cercate', r.url, r.title);
   }
-  return fonti;
+  return citate.length ? citate : cercate;
 }
 
 // Ripulisce l'output: toglie il grassetto markdown e un'eventuale riga di

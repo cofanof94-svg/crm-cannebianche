@@ -115,14 +115,14 @@ confermare* (quest'ultima non è salvabile nel profilo).
       un ruolo dato per certo. Se succede, la regola dei due riscontri non tiene
 - [ ] Decidere se allargare a ruolo/azienda anche i **gruppi aziendali**
 
-### Fonti del briefing: troppe e deboli (da decidere)
-Sul caso di prova sono uscite **16 fonti**, fra cui blog e siti di scarso valore
-(il prompt chiede "poche fonti solide"). Il motivo è in `estraiFonti`: raccoglie
-sia le citazioni del modello sia **tutti i risultati grezzi della ricerca**.
-Sistemabile da remoto in poche righe (usare i risultati grezzi solo quando non ci
-sono citazioni), ma è una scelta da fare guardando qualche caso reale.
+### Fonti del briefing
+Sistemato l'11/08: l'elenco mostrava **tutti i risultati della ricerca**, letti o
+no (16 su un ospite noto, molti blog). Ora mostra le fonti che il modello ha
+davvero citato; i risultati grezzi restano solo come ripiego se non cita nulla.
+Sullo stesso ospite: da 16 a 10, con Wikipedia, Sky TG24 e Corriere in testa.
 
-- [ ] Guardare la lista Fonti su 4-5 ospiti veri e decidere
+- [ ] Guardare la lista su 4-5 ospiti veri: se restano fonti deboli, ormai è una
+      scelta del modello, non un problema di raccolta
 
 ---
 
