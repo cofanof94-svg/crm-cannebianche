@@ -13,7 +13,7 @@
 
 const { getGruppiByIds } = require('./merge');
 const { getRelazioniByIds } = require('./nucleo');
-const { getAnagraByIds } = require('../pms/clienti');
+const { getAnagraByIds, getStoricoByIds } = require('../pms/clienti');
 const { listPreferenze } = require('./preferenze');
 const { listComplaints } = require('./complaint');
 const { listIntolleranze } = require('./intolleranze');
@@ -133,9 +133,17 @@ function costruisciSnapshot(a, ctx) {
     intoll.push((i.testo || '').trim());
   }
 
-  // Reclami sul gruppo.
+  // Reclami sul gruppo. Oltre al conteggio si porta il TESTO di quelli aperti:
+  // "1 reclamo aperto" non dice niente a chi deve accogliere l'ospite, "ritardo
+  // nella pulizia camera" sì. Solo gli aperti: i risolti sono storia, e il loro
+  // testo in card diventerebbe rumore.
   const compl = raccogli(ctx.complBy, ids);
-  const reclami = { aperti: compl.filter((c) => c.stato === 'aperto').length, totali: compl.length };
+  const aperti = compl.filter((c) => c.stato === 'aperto');
+  const reclami = {
+    aperti: aperti.length,
+    totali: compl.length,
+    testiAperti: aperti.map((c) => (c.testo == null ? '' : String(c.testo)).trim()).filter(Boolean),
+  };
 
   // Relazioni degli occupanti col referente (o con un membro del suo gruppo).
   const ancore = ctx.gruppi.get(a.codCliente) || [a.codCliente];
@@ -213,7 +221,17 @@ async function arricchisciArrivi(pmsDb, crmDb, arrivi) {
     relBy,
   };
 
-  const arriviArr = arrivi.map((a) => ({ ...a, snapshot: costruisciSnapshot(a, ctx) }));
+  // Storico soggiorni del referente: serve sia a "In casa" (badge Nª volta) sia
+  // all'export, che deve dire se l'ospite è di ritorno o alla prima visita.
+  // Sta qui e non solo in "In casa" perché è la stessa domanda su entrambe le
+  // pagine: chi ho davanti, l'ho già avuto?
+  const storico = await getStoricoByIds(pmsDb, arrivi.map((a) => a.codCliente));
+
+  const arriviArr = arrivi.map((a) => ({
+    ...a,
+    snapshot: costruisciSnapshot(a, ctx),
+    storico: storico.get(a.codCliente) || null,
+  }));
   return { briefing: calcolaBriefing(arriviArr), arrivi: arriviArr };
 }
 

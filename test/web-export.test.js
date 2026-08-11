@@ -37,6 +37,7 @@ const AMBIENTE = [
   estraiDa(APP, 'fmtData'),
   estraiOggetto(SRC, 'COLONNE_EXPORT'),
   estraiOggetto(SRC, 'VISTE_EXPORT'),
+  estraiDa(SRC, 'testoVisite'),
   estraiDa(SRC, 'attenzioniDi'),
   estraiDa(SRC, 'accorcia'),
   estraiDa(SRC, 'rigaExport'),
@@ -49,12 +50,13 @@ const AMBIENTE = [
 
 // eslint-disable-next-line no-new-func
 const E = new Function(`${AMBIENTE}
-  return { COLONNE_EXPORT, VISTE_EXPORT, attenzioniDi, accorcia, rigaExport, ordinaPerCamera, costruisciExport, campoCsv, toCsv, tabellaStampa };`)();
+  return { COLONNE_EXPORT, VISTE_EXPORT, testoVisite, attenzioniDi, accorcia, rigaExport, ordinaPerCamera, costruisciExport, campoCsv, toCsv, tabellaStampa };`)();
 
 const arrivo = {
   codpratica: 70104,
   nominativo: 'PAGLIUSO ROBERT RALPH',
   camere: '109, 218',
+  storico: { n: 3, ultima: '2025-08-08' },
   dtarrivo: '2026-08-10',
   dtpartenza: '2026-08-14',
   notti: 4,
@@ -65,7 +67,7 @@ const arrivo = {
     vip: { descrizione: 'BOLLICINE + FRUTTA FRESCA' },
     intolleranze: ['Arachidi', 'Lattosio'],
     preferenzeTop: [{ testo: 'Coca-Cola Zero' }, { testo: 'Cuscino rigido' }],
-    reclami: { aperti: 1, totali: 2 },
+    reclami: { aperti: 1, totali: 2, testiAperti: ['Ritardo nella pulizia camera'] },
     compleanno: { data: '2026-08-12', nome: 'PAGLIUSO NATALIA' },
     indesiderato: false,
     notaPersonale: { sintesi: 'CEO settore Fashion', testo: 'CEO settore Fashion. Cena presto, mai dopo le 21.', troncata: true },
@@ -92,13 +94,50 @@ test('rigaExport: dati operativi sì, dati economici no', () => {
   assert.strictEqual(JSON.stringify(r).includes('DIRETTO'), false);
 });
 
-test('attenzioniDi: raccoglie ciò che richiede attenzione, in chiaro', () => {
+test('attenzioniDi: del reclamo si legge il TESTO, non il numero', () => {
   const a = E.attenzioniDi(arrivo);
-  assert.ok(a.some((x) => /Reclamo aperto \(1\)/.test(x)));
+  assert.ok(a.some((x) => /Reclamo aperto: Ritardo nella pulizia camera/.test(x)));
   assert.ok(a.some((x) => /Compleanno 12\/08\/2026 — PAGLIUSO NATALIA/.test(x)));
   const b = E.attenzioniDi({ snapshot: { indesiderato: true, reclami: { aperti: 0 } }, statoPartenza: 'checkout' });
   assert.deepStrictEqual(b, ['Ospite indesiderato', 'Check-out effettuato']);
   assert.deepStrictEqual(E.attenzioniDi({}), []); // nessun allarme inventato
+});
+
+test('attenzioniDi: più reclami aperti → i primi due, poi il conteggio', () => {
+  const tre = E.attenzioniDi({ snapshot: { reclami: { aperti: 3, totali: 3, testiAperti: ['Rumore', 'Conto extra', 'Wi-Fi'] } } });
+  assert.strictEqual(tre[0], 'Reclamo aperto: Rumore | Conto extra (+1)');
+  // Aperti ma senza testo (dato incompleto): si ripiega sul numero, non si tace.
+  const senzaTesto = E.attenzioniDi({ snapshot: { reclami: { aperti: 2, totali: 2 } } });
+  assert.strictEqual(senzaTesto[0], 'Reclamo aperto (2)');
+});
+
+test('testoVisite: di ritorno con numero, o prima volta', () => {
+  // storico.n conta i soggiorni CONCLUSI: quello in corso è l'(n+1)-esimo.
+  assert.strictEqual(E.testoVisite({ n: 3, ultima: '2025-08-08' }), '4ª volta · ultima 08/2025');
+  assert.strictEqual(E.testoVisite({ n: 1, ultima: null }), '2ª volta');
+  assert.strictEqual(E.testoVisite({ n: 0 }), 'Prima volta in hotel');
+  assert.strictEqual(E.testoVisite(null), 'Prima volta in hotel');
+});
+
+test('foglio: camere una per riga, e le seconde righe sotto ospite e soggiorno', () => {
+  const r = E.rigaExport(arrivo);
+  assert.strictEqual(E.COLONNE_EXPORT.camera.valore(r), '109\n218');
+  assert.strictEqual(E.COLONNE_EXPORT.ospite.valore(r), 'PAGLIUSO ROBERT RALPH');
+  assert.strictEqual(E.COLONNE_EXPORT.ospite.valoreSotto(r), '4ª volta · ultima 08/2025');
+  assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valore(r), '10/08/2026 → 14/08/2026');
+  assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valoreSotto(r), '4 notti');
+  assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valoreSotto(E.rigaExport({ ...arrivo, notti: 1 })), '1 notte');
+  // nel CSV le stesse informazioni restano su una riga e in campi separati
+  assert.strictEqual(E.COLONNE_EXPORT.camereCsv.valore(r), '109, 218');
+  assert.strictEqual(E.COLONNE_EXPORT.visite.valore(r), '4ª volta · ultima 08/2025');
+});
+
+test('tabellaStampa: la seconda riga esce come span attenuato, con escape', () => {
+  const html = E.tabellaStampa(E.costruisciExport([arrivo]), ['ospite', 'soggiorno']);
+  assert.match(html, /<span class="st-sotto">4ª volta · ultima 08\/2025<\/span>/);
+  assert.match(html, /<span class="st-sotto">4 notti<\/span>/);
+  const cattivo = E.tabellaStampa(E.costruisciExport([{ ...arrivo, storico: null, nominativo: 'x' }]), ['ospite']);
+  assert.match(cattivo, /Prima volta in hotel/);
 });
 
 test('accorcia: taglia a parola intera, lascia intatto ciò che ci sta', () => {
@@ -117,12 +156,13 @@ test('ordinaPerCamera: ordine da rack, non alfabetico', () => {
 
 test('toCsv: intestazioni, separatore ; e BOM per Excel', () => {
   const righe = E.costruisciExport([arrivo]);
-  const csv = E.toCsv(righe, ['camera', 'ospite', 'allergie', 'preferenze']);
+  const csv = E.toCsv(righe, ['camereCsv', 'ospiteCsv', 'allergie', 'preferenze']);
   const linee = csv.split('\r\n');
   assert.ok(csv.startsWith('﻿'), 'senza BOM Excel sbaglia gli accenti');
   assert.strictEqual(linee[0], '﻿Camera;Ospite;Allergie;Preferenze');
   // Con il ';' come separatore la virgola è un carattere qualunque: niente
-  // virgolette inutili attorno a "Arachidi, Lattosio".
+  // virgolette inutili attorno a "Arachidi, Lattosio". E niente a capo: quelli
+  // stanno solo sul foglio.
   assert.strictEqual(linee[1], '109, 218;PAGLIUSO ROBERT RALPH;Arachidi, Lattosio;Coca-Cola Zero · Cuscino rigido');
 });
 
@@ -154,9 +194,11 @@ test('vista generale: colonne attese, e nessun campo economico', () => {
   ['camera', 'ospite', 'soggiorno', 'vip', 'allergie', 'attenzioni', 'preferenze', 'notaOspite'].forEach((k) => {
     assert.ok(foglio.includes(k), `manca la colonna ${k} sul foglio`);
   });
-  ['camera', 'ospite', 'arrivo', 'partenza', 'notti', 'allergie', 'pratica'].forEach((k) => {
+  ['camereCsv', 'ospiteCsv', 'visite', 'arrivo', 'partenza', 'notti', 'allergie', 'pratica'].forEach((k) => {
     assert.ok(csv.includes(k), `manca la colonna ${k} nel CSV`);
   });
+  // Nel CSV niente colonne con a capo dentro: là si filtra e si ordina.
+  csv.forEach((k) => assert.ok(!E.COLONNE_EXPORT[k].valoreSotto, `${k} non va bene nel CSV`));
   [foglio, csv].forEach((c) => {
     assert.ok(c.indexOf('allergie') < c.indexOf('preferenze'), 'le allergie vengono prima delle preferenze');
     ['importo', 'extra', 'tariffa'].forEach((k) => assert.ok(!c.includes(k), `${k} non deve uscire`));
@@ -178,9 +220,8 @@ test('nota personale: sintesi sul foglio, testo intero nel CSV', () => {
   assert.strictEqual(senza.notaOspiteIntera, '');
 });
 
-test('colonna soggiorno: periodo e notti in una cella sola', () => {
-  const r = E.rigaExport(arrivo);
-  assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valore(r), '10/08/2026 → 14/08/2026 (4 notti)');
+test('colonna soggiorno: senza notti niente seconda riga', () => {
   const senzaNotti = E.rigaExport({ ...arrivo, notti: null });
   assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valore(senzaNotti), '10/08/2026 → 14/08/2026');
+  assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valoreSotto(senzaNotti), '');
 });

@@ -309,6 +309,8 @@ tbody tr:hover { background: var(--surface-2); }
 /* "Allergie:" davanti al valore: è l'etichetta che distingue un alert di
    sicurezza da una preferenza. Un filo più marcata del contenuto. */
 .flag-lbl { font-weight: 700; margin-right: 5px; }
+/* "+2" dopo il testo del primo reclamo: dice che ce ne sono altri, senza urlarlo. */
+.flag-piu { opacity: .7; font-weight: 700; margin-left: 5px; }
 .flag-danger { background: #f6e4e2; color: var(--danger); }
 .flag-safety { background: #fbeee0; color: #a5581a; }
 .flag-warning { background: #f3ead9; color: #8a6d2f; }
@@ -838,9 +840,12 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
 /* Una riga non si spezza mai fra due pagine: mezzo ospite non serve a nessuno. */
 .st-tab tr { break-inside: avoid; page-break-inside: avoid; }
 .st-tab thead { display: table-header-group; } /* testata ripetuta a ogni pagina */
-.st-camera { font-weight: 700; white-space: nowrap; }
+/* Camere: una per riga (il valore contiene a capo veri). */
+.st-camera { font-weight: 700; white-space: pre-line; }
 .st-ospite { font-weight: 600; }
 .st-sogg { white-space: nowrap; }
+/* Seconda riga della cella: contesto ("3ª volta", "7 notti"), non il dato principale. */
+.st-sotto { display: block; font-weight: 400; font-size: 8pt; color: #555; margin-top: 1px; }
 .st-nota { font-style: italic; }
 .st-note { color: #444; font-size: 8.5pt; }
 /* Le allergie devono saltare all'occhio anche in bianco e nero: rosso + neretto

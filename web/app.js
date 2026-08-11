@@ -412,6 +412,24 @@ function flagAllergie(s, classe) {
     + `<span class="flag-lbl">⚠ Allergie:</span>${esc(voci.join(', '))}</span>`;
 }
 
+// Reclami nelle card. "Reclami: 1 aperti / 2" dice che c'è un problema ma non
+// quale: chi accoglie l'ospite deve poterlo leggere senza aprire la scheda.
+// Si mostra il testo di quelli APERTI (i risolti restano un conteggio: sono
+// storia, e il loro testo qui sarebbe rumore).
+function flagReclami(s, classe) {
+  const r = s && s.reclami;
+  if (!r || !r.totali) return '';
+  const testi = (r.testiAperti || []).map((t) => anteprimaNota(t, 70)).filter(Boolean);
+  if (r.aperti && testi.length) {
+    const altri = r.aperti - 1;
+    const etichetta = `⚑ Reclamo aperto: ${esc(testi[0])}${altri > 0 ? ` <span class="flag-piu">+${altri}</span>` : ''}`;
+    return `<span class="${esc(classe)} flag-warning" title="${esc(testi.join(' · '))}">${etichetta}</span>`;
+  }
+  // Aperti senza testo (dato incompleto) o solo reclami chiusi: resta il numero.
+  const testo = r.aperti ? `⚑ Reclami: ${r.aperti} ${r.aperti === 1 ? 'aperto' : 'aperti'} / ${r.totali}` : `⚑ Reclami passati: ${r.totali}`;
+  return `<span class="${esc(classe)} flag-warning">${testo}</span>`;
+}
+
 // Nota personale in versione da card (Arrivi e In casa usano lo stesso pezzo).
 // È la STESSA nota dell'anagrafica, solo accorciata: si modifica solo da lì.
 // prefisso: 'arr' o 'ic', per restare nello stile della pagina che la ospita.
@@ -434,10 +452,8 @@ function snapshotBand(s) {
   }
   const allergie = flagAllergie(s, 'arr-flag');
   if (allergie) flags.push(allergie);
-  if (s.reclami && s.reclami.totali) {
-    const ap = s.reclami.aperti ? `${s.reclami.aperti} aperti / ` : '';
-    flags.push(`<span class="arr-flag flag-warning">⚑ Reclami: ${ap}${s.reclami.totali}</span>`);
-  }
+  const reclami = flagReclami(s, 'arr-flag');
+  if (reclami) flags.push(reclami);
   const prefs = (s.preferenzeTop || [])
     .map((p) => `<span class="arr-pref" title="${esc(p.reparto || '')}${p.categoria ? ' / ' + esc(p.categoria) : ''}">${esc(p.testo)}</span>`)
     .join('');
@@ -704,10 +720,8 @@ function schedaInCasa(c) {
     const chi = s.compleanno.nome ? ` · ${linkCliente(s.compleanno.codCli, s.compleanno.nome)}` : '';
     flags.push(`<span class="flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);
   }
-  if (s && s.reclami && s.reclami.totali) {
-    const ap = s.reclami.aperti ? `${s.reclami.aperti} aperti / ` : '';
-    flags.push(`<span class="flag flag-warning">⚑ Reclami: ${ap}${s.reclami.totali}</span>`);
-  }
+  const reclamiFlag = flagReclami(s, 'flag');
+  if (reclamiFlag) flags.push(reclamiFlag);
   const flagBlock = flags.length ? `<div class="ic-flags">${flags.join('')}</div>` : '';
 
   const prefs = ((s && s.preferenzeTop) || [])

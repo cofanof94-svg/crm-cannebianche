@@ -19,13 +19,24 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
 // --- Colonne disponibili -----------------------------------------------------
 // Ogni colonna sa come si chiama e come si estrae. Le viste scelgono quali usare.
 const COLONNE_EXPORT = {
-  camera: { etichetta: 'Camera', valore: (r) => r.camere, classe: 'st-camera' },
-  ospite: { etichetta: 'Ospite', valore: (r) => r.ospite, classe: 'st-ospite' },
+  // Colonne del FOGLIO. `valoreSotto` è una seconda riga attenuata sotto al
+  // valore: dice qualcosa in più senza costare una colonna.
+  camera: { etichetta: 'Camera', valore: (r) => r.camereRighe, classe: 'st-camera' },
+  ospite: { etichetta: 'Ospite', valore: (r) => r.ospite, valoreSotto: (r) => r.visite, classe: 'st-ospite' },
+  // Le tre informazioni sul periodo in una colonna sola: su A4 ogni colonna in
+  // meno è spazio che va al testo. Nel CSV restano separate, perché lì servono
+  // per ordinare e filtrare.
+  soggiorno: {
+    etichetta: 'Soggiorno',
+    valore: (r) => `${r.arrivo} → ${r.partenza}`,
+    valoreSotto: (r) => (r.notti != null ? `${r.notti} ${r.notti === 1 ? 'notte' : 'notti'}` : ''),
+    classe: 'st-sogg',
+  },
   inCamera: { etichetta: 'In camera', valore: (r) => r.inCamera },
-  // Sul foglio le tre informazioni sul periodo stanno in una colonna sola: su A4
-  // ogni colonna in meno è spazio che va al testo. Nel CSV restano separate,
-  // perché lì servono per ordinare e filtrare.
-  soggiorno: { etichetta: 'Soggiorno', valore: (r) => `${r.arrivo} → ${r.partenza}${r.notti != null ? ` (${r.notti} notti)` : ''}`, classe: 'st-sogg' },
+  // Colonne del CSV: una riga per cella, niente a capo.
+  camereCsv: { etichetta: 'Camera', valore: (r) => r.camere },
+  ospiteCsv: { etichetta: 'Ospite', valore: (r) => r.ospite },
+  visite: { etichetta: 'Visite', valore: (r) => r.visite },
   arrivo: { etichetta: 'Arrivo', valore: (r) => r.arrivo },
   partenza: { etichetta: 'Partenza', valore: (r) => r.partenza },
   notti: { etichetta: 'Notti', valore: (r) => (r.notti == null ? '' : String(r.notti)) },
@@ -51,7 +62,7 @@ const VISTE_EXPORT = {
   generale: {
     nome: 'Vista generale',
     foglio: ['camera', 'ospite', 'inCamera', 'soggiorno', 'vip', 'allergie', 'attenzioni', 'preferenze', 'notaOspite', 'trattamento', 'notePms'],
-    csv: ['camera', 'ospite', 'inCamera', 'arrivo', 'partenza', 'notti', 'vip', 'allergie', 'attenzioni', 'preferenze', 'notaOspiteIntera', 'trattamento', 'notePms', 'pratica'],
+    csv: ['camereCsv', 'ospiteCsv', 'visite', 'inCamera', 'arrivo', 'partenza', 'notti', 'vip', 'allergie', 'attenzioni', 'preferenze', 'notaOspiteIntera', 'trattamento', 'notePms', 'pratica'],
   },
 };
 
@@ -59,11 +70,25 @@ const VISTE_EXPORT = {
 // nessun reparto per servire meglio un ospite e non devono girare su carta.
 
 // --- Costruzione delle righe (pura: nessun DOM, testabile) -------------------
+// "Quante volte è già stato qui": storico.n conta i soggiorni CONCLUSI, quindi
+// quello in corso è l'(n+1)-esimo. Serve a chi accoglie: si tratta diversamente
+// chi torna per la quarta volta da chi entra per la prima.
+function testoVisite(storico) {
+  if (!storico || !storico.n) return 'Prima volta in hotel';
+  const mese = storico.ultima ? ` · ultima ${storico.ultima.slice(0, 7).split('-').reverse().join('/')}` : '';
+  return `${storico.n + 1}ª volta${mese}`;
+}
+
 function attenzioniDi(x) {
   const s = x.snapshot || {};
   const out = [];
   if (s.indesiderato) out.push('Ospite indesiderato');
-  if (s.reclami && s.reclami.aperti) out.push(`Reclamo aperto (${s.reclami.aperti})`);
+  if (s.reclami && s.reclami.aperti) {
+    // Il testo del reclamo, non il numero: il reparto deve sapere cosa è successo.
+    const testi = (s.reclami.testiAperti || []).map((t) => accorcia(t, 90));
+    if (!testi.length) out.push(`Reclamo aperto (${s.reclami.aperti})`);
+    else out.push(`Reclamo aperto: ${testi.slice(0, 2).join(' | ')}${testi.length > 2 ? ` (+${testi.length - 2})` : ''}`);
+  }
   if (s.compleanno) out.push(`Compleanno ${fmtData(s.compleanno.data)}${s.compleanno.nome ? ' — ' + s.compleanno.nome : ''}`);
   if (x.statoPartenza === 'partenza') out.push('Parte oggi');
   if (x.statoPartenza === 'checkout') out.push('Check-out effettuato');
@@ -82,9 +107,14 @@ function accorcia(testo, max) {
 
 function rigaExport(x, opts = {}) {
   const s = x.snapshot || {};
+  const camere = x.camere || '—';
   return {
-    camere: x.camere || '—',
+    camere,
+    // Sul foglio una camera per riga: la colonna si stringe e lo spazio va alle
+    // note, che sono la parte che serve leggere davvero.
+    camereRighe: camere.split(',').map((c) => c.trim()).filter(Boolean).join('\n') || '—',
     ospite: x.nominativo || '(senza nominativo)',
+    visite: testoVisite(x.storico),
     inCamera: (x.ospiti || []).map((o) => o.nominativo).filter(Boolean).join(', '),
     arrivo: fmtData(x.dtarrivo),
     partenza: fmtData(x.dtpartenza),
@@ -149,7 +179,8 @@ function tabellaStampa(righe, colonne) {
       const v = c.valore(r);
       // L'allergia non è un testo come gli altri: se c'è, si vede da lontano.
       if (k === 'allergie' && v) return `<td class="st-allergie"><b>⚠ ${esc(v)}</b></td>`;
-      return `<td class="${c.classe || ''}">${esc(v)}</td>`;
+      const sotto = c.valoreSotto ? c.valoreSotto(r) : '';
+      return `<td class="${c.classe || ''}">${esc(v)}${sotto ? `<span class="st-sotto">${esc(sotto)}</span>` : ''}</td>`;
     }).join('');
     return `<tr${r.allergie ? ' class="st-riga-allergia"' : ''}>${celle}</tr>`;
   }).join('');

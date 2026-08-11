@@ -11,7 +11,6 @@
 // chi ha già fatto il check-out in fondo (resta consultabile ma non toglie attenzione).
 
 const { arricchisciArrivi } = require('./arrivi-brief');
-const { getStoricoByIds } = require('../pms/clienti');
 
 function briefingInCasaVuoto(n) {
   return { presenti: n || 0, partonoOggi: 0, vip: 0, alert: 0, reclami: 0, ricorrenze: 0, usciti: 0 };
@@ -75,12 +74,13 @@ function calcolaBriefingInCasa(clienti) {
 async function arricchisciInCasa(pmsDb, crmDb, clienti, data) {
   if (!clienti || !clienti.length) return { briefing: briefingInCasaVuoto(0), clienti: clienti || [] };
 
+  // Lo storico arriva già da arricchisciArrivi (stessa domanda su entrambe le
+  // pagine): qui si aggiunge solo l'avanzamento del soggiorno, che negli arrivi
+  // non avrebbe senso.
   const { arrivi: conSnapshot } = await arricchisciArrivi(pmsDb, crmDb, clienti);
-  const storico = await getStoricoByIds(pmsDb, conSnapshot.map((c) => c.codCliente));
 
   const arricchiti = conSnapshot.map((c) => ({
     ...c,
-    storico: storico.get(c.codCliente) || null,
     avanzamento: avanzamento(c, data),
   }));
 
