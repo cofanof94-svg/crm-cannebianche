@@ -44,13 +44,41 @@ test('estraiFonti: scarta i domini non autorevoli (scraper di contatti/marketpla
   assert.match(fonti[0].url, /wikipedia/);
 });
 
-test('buildRequest: modello, web search tool e system', () => {
+test('buildRequest: senza indicazioni usa il modello più capace', () => {
+  // Il briefing lo si chiede a mano poche volte al giorno e lo legge chi ha
+  // l'ospite davanti: qui la qualità conta più del costo.
+  assert.strictEqual(buildRequest('FATTI').model, 'claude-opus-5');
+});
+
+test('buildRequest: modello, web search tool, ragionamento e system', () => {
   const req = buildRequest('FATTI', { model: 'claude-sonnet-5' });
   assert.strictEqual(req.model, 'claude-sonnet-5');
   assert.strictEqual(req.tools[0].type, 'web_search_20260209');
   assert.strictEqual(req.tools[0].name, 'web_search');
   assert.match(req.system, /concierge/i);
   assert.match(req.messages[0].content, /FATTI/);
+  // Il ragionamento serve a decidere se è la persona giusta e a riassumere invece
+  // di ricopiare: senza, su ospiti stranieri il testo scivolava in traduzioni
+  // parola per parola. Il tetto dei token deve stargli dietro.
+  assert.deepStrictEqual(req.thinking, { type: 'adaptive' });
+  assert.ok(req.max_tokens >= 4000, 'max_tokens troppo basso per il ragionamento');
+});
+
+test('senza citazioni: un solo link per sito, niente muro di omonimi', () => {
+  // Caso vero (un CEO americano): la ricerca ha restituito sei profili LinkedIn
+  // di sei persone diverse con lo stesso nome. Sei link, tutti probabilmente
+  // sbagliati, che in card sembravano una conferma.
+  const out = parseBriefing({ content: [
+    { type: 'web_search_tool_result', content: [
+      { url: 'https://www.linkedin.com/in/anthony-capuano/', title: 'uno' },
+      { url: 'https://www.linkedin.com/in/anthony-capuano-0b07556/', title: 'un altro' },
+      { url: 'https://it.linkedin.com/in/anthony-capuano-385772235/', title: 'un altro ancora' },
+      { url: 'https://marriott.gcs-web.com/board-directors/x', title: 'Marriott' },
+    ] },
+    { type: 'text', text: 'Ruolo: CEO' }, // nessuna citazione → ripiego
+  ] });
+  assert.strictEqual(out.fonti.length, 3); // linkedin.com, it.linkedin.com, marriott
+  assert.strictEqual(out.fonti.filter((f) => f.url.includes('www.linkedin.com')).length, 1);
 });
 
 test('estraiFonti: dedup delle citazioni; senza citazioni restano i risultati', () => {

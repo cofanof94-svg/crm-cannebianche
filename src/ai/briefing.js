@@ -121,13 +121,20 @@ function haFatti(fatti) {
   return typeof fatti === 'string' && fatti.trim().length > 0;
 }
 
-// Nessun structured output: la ricerca web produce testo con citazioni. Manteniamo
-// max_tokens contenuto (briefing breve). thinking non usato per semplicità/robustezza.
-function buildRequest(fatti, { model = 'claude-sonnet-5', maxTokens = 2000, maxUses = 5 } = {}) {
+// Nessun structured output: la ricerca web produce testo con citazioni.
+//
+// Il ragionamento (`thinking`) è acceso perché qui non basta trovare la pagina:
+// bisogna decidere se è la persona giusta, scartare quello che alla reception non
+// serve e riassumere in parole chiave invece di ricopiare la bio aziendale. Senza,
+// su ospiti stranieri il briefing scivolava in frasi tradotte parola per parola
+// ("a servito in vari ruoli di leadership") e righe lunghe il doppio del dovuto.
+// max_tokens sale di conseguenza: il testo resta breve, il ragionamento no.
+function buildRequest(fatti, { model = 'claude-opus-5', maxTokens = 6000, maxUses = 5 } = {}) {
   return {
     model,
     max_tokens: maxTokens,
     system: SYSTEM,
+    thinking: { type: 'adaptive' },
     messages: [{ role: 'user', content: `${fatti}\n\nPrepara il briefing seguendo le regole.` }],
     tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxUses }],
   };
@@ -150,6 +157,21 @@ function buildRequest(fatti, { model = 'claude-sonnet-5', maxTokens = 2000, maxU
 // quello che ha trovato il motore: si mostrano pochi e con un'etichetta diversa,
 // altrimenti la card promette una verifica che non c'è stata.
 const MAX_RIPIEGO = 6;
+
+// Un solo link per sito, nel ripiego. Su un CEO americano la ricerca ha restituito
+// sei profili LinkedIn di sei persone diverse con lo stesso nome: sei link, tutti
+// probabilmente sbagliati, che sembravano una conferma. Un link per dominio tiene
+// la lista varia e rende evidente che è materiale da verificare, non una prova.
+function unoPerDominio(fonti) {
+  const visti = new Set();
+  return fonti.filter((f) => {
+    let host;
+    try { host = new URL(f.url).hostname.replace(/^www\./, '').toLowerCase(); } catch { return true; }
+    if (visti.has(host)) return false;
+    visti.add(host);
+    return true;
+  });
+}
 
 // Il modello ha davvero agganciato quello che scrive ai risultati della ricerca?
 function haCitazioni(blocchi) {
@@ -175,7 +197,7 @@ function estraiFonti(blocchi) {
     for (const c of b.citations || []) aggiungi('citate', c && c.url, c && c.title);
     if (Array.isArray(b.content)) for (const r of b.content) if (r && r.url) aggiungi('cercate', r.url, r.title);
   }
-  return citate.length ? citate : cercate.slice(0, MAX_RIPIEGO);
+  return citate.length ? citate : unoPerDominio(cercate).slice(0, MAX_RIPIEGO);
 }
 
 // Ripulisce l'output: toglie il grassetto markdown e un'eventuale riga di

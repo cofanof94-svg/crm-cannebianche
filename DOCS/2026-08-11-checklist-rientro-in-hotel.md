@@ -138,10 +138,19 @@ nulla: è per questo che l'etichetta ora distingue i due casi.
       casi veri in mano
 - [ ] ⚠️ **Fra i link non citati compaiono OMONIMI**: su un imprenditore sono
       usciti la pagina Wikipedia di un attore quasi omonimo e la scheda di un
-      ricercatore con lo stesso nome. Chi apre quel link legge di un'altra
-      persona. È il motivo per cui l'etichetta li separa dalle fonti vere:
-      verificare che in reception si capisca, altrimenti valutare di non
-      mostrarli affatto quando l'AI non cita
+      ricercatore con lo stesso nome; su un CEO americano, **sei profili LinkedIn
+      di sei persone diverse**. Da qui il "un link per sito" e il tetto di sei.
+      Resta però il rischio di fondo: chi apre quel link può leggere di un'altra
+      persona. Verificare che in reception l'etichetta si capisca, altrimenti la
+      scelta giusta è **non mostrarli affatto** quando l'AI non cita
+
+### Costo del briefing
+Il briefing usa `claude-opus-5` (variabile `ANTHROPIC_MODEL_BRIEFING`), le altre
+funzioni AI restano su Sonnet. La scelta nasce da un confronto dal vivo sullo
+stesso ospite: Sonnet incollava frasi intere dai comunicati stampa in inglese,
+Opus no. Si chiede a mano poche volte al giorno, quindi il costo è contenuto.
+
+- [ ] Dopo qualche settimana, guardare la spesa reale e decidere se tenerlo
 
 ---
 

@@ -197,7 +197,7 @@ function createClientiRouter(pmsDb, crmDb) {
       email: cliente.email,
     });
     if (!briefingAi.haFatti(fatti)) return res.json(briefingAi.NIENTE());
-    const out = await briefingAi.briefing(ai.client, fatti, { model: ai.model });
+    const out = await briefingAi.briefing(ai.client, fatti, { model: ai.modelBriefing });
     // Audit (privacy): chi ha richiesto un briefing pubblico, per chi, con quante fonti.
     console.log(`[AI briefing] cliente=${codCli} utente=${req.session.user.username} identificazione=${out.identificazione} fonti=${out.fonti.length}`);
     res.json(out);

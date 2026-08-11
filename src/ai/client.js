@@ -27,6 +27,12 @@ function getAiClient() {
     // Sonnet 5: buon giudizio a costo contenuto per una sintesi come questa.
     // Override con ANTHROPIC_MODEL (es. claude-opus-5 per max qualità, claude-haiku-4-5 per min costo).
     model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
+    // Il briefing fa un mestiere più difficile: capire se la pagina trovata è
+    // davvero l'ospite, buttare via ciò che alla reception non serve e riassumere
+    // in parole chiave invece di ricopiare. Provato dal vivo sullo stesso ospite,
+    // Sonnet incollava frasi intere dai comunicati stampa in inglese, Opus no.
+    // Si paga di più, ma il briefing lo si chiede a mano poche volte al giorno.
+    modelBriefing: process.env.ANTHROPIC_MODEL_BRIEFING || 'claude-opus-5',
   };
   return cached;
 }
