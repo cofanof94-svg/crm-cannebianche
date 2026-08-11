@@ -389,9 +389,12 @@ tbody tr:hover { background: var(--surface-2); }
 /* Modale */
 /* max-height + scroll: su un portatile basso una modale alta finirebbe sotto il
    bordo dello schermo, coi pulsanti irraggiungibili. */
-dialog.modal { border: none; border-radius: 18px; padding: 0; box-shadow: var(--shadow-md); width: 500px; max-width: calc(100vw - 32px); max-height: calc(100vh - 48px); overflow: auto; color: var(--text); }
+dialog.modal { border: none; border-radius: 12px; padding: 0; box-shadow: var(--shadow-md); width: 500px; max-width: calc(100vw - 32px); max-height: calc(100vh - 48px); overflow: auto; color: var(--text); }
 dialog.modal::backdrop { background: rgba(8,42,52,.45); }
-#user-form, #followup-form { padding: 26px; }
+/* Il padding sta sul contenuto, non sulla modale: la modale è a padding 0 perché
+   il merge usa un corpo suo. Ogni form che ci finisce dentro va elencato qui —
+   dimenticarlo significa testo appiccicato ai bordi e angoli che sembrano tagliare. */
+#user-form, #followup-form, #export-form { padding: 26px; }
 /* Il testo del reclamo che si sta chiudendo: contesto, non un campo da compilare. */
 .fu-quale { margin: -8px 0 16px; padding: 10px 12px; background: var(--surface-2); border-left: 3px solid var(--border-strong); border-radius: 0 8px 8px 0; font-size: 13px; color: var(--muted); }
 #followup-testo { font: inherit; font-size: 13.5px; font-weight: 400; padding: 9px 11px; border: 1px solid var(--border-strong); border-radius: 10px; resize: vertical; }
