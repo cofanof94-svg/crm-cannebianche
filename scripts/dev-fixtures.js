@@ -47,6 +47,18 @@ const ANAGRAFICHE = [
   { CodCli: 1014, Cognome: 'SCHMIDT', Nome: 'LUKAS', email: 'l.schmidt@example.de', Telefono: '', Cellulare: '+491701234567', Citta: 'HAMBURG', CodNaz: 'D', dtNascita: '1976-09-30', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
   { CodCli: 1016, Cognome: 'CONTE', Nome: 'VALERIA', email: 'v.conte@example.it', Telefono: '', Cellulare: '3281016016', Citta: 'LECCE', CodNaz: 'I', dtNascita: '1985-04-27', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1015, Cognome: 'AL-FARSI', Nome: 'NOURA', email: 'n.alfarsi@example.com', Telefono: '', Cellulare: '+971501234567', Citta: 'DUBAI', CodNaz: 'UAE', dtNascita: null, CodFis: '', CodVip: 'V1', DesVip: 'BOLLICINE + FRUTTA FRESCA', Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  // --- Due ospiti per collaudare il Briefing AI ------------------------------
+  // Il briefing è l'unica funzione che cerca DAVVERO su internet: con un nome
+  // inventato non trova nulla e non si capisce se funziona. Servono quindi un nome
+  // che il web conosce e un nome ambiguo, per vedere i due comportamenti opposti.
+  // 1017: personaggio pubblico reale (nome usato solo perché la ricerca trovi
+  // qualcosa), con dominio mail aziendale → atteso "Personaggio pubblico".
+  { CodCli: 1017, Cognome: 'FARINETTI', Nome: 'OSCAR', email: 'o.farinetti@eataly.it', Telefono: '', Cellulare: '3351017017', Citta: 'ALBA', CodNaz: 'I', dtNascita: null, CodFis: '', CodVip: 'V1', DesVip: 'BOLLICINE + FRUTTA FRESCA', Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
+  // 1018: la trappola dell'omonimia. Nome comunissimo, mail generica, nessun
+  // riscontro aziendale → atteso "Identità da confermare" oppure nessuna
+  // informazione. Se qui esce un ruolo dato per certo, la regola dei due
+  // riscontri non sta funzionando.
+  { CodCli: 1018, Cognome: 'ROSSI', Nome: 'MARCO', email: 'marco.rossi@gmail.com', Telefono: '', Cellulare: '3351018018', Citta: 'MILANO', CodNaz: 'I', dtNascita: '1974-11-02', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   // occupanti delle prenotazioni future
   { CodCli: 1105, Cognome: 'ZANARDELLI', Nome: 'BEATRICE', email: '', Telefono: '', Cellulare: '', Citta: 'BRESCIA', CodNaz: 'I', dtNascita: '1974-02-11', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1106, Cognome: 'ZANARDELLI', Nome: 'TOMMASO', email: '', Telefono: '', Cellulare: '', Citta: 'BRESCIA', CodNaz: 'I', dtNascita: '2015-06-04', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
@@ -80,6 +92,11 @@ const PRENOTAZIONI = [
   // arrivi di oggi
   { codpratica: 70201, codCliente: 1201, camere: '211', tipologie: 'SUP', dtarrivo: piu(0), dtpartenza: piu(5), trattamento: 'Mezza Pensione', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 310, oraArrivo: '15.30', note: 'Prima volta in hotel. Arrivo previsto nel pomeriggio. Allergia alle arachidi segnalata al momento della prenotazione.', occupanti: [] },
   { codpratica: 70202, codCliente: 1003, camere: '215', tipologie: 'CLS', dtarrivo: piu(0), dtpartenza: piu(2), trattamento: 'B&B', tariffa: 'BAR', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 245, oraArrivo: '', note: '', occupanti: [] },
+  // I due casi per il Briefing AI (vedi anagrafiche 1017 e 1018): personaggio
+  // pubblico e trappola dell'omonimia, entrambi in arrivo oggi così si prova il
+  // pulsante ✨ Briefing AI dalla card senza cercarli in anagrafica.
+  { codpratica: 70212, codCliente: 1017, camere: '301', tipologie: 'JSF', dtarrivo: piu(0), dtpartenza: piu(3), trattamento: 'Mezza Pensione', tariffa: 'DIRETTO', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 690, oraArrivo: '17.00', note: 'Prenotazione diretta della segreteria.', occupanti: [] },
+  { codpratica: 70213, codCliente: 1018, camere: '216', tipologie: 'CLS', dtarrivo: piu(0), dtpartenza: piu(2), trattamento: 'B&B', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 250, oraArrivo: '', note: '', occupanti: [] },
 
   // OGGI — due proposte nella stessa card, una giusta e una sbagliata:
   // "intollerante al lattosio" è dell'ospite (da accettare), mentre il menù

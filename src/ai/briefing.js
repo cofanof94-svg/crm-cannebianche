@@ -6,6 +6,18 @@
 // citate. Nessun dato privato/sensibile. Se non è un personaggio pubblico o non
 // ci sono fonti affidabili → "Nessuna informazione pubblica rilevante.".
 //
+// Dal 2026-08-11 l'esito non è più binario. I profili professionali (LinkedIn)
+// sono ammessi come fonte per intercettare i manager che NON sono personaggi
+// pubblici — ma solo per ruolo/azienda/settore, e con un'etichetta diversa in
+// modo che chi legge sappia da dove viene il dato:
+//   pubblica      → personaggio pubblico, fonti autorevoli (come prima)
+//   professionale → nessun rilievo pubblico, ma profilo professionale coerente
+//   incerta       → profilo trovato ma identità non confermata → NON si attribuisce
+//   nessuna       → niente da dire
+// Il rischio qui non è la privacy (LinkedIn è autopubblicato dall'interessato) ma
+// l'OMONIMIA: "Mario Rossi, Milano" sono centinaia. Da qui la regola dei due
+// riscontri e il dominio della mail come prova d'identità.
+//
 // Modulo puro: il client Anthropic è iniettato (mock nei test). Usa il server tool
 // di ricerca web (web_search_20260209) che aggiunge automaticamente le citazioni.
 
@@ -13,21 +25,34 @@ const SYSTEM = [
   "Sei l'assistente concierge di un hotel 5 stelle (Canne Bianche Lifestyle Hotel, Torre Canne).",
   'Compito: preparare un BRIEFING BREVISSIMO per la reception su un ospite di rilievo, usando SOLO fonti web PUBBLICHE e AFFIDABILI.',
   "Usa lo strumento di ricerca web per verificare se l'ospite è un personaggio pubblico (istituzionale, imprenditore noto, personaggio dello spettacolo/sport/cultura, ecc.).",
+  "Se non è un personaggio pubblico, cerca comunque un PROFILO PROFESSIONALE (tipicamente LinkedIn): serve a riconoscere manager e dirigenti che non sono figure pubbliche.",
   '',
   'REGOLE FERREE:',
   '- Usa SOLO informazioni pubbliche e verificabili; CITA sempre le fonti.',
-  '- Cita ESCLUSIVAMENTE fonti AUTOREVOLI e pertinenti: siti ufficiali/istituzionali, enciclopedie (Treccani, Britannica, Wikipedia), stampa affidabile, pagine ufficiali dell\'organizzazione o profili professionali ufficiali. NON citare aggregatori/scraper di contatti (email, telefoni), marketplace, blog non verificati, social non ufficiali o pagine non pertinenti. Meglio poche fonti solide che molte deboli.',
+  '- Cita ESCLUSIVAMENTE fonti AUTOREVOLI e pertinenti: siti ufficiali/istituzionali, enciclopedie (Treccani, Britannica, Wikipedia), stampa affidabile, pagine ufficiali dell\'organizzazione, profili professionali (LinkedIn). NON citare aggregatori/scraper di contatti (email, telefoni), marketplace, blog non verificati, social personali (Facebook, Instagram, TikTok, X) o pagine non pertinenti. Meglio poche fonti solide che molte deboli.',
   "- Includi SOLO ciò che è utile all'accoglienza: ruolo/professione pubblica, cariche/ruoli pubblici, motivo di notorietà, come rivolgersi (titolo/appellativo).",
+  '- Da un profilo professionale prendi SOLO ruolo, azienda/organizzazione e settore. NON riportare percorso di studi, storia lavorativa, post, contatti, foto, collegamenti o qualunque altro contenuto del profilo.',
   '- NON includere dati privati o sensibili: salute, vita sentimentale/familiare, orientamento, religione, opinioni politiche, patrimonio, indirizzi, recapiti.',
-  '- Se la persona NON è chiaramente un personaggio pubblico, oppure non trovi fonti affidabili, rispondi ESATTAMENTE: "Nessuna informazione pubblica rilevante." e nient\'altro. Non inventare, non indovinare.',
+  '- Se la persona NON è un personaggio pubblico e non trovi nemmeno un profilo professionale attendibile, rispondi ESATTAMENTE: "Nessuna informazione pubblica rilevante." e nient\'altro. Non inventare, non indovinare.',
   '- NON scrivere nel testo una sezione "Fonti"/riferimenti: le fonti sono gestite automaticamente a parte.',
   '- NON scrivere frasi introduttive, valutazioni della ricerca o conferme identità (es. "Buon match…", "personaggio pubblico", "fonti autorevoli", "Verifico…", "Ho verificato…", "L\'ospite corrisponde a…"): la PRIMISSIMA parola del testo deve essere l\'etichetta "Ruolo:".',
-  '- In caso di omonimia o incertezza sull\'identità, NON attribuire informazioni: dichiara che non è possibile identificare l\'ospite con certezza.',
-  '- FORMATO: SINTESI per PAROLE CHIAVE, non prosa. Massimo 4-5 righe, ognuna "Etichetta: poche parole chiave" (max ~10 parole per riga). VIETATI: frasi complete e verbi narrativi ("è stato", "ha ricevuto"), ripetere il nome dell\'ospite, il markdown/grassetto (**), qualsiasi riga di intestazione o titolo. INIZIA DIRETTAMENTE dalla prima etichetta (es. "Ruolo:"). Includi sempre una riga finale "Appellativo:". Esempio di STILE (adatta i contenuti all\'ospite reale):',
+  "- IDENTITÀ (regola dei due riscontri): un profilo professionale vale come identificazione certa solo se, oltre al nome e cognome, combacia ALMENO UN altro elemento fra quelli che ti do (dominio della mail = azienda del profilo, città/nazione, azienda citata nel contesto interno). Con il solo nome e cognome l'identificazione NON è certa: i casi di omonimia sono la regola, non l'eccezione.",
+  "- In caso di omonimia o incertezza sull'identità NON attribuire nulla come certo: riporta le parole chiave del profilo più probabile e marca l'identificazione come incerta (vedi ultima riga), così l'operatore verifica di persona.",
+  '- ULTIMA RIGA OBBLIGATORIA, sempre, esattamente in questo formato: "Identificazione: pubblica" se è un personaggio pubblico con fonti autorevoli; "Identificazione: professionale" se non ha rilievo pubblico ma il profilo professionale è confermato dalla regola dei due riscontri; "Identificazione: incerta" se il profilo è plausibile ma non confermato. Questa riga non conta nel limite di righe e non deve contenere altro.',
+  '- FORMATO: SINTESI per PAROLE CHIAVE, non prosa. Massimo 4-5 righe, ognuna "Etichetta: poche parole chiave" (max ~10 parole per riga). VIETATI: frasi complete e verbi narrativi ("è stato", "ha ricevuto"), ripetere il nome dell\'ospite, il markdown/grassetto (**), qualsiasi riga di intestazione o titolo. INIZIA DIRETTAMENTE dalla prima etichetta (es. "Ruolo:"). Includi sempre una riga "Appellativo:" e, come ultimissima, la riga "Identificazione:". Esempi di STILE (adatta i contenuti all\'ospite reale):',
+  '',
+  'Personaggio pubblico:',
   'Ruolo: modella e socialite britannica',
   'Notorietà: nipote di Diana Spencer; cugina dei principi William e Harry',
   'Ambito: ambasciatrice brand di lusso (Schiaparelli, Armani, Bvlgari)',
   'Appellativo: "Lady Amelia"',
+  'Identificazione: pubblica',
+  '',
+  'Profilo professionale (nessun rilievo pubblico, azienda confermata dal dominio della mail):',
+  'Ruolo: Direttore Generale',
+  'Azienda: Pirelli & C. SpA (pneumatici, industria)',
+  'Appellativo: "Dottore"',
+  'Identificazione: professionale',
 ].join('\n');
 
 // Domini non autorevoli da scartare comunque dalle fonti (scraper di contatti,
@@ -35,16 +60,46 @@ const SYSTEM = [
 const DOMINI_ESCLUSI = [
   'rocketreach', 'signalhire', 'zoominfo', 'lusha', 'contactout', 'apollo.io',
   'rocketreach.co', 'leadiq', 'hunter.io', '1stdibs', 'pressreader',
+  // Social personali: LinkedIn è ammesso (è una presentazione professionale
+  // autopubblicata), questi no. 'x.com' non è in elenco apposta: il confronto è
+  // per sottostringa e scarterebbe anche linux.com, matrix.com, essex.com…
+  'facebook.com', 'instagram.com', 'tiktok.com', 'twitter.com',
 ];
+
+// Provider di posta generici: il dominio non dice nulla sull'azienda, quindi non
+// serve a confermare un'identità e non ha senso passarlo al modello.
+const PROVIDER_GENERICI = new Set([
+  'gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.it', 'hotmail.fr', 'hotmail.co.uk',
+  'outlook.com', 'outlook.it', 'live.com', 'live.it', 'msn.com', 'yahoo.com', 'yahoo.it',
+  'icloud.com', 'me.com', 'mac.com', 'aol.com', 'libero.it', 'virgilio.it', 'alice.it',
+  'tin.it', 'tiscali.it', 'fastwebnet.it', 'inwind.it', 'email.it', 'pec.it',
+  'protonmail.com', 'proton.me', 'gmx.de', 'gmx.net', 'web.de', 't-online.de',
+  'free.fr', 'orange.fr', 'wanadoo.fr', 'laposte.net', 'btinternet.com', 'sky.com',
+  'mail.ru', 'yandex.ru', 'qq.com', '163.com',
+]);
+
+// Il dominio della mail è la prova d'identità più forte che abbiamo contro
+// l'omonimia: m.rossi@pirelli.com + profilo che dice Pirelli = stessa persona.
+// Si passa SOLO il dominio, mai l'indirizzo: la parte prima della @ non serve a
+// identificare l'azienda ed è un dato personale in più consegnato al modello.
+function dominioAziendale(email) {
+  const at = String(email == null ? '' : email).trim().toLowerCase().split('@');
+  if (at.length !== 2) return '';
+  const dom = at[1].replace(/[>,;\s].*$/, '');
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(dom)) return '';
+  return PROVIDER_GENERICI.has(dom) ? '' : dom;
+}
 
 // Blocco identità minimo per disambiguare la ricerca. Le note interne sono contesto
 // e NON vanno pubblicate/ricercate come fatti.
-function costruisciFatti({ nominativo, citta, nazione, vip, note } = {}) {
+function costruisciFatti({ nominativo, citta, nazione, vip, note, email } = {}) {
   const nome = (nominativo == null ? '' : String(nominativo)).trim();
   if (!nome) return '';
   const parti = [`Ospite da preparare: ${nome}`];
   const prov = [citta, nazione].map((s) => (s == null ? '' : String(s)).trim()).filter(Boolean).join(', ');
   if (prov) parti.push(`Possibile provenienza (per disambiguare): ${prov}`);
+  const dom = dominioAziendale(email);
+  if (dom) parti.push(`Dominio della mail, indizio sull'azienda (per confermare l'identità, NON pubblicare): ${dom}`);
   const v = vip && vip.descrizione ? String(vip.descrizione).trim() : '';
   if (v) parti.push(`Classificazione interna VIP: ${v}`);
   const n = (note == null ? '' : String(note)).trim();
@@ -92,6 +147,18 @@ function estraiFonti(blocchi) {
 // Ripulisce l'output: toglie il grassetto markdown e un'eventuale riga di
 // intestazione iniziale (es. "BRIEFING RECEPTION – Nome") che il modello a volte
 // aggiunge nonostante il vincolo, così restano solo le righe "Etichetta: keyword".
+// Riga marcatore con l'esito dell'identificazione. Si legge dal testo grezzo e si
+// toglie dal testo mostrato: all'operatore serve un'etichetta, non una riga di
+// gergo in fondo al briefing.
+const ESITI = ['pubblica', 'professionale', 'incerta'];
+const RIGA_IDENT = /^[ \t]*identificazione[ \t]*:[ \t]*["']?([a-zàèéìòù]+)/im;
+
+function estraiIdentificazione(grezzo) {
+  const m = String(grezzo || '').match(RIGA_IDENT);
+  const v = m ? m[1].toLowerCase() : '';
+  return ESITI.includes(v) ? v : '';
+}
+
 function pulisciTesto(t) {
   let s = String(t || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
   // Il briefing DEVE iniziare da "Ruolo:": taglio qualsiasi preambolo/ragionamento
@@ -102,6 +169,7 @@ function pulisciTesto(t) {
   // Taglio una eventuale coda "Fonti: …" nel testo (le fonti sono mostrate a parte).
   const iFonti = righe.findIndex((r) => /^\s*fonti\b/i.test(r));
   if (iFonti >= 0) righe = righe.slice(0, iFonti);
+  righe = righe.filter((r) => !RIGA_IDENT.test(r)); // il marcatore diventa un'etichetta, non testo
   return righe.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
@@ -111,13 +179,33 @@ function parseBriefing(resp) {
   const testo = pulisciTesto(grezzo);
   const fonti = estraiFonti(blocchi);
   const pubblico = !!testo && !/nessuna informazione pubblica/i.test(testo);
-  return { testo: testo || 'Nessuna informazione pubblica rilevante.', fonti: pubblico ? fonti : [], pubblico };
+  // Senza riga marcatore (risposta fuori formato) vale l'esito storico: pubblica.
+  const identificazione = pubblico ? (estraiIdentificazione(grezzo) || 'pubblica') : 'nessuna';
+  // Un'identità non confermata non finisce in anagrafica: si mostra il link e
+  // decide l'operatore. È l'unica difesa vera contro l'omonimia.
+  const salvabile = identificazione === 'pubblica' || identificazione === 'professionale';
+  return {
+    testo: testo || 'Nessuna informazione pubblica rilevante.',
+    fonti: pubblico ? fonti : [],
+    pubblico,
+    identificazione,
+    salvabile,
+  };
 }
 
+// Esito "niente da dire", nella stessa forma di parseBriefing: chi lo consuma non
+// deve distinguere fra "non abbiamo cercato" e "cercato senza esito".
+const NIENTE = () => ({
+  testo: 'Nessuna informazione pubblica rilevante.', fonti: [], pubblico: false, identificazione: 'nessuna', salvabile: false,
+});
+
 async function briefing(client, fatti, opts = {}) {
-  if (!haFatti(fatti)) return { testo: 'Nessuna informazione pubblica rilevante.', fonti: [], pubblico: false };
+  if (!haFatti(fatti)) return NIENTE();
   const resp = await client.messages.create(buildRequest(fatti, opts));
   return parseBriefing(resp);
 }
 
-module.exports = { SYSTEM, costruisciFatti, haFatti, buildRequest, estraiFonti, parseBriefing, briefing };
+module.exports = {
+  SYSTEM, costruisciFatti, haFatti, buildRequest, estraiFonti, parseBriefing, briefing,
+  dominioAziendale, estraiIdentificazione, NIENTE,
+};

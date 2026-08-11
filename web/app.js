@@ -287,6 +287,14 @@ function aggiornaNotaNelleCard(codCli, nota) {
 
 function briefMsg(t) { return `<div class="brief-card"><div class="ai-msg">${esc(t)}</div></div>`; }
 
+// Da dove viene il dato: un ruolo letto su Treccani e uno letto su LinkedIn non
+// hanno lo stesso peso, e chi legge deve saperlo a colpo d'occhio.
+const ESITI_BRIEF = {
+  pubblica: { txt: 'Personaggio pubblico', cls: 'brief-esito-pub', tit: 'Riconosciuto su fonti pubbliche autorevoli' },
+  professionale: { txt: 'Profilo professionale', cls: 'brief-esito-pro', tit: 'Nessun rilievo pubblico: ruolo e azienda da profilo professionale (es. LinkedIn), con identità confermata da un secondo riscontro' },
+  incerta: { txt: 'Identità da confermare', cls: 'brief-esito-inc', tit: 'Profilo plausibile ma non confermato (omonimia possibile): verificare prima di usarlo' },
+};
+
 function renderBriefResult(b, cli) {
   const fonti = (b.fonti || [])
     .map((f) => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.titolo || f.url)}</a></li>`)
@@ -295,15 +303,23 @@ function renderBriefResult(b, cli) {
   const fontiBlock = fonti
     ? `<details class="brief-fonti"><summary>Fonti (${nFonti})</summary><ul>${fonti}</ul></details>`
     : '';
-  // Salvataggio nel profilo solo se l'ospite è stato riconosciuto (pubblico).
+  const e = ESITI_BRIEF[b.identificazione];
+  const esito = e ? `<span class="brief-esito ${e.cls}" title="${esc(e.tit)}">${esc(e.txt)}</span>` : '';
+  // Nel profilo va solo ciò che è stato identificato con certezza: un'identità
+  // incerta resta a schermo, con le sue fonti, ma non si scrive in anagrafica.
   const salvato = cli && aiGiaFatto(chiaveSalvaBrief(cli));
-  const salva = b.pubblico && cli
+  const salva = b.salvabile && cli
     ? `<button type="button" class="brief-save${salvato ? ' brief-save-done' : ''}" data-save-cli="${esc(cli)}"${salvato
       ? ' disabled title="Già aggiunto alle Note personali del profilo">✓ Salvato nel profilo'
       : ' title="Aggiungi alle Note personali del profilo">💾 Salva nel profilo'}</button>`
     : '';
+  const avviso = b.identificazione === 'incerta'
+    ? '<div class="brief-avviso">Apri la fonte e verifica che sia la persona giusta: finché l\'identità non è certa non si salva nel profilo.</div>'
+    : '';
   return `<div class="brief-card">
+    ${esito}
     <div class="brief-testo">${esc(b.testo || '')}</div>
+    ${avviso}
     ${fontiBlock}
     ${salva}
     <div class="brief-disclaimer">⚠ Generato dall'AI su fonti pubbliche — verificare prima dell'uso.</div>
@@ -1330,11 +1346,22 @@ async function generaNotePers() {
     // Ricerca fatta: anche "nessuna informazione" è una risposta, rifarla darebbe lo stesso esito.
     fatto();
     if (!body.pubblico) { msg.textContent = 'Nessuna informazione pubblica rilevante per questo ospite.'; return; }
+    // Identità non confermata: le note personali SONO il profilo, quindi non ci
+    // scrivo dentro un'ipotesi. Mostro i link e decide chi legge.
+    if (!body.salvabile) {
+      const link = (body.fonti || []).slice(0, 6)
+        .map((f) => `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.titolo || f.url)}</a>`)
+        .join(' · ');
+      msg.innerHTML = '<span class="notepers-incerta">⚠ Trovato un profilo compatibile, ma l\'identità non è confermata (possibile omonimia): non lo inserisco da solo. Apri la fonte e, se è la persona giusta, scrivilo a mano.</span>'
+        + (link ? `<span class="notepers-fonti">${link}</span>` : '');
+      return;
+    }
     const ta = $('#cli-note-personali');
     const attuale = ta.value.trim();
     ta.value = attuale ? `${attuale}\n\n${body.testo}` : body.testo;
     const fonti = (body.fonti || []).map((f) => f.titolo || f.url).slice(0, 6);
-    msg.innerHTML = `<span class="notepers-ok">✓ Generato da fonti pubbliche. Rivedi e premi Salva.</span>${fonti.length ? `<span class="notepers-fonti">Fonti: ${fonti.map(esc).join(' · ')}</span>` : ''}`;
+    const origine = body.identificazione === 'professionale' ? 'da profilo professionale' : 'da fonti pubbliche';
+    msg.innerHTML = `<span class="notepers-ok">✓ Generato ${esc(origine)}. Rivedi e premi Salva.</span>${fonti.length ? `<span class="notepers-fonti">Fonti: ${fonti.map(esc).join(' · ')}</span>` : ''}`;
   } catch {
     btn.disabled = false;
     msg.textContent = 'Errore di rete durante la generazione.';

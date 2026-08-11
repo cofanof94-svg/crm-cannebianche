@@ -351,6 +351,16 @@ tbody tr:hover { background: var(--surface-2); }
 .arr-brief-result { margin-top: 12px; }
 .brief-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
 .brief-testo { font-size: 13.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+/* Provenienza del dato: enciclopedia e LinkedIn non valgono uguale, e un'identità
+   non confermata va vista prima del testo, non dopo. */
+.brief-esito { display: inline-block; margin-bottom: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-radius: 999px; padding: 3px 10px; border: 1px solid; cursor: help; }
+.brief-esito-pub { background: var(--accent-050); border-color: var(--accent); color: var(--accent-700); }
+.brief-esito-pro { background: var(--sea-050); border-color: var(--sea); color: var(--sea-700); }
+.brief-esito-inc { background: #f7edda; border-color: #c9a24e; color: #7c5f28; }
+.brief-esito-inc::before { content: '⚠ '; }
+.brief-avviso { margin-top: 8px; font-size: 12.5px; line-height: 1.5; color: #7c5f28; background: #f7edda; border-radius: 8px; padding: 8px 10px; }
+.notepers-incerta { display: block; color: #7c5f28; line-height: 1.5; margin-bottom: 4px; }
+.notepers-fonti a { color: var(--accent-700); }
 .brief-fonti { margin-top: 10px; }
 .brief-fonti > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; color: var(--accent-700); list-style: none; user-select: none; }
 .brief-fonti > summary::-webkit-details-marker { display: none; }

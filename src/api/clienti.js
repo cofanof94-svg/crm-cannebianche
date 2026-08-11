@@ -193,11 +193,13 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!cliente) return res.status(404).json({ error: 'Ospite non trovato' });
     const fatti = briefingAi.costruisciFatti({
       nominativo: cliente.nominativo, citta: cliente.citta, nazione: cliente.nazione, vip: cliente.vip, note: cliente.note,
+      // Solo il dominio arriva al modello: è la prova d'identità contro l'omonimia.
+      email: cliente.email,
     });
-    if (!briefingAi.haFatti(fatti)) return res.json({ testo: 'Nessuna informazione pubblica rilevante.', fonti: [], pubblico: false });
+    if (!briefingAi.haFatti(fatti)) return res.json(briefingAi.NIENTE());
     const out = await briefingAi.briefing(ai.client, fatti, { model: ai.model });
     // Audit (privacy): chi ha richiesto un briefing pubblico, per chi, con quante fonti.
-    console.log(`[AI briefing] cliente=${codCli} utente=${req.session.user.username} pubblico=${out.pubblico} fonti=${out.fonti.length}`);
+    console.log(`[AI briefing] cliente=${codCli} utente=${req.session.user.username} identificazione=${out.identificazione} fonti=${out.fonti.length}`);
     res.json(out);
   });
 

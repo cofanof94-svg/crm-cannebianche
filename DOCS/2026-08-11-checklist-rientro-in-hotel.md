@@ -91,13 +91,38 @@ Dettagli e regole: [2026-08-11-allergie-da-note-pms.md](2026-08-11-allergie-da-n
 - [ ] Provare su casi reali, es. Brolin 48758 / 55491 / 31355
 
 ### Funzioni AI
-Sul mock rispondono **sempre** 503, perché `dev-mock.js` non carica il `.env`:
-non sono mai state provate davvero.
+Dall'11/08 `dev-mock.js` carica il `.env`, quindi **si provano anche da casa**: le
+chiamate all'AI non passano dal DB dell'hotel. Provate davvero, sul mock:
+Guest Briefing su personaggio pubblico (OK) e su nome ambiguo (OK, nessuna
+informazione). Restano da vedere con dati veri:
 
-- [ ] Guest Briefing dalla card Arrivi
 - [ ] Suggerisci preferenze
-- [ ] Genera note personali con AI
+- [ ] Genera note personali con AI dalla scheda
 - [ ] Verificare che il pulsante resti spento dopo una generazione riuscita
+
+### Briefing AI — profili professionali (LinkedIn)
+Dall'11/08 il briefing cerca anche i **profili professionali**, per riconoscere i
+manager che non sono personaggi pubblici. Tre esiti possibili, con etichette
+diverse in card: *Personaggio pubblico*, *Profilo professionale*, *Identità da
+confermare* (quest'ultima non è salvabile nel profilo).
+
+- [ ] **Vedere almeno un caso "Profilo professionale" vero**: sul mock non è mai
+      uscito, perché servirebbe il nome di una persona reale non famosa e non
+      volevo metterne uno nel repo. È la verifica principale
+- [ ] Controllare che con ospiti **corporate** (mail aziendale) l'identificazione
+      sia certa: il dominio della mail è la prova che usiamo contro l'omonimia
+- [ ] Controllare il contrario: su nomi comuni con mail generica NON deve uscire
+      un ruolo dato per certo. Se succede, la regola dei due riscontri non tiene
+- [ ] Decidere se allargare a ruolo/azienda anche i **gruppi aziendali**
+
+### Fonti del briefing: troppe e deboli (da decidere)
+Sul caso di prova sono uscite **16 fonti**, fra cui blog e siti di scarso valore
+(il prompt chiede "poche fonti solide"). Il motivo è in `estraiFonti`: raccoglie
+sia le citazioni del modello sia **tutti i risultati grezzi della ricerca**.
+Sistemabile da remoto in poche righe (usare i risultati grezzi solo quando non ci
+sono citazioni), ma è una scelta da fare guardando qualche caso reale.
+
+- [ ] Guardare la lista Fonti su 4-5 ospiti veri e decidere
 
 ---
 
@@ -132,3 +157,9 @@ remoto: basta una voce in `VISTE_EXPORT` in `web/export.js`.)*
 I dati del mock **non sono persistenti**: vivono in memoria e a ogni riavvio si
 riparte dalle fixture. Il DB vero ovviamente no. Se durante le prove serve
 persistenza fra un riavvio e l'altro, è una ventina di righe da aggiungere.
+
+Dall'11/08 il mock legge il `.env`, quindi **le funzioni AI girano davvero anche
+fuori dall'hotel** (non toccano il DB: servono solo chiave e internet). Le chiamate
+si pagano, come in produzione. In fixture ci sono due arrivi di oggi apposta per
+provare il briefing: **Farinetti Oscar** (personaggio pubblico) e **Rossi Marco**
+(nome ambiguo, deve NON produrre attribuzioni).

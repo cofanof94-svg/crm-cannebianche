@@ -1,6 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { costruisciFatti, haFatti, buildRequest, estraiFonti, parseBriefing, briefing, SYSTEM } = require('../src/ai/briefing');
+const {
+  costruisciFatti, haFatti, buildRequest, estraiFonti, parseBriefing, briefing, SYSTEM,
+  dominioAziendale, estraiIdentificazione,
+} = require('../src/ai/briefing');
 
 function clientConContenuto(content) {
   return { messages: { create: async () => ({ content }) } };
@@ -99,6 +102,94 @@ test('parseBriefing: risposta vuota → fallback esplicito', () => {
   const out = parseBriefing({ content: [] });
   assert.strictEqual(out.pubblico, false);
   assert.strictEqual(out.testo, 'Nessuna informazione pubblica rilevante.');
+});
+
+test('dominioAziendale: tiene solo i domini che dicono qualcosa sull\'azienda', () => {
+  assert.strictEqual(dominioAziendale('m.rossi@pirelli.com'), 'pirelli.com');
+  assert.strictEqual(dominioAziendale('  M.Rossi@Pirelli.COM '), 'pirelli.com'); // normalizzato
+  assert.strictEqual(dominioAziendale('info@studio-legale.co.uk'), 'studio-legale.co.uk');
+  // Provider generici: il dominio non identifica nessuna azienda, non va passato.
+  for (const e of ['x@gmail.com', 'x@libero.it', 'x@icloud.com', 'x@hotmail.it', 'x@yahoo.com', 'x@outlook.com']) {
+    assert.strictEqual(dominioAziendale(e), '', e);
+  }
+  // Valori sporchi o assenti.
+  for (const e of [null, undefined, '', 'non-una-mail', 'a@b', 'a@@b.com', 'x@dominio']) {
+    assert.strictEqual(dominioAziendale(e), '', String(e));
+  }
+});
+
+test('costruisciFatti: passa il dominio della mail, mai l\'indirizzo', () => {
+  const f = costruisciFatti({ nominativo: 'Mario Rossi', email: 'mario.rossi@pirelli.com' });
+  assert.match(f, /pirelli\.com/);
+  assert.doesNotMatch(f, /mario\.rossi@/); // la parte prima della @ non serve e non esce
+  assert.doesNotMatch(f, /@/);
+  // Mail generica: nessuna riga in più, non aiuta a identificare nessuno.
+  assert.doesNotMatch(costruisciFatti({ nominativo: 'Mario Rossi', email: 'mario.rossi@gmail.com' }), /gmail/);
+});
+
+test('SYSTEM: LinkedIn ammesso, social personali no, regola dei due riscontri', () => {
+  assert.match(SYSTEM, /LinkedIn/);
+  assert.match(SYSTEM, /Facebook, Instagram, TikTok, X/);
+  assert.match(SYSTEM, /due riscontri/i);
+  assert.match(SYSTEM, /SOLO ruolo, azienda\/organizzazione e settore/); // niente storia lavorativa, studi, post
+  assert.match(SYSTEM, /Identificazione: pubblica/);
+  assert.match(SYSTEM, /Identificazione: professionale/);
+  assert.match(SYSTEM, /Identificazione: incerta/);
+});
+
+test('estraiIdentificazione: legge il marcatore, ignora i valori non previsti', () => {
+  assert.strictEqual(estraiIdentificazione('Ruolo: x\nIdentificazione: professionale'), 'professionale');
+  assert.strictEqual(estraiIdentificazione('Ruolo: x\nidentificazione : INCERTA'), 'incerta');
+  assert.strictEqual(estraiIdentificazione('Identificazione: pubblica'), 'pubblica');
+  assert.strictEqual(estraiIdentificazione('Ruolo: x'), '');            // marcatore assente
+  assert.strictEqual(estraiIdentificazione('Identificazione: certa'), ''); // valore inventato
+});
+
+test('parseBriefing: profilo professionale → salvabile, marcatore fuori dal testo', () => {
+  const out = parseBriefing({ content: [
+    { type: 'text', text: 'Ruolo: Direttore Generale\nAzienda: Pirelli\nAppellativo: "Dottore"\nIdentificazione: professionale', citations: [{ url: 'https://www.linkedin.com/in/xyz', title: 'LinkedIn' }] },
+  ] });
+  assert.strictEqual(out.identificazione, 'professionale');
+  assert.strictEqual(out.salvabile, true);
+  assert.strictEqual(out.pubblico, true);
+  assert.doesNotMatch(out.testo, /Identificazione/); // il marcatore diventa etichetta, non testo
+  assert.match(out.testo, /Direttore Generale/);
+  assert.strictEqual(out.fonti.length, 1); // LinkedIn NON è più scartato
+});
+
+test('parseBriefing: identità incerta → si mostra ma non si salva', () => {
+  const out = parseBriefing({ content: [
+    { type: 'text', text: 'Ruolo: consulente informatico\nAppellativo: "Signore"\nIdentificazione: incerta', citations: [{ url: 'https://www.linkedin.com/in/mrossi', title: 'LinkedIn' }] },
+  ] });
+  assert.strictEqual(out.identificazione, 'incerta');
+  assert.strictEqual(out.salvabile, false); // il no all'omonimia in anagrafica
+  assert.strictEqual(out.pubblico, true);   // ma le fonti si vedono, per poter verificare
+  assert.strictEqual(out.fonti.length, 1);
+});
+
+test('parseBriefing: senza marcatore resta l\'esito storico; niente informazioni → nessuna', () => {
+  const vecchio = parseBriefing({ content: [{ type: 'text', text: 'Ruolo: imprenditore', citations: [{ url: 'https://it.wikipedia.org/x', title: 'W' }] }] });
+  assert.strictEqual(vecchio.identificazione, 'pubblica');
+  assert.strictEqual(vecchio.salvabile, true);
+
+  const niente = parseBriefing({ content: [{ type: 'text', text: 'Nessuna informazione pubblica rilevante.' }] });
+  assert.strictEqual(niente.identificazione, 'nessuna');
+  assert.strictEqual(niente.salvabile, false);
+});
+
+test('estraiFonti: LinkedIn ammesso, social personali scartati', () => {
+  const fonti = estraiFonti([
+    { type: 'text', text: 'x', citations: [
+      { url: 'https://www.linkedin.com/in/mario-rossi', title: 'LinkedIn' },
+      { url: 'https://www.facebook.com/mario.rossi', title: 'Facebook' },
+      { url: 'https://www.instagram.com/mrossi', title: 'Instagram' },
+    ] },
+  ]);
+  assert.strictEqual(fonti.length, 1);
+  assert.match(fonti[0].url, /linkedin/);
+  // 'x.com' non è in elenco: scartarlo per sottostringa affosserebbe anche questi.
+  const leciti = estraiFonti([{ type: 'text', text: 'x', citations: [{ url: 'https://www.linux.com/a', title: 'L' }, { url: 'https://essex.com/b', title: 'E' }] }]);
+  assert.strictEqual(leciti.length, 2);
 });
 
 test('briefing: chiama il client; fatti vuoti → nessuna chiamata', async () => {

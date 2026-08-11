@@ -13,6 +13,12 @@
 // modificabili e restano in memoria finché il processo vive: riavviando si torna
 // alle fixture. I dati PMS sono in sola lettura, come nella realtà.
 
+// Il .env serve solo per ANTHROPIC_API_KEY: le funzioni AI non toccano il DB
+// dell'hotel, quindi sono le uniche che si possono provare davvero da fuori. Senza
+// questa riga rispondevano sempre 503 e non erano mai state viste girare.
+// `quiet` per non stampare il banner di dotenv a ogni avvio.
+require('dotenv').config({ quiet: true });
+
 const { createApp } = require('../src/app');
 const { hashPassword } = require('../src/auth/password');
 const F = require('./dev-fixtures');
