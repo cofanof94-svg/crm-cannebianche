@@ -36,6 +36,21 @@ const ANAGRAFICHE = [
   { CodCli: 1104, Cognome: 'HAEFLIGER', Nome: 'MARKUS', email: '', Telefono: '', Cellulare: '', Citta: 'ZÜRICH', CodNaz: 'CH', dtNascita: null, CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   // duplicato volutamente simile a 1001 (stesso cognome/nome/data di nascita)
   { CodCli: 1201, Cognome: 'TOSTI', Nome: 'CARLO', email: 'carlo.tosti@example.it', Telefono: '', Cellulare: '3391001001', Citta: 'BARI', CodNaz: 'I', dtNascita: '1968-04-12', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+
+  // --- Ospiti degli arrivi dei prossimi giorni (vedi PRENOTAZIONI) ----------
+  { CodCli: 1009, Cognome: 'ZANARDELLI', Nome: 'GIORGIO', email: 'g.zanardelli@example.it', Telefono: '', Cellulare: '3351009009', Citta: 'BRESCIA', CodNaz: 'I', dtNascita: '1970-03-08', CodFis: '', CodVip: 'V1', DesVip: 'BOLLICINE + FRUTTA FRESCA', Annotazioni: 'Cliente affezionato, viene ogni estate.', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
+  // compleanno DURANTE il soggiorno (+3 giorni): la ricorrenza deve comparire in card
+  { CodCli: 1010, Cognome: 'KOVÁCS', Nome: 'ESZTER', email: 'e.kovacs@example.hu', Telefono: '', Cellulare: '+36302223344', Citta: 'DEBRECEN', CodNaz: 'H', dtNascita: piu(3).replace(/^\d{4}/, '1979'), CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  { CodCli: 1011, Cognome: 'RUSSO', Nome: 'MARIANNA', email: 'm.russo@example.it', Telefono: '', Cellulare: '3401011011', Citta: 'NAPOLI', CodNaz: 'I', dtNascita: '1988-12-01', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  { CodCli: 1012, Cognome: 'BIANCHI', Nome: 'FEDERICO', email: 'f.bianchi@example.it', Telefono: '', Cellulare: '3491012012', Citta: 'ROMA', CodNaz: 'I', dtNascita: '1965-07-19', CodFis: '', CodVip: 'IN', DesVip: 'OSPITE INDESIDERATO', Annotazioni: 'Contestazioni ripetute, valutare con la direzione.', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'S', PrivacyCessioneDati: 'S' },
+  { CodCli: 1013, Cognome: 'DUBOIS', Nome: 'CLAIRE', email: 'c.dubois@example.fr', Telefono: '', Cellulare: '+33612345678', Citta: 'LYON', CodNaz: 'F', dtNascita: '1982-05-23', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  { CodCli: 1014, Cognome: 'SCHMIDT', Nome: 'LUKAS', email: 'l.schmidt@example.de', Telefono: '', Cellulare: '+491701234567', Citta: 'HAMBURG', CodNaz: 'D', dtNascita: '1976-09-30', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
+  { CodCli: 1015, Cognome: 'AL-FARSI', Nome: 'NOURA', email: 'n.alfarsi@example.com', Telefono: '', Cellulare: '+971501234567', Citta: 'DUBAI', CodNaz: 'UAE', dtNascita: null, CodFis: '', CodVip: 'V1', DesVip: 'BOLLICINE + FRUTTA FRESCA', Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  // occupanti delle prenotazioni future
+  { CodCli: 1105, Cognome: 'ZANARDELLI', Nome: 'BEATRICE', email: '', Telefono: '', Cellulare: '', Citta: 'BRESCIA', CodNaz: 'I', dtNascita: '1974-02-11', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  { CodCli: 1106, Cognome: 'ZANARDELLI', Nome: 'TOMMASO', email: '', Telefono: '', Cellulare: '', Citta: 'BRESCIA', CodNaz: 'I', dtNascita: '2015-06-04', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  { CodCli: 1107, Cognome: 'DUBOIS', Nome: 'ANTOINE', email: '', Telefono: '', Cellulare: '', Citta: 'LYON', CodNaz: 'F', dtNascita: null, CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  { CodCli: 1108, Cognome: 'SCHMIDT', Nome: 'ANNIKA', email: '', Telefono: '', Cellulare: '', Citta: 'HAMBURG', CodNaz: 'D', dtNascita: null, CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
 ];
 
 const NOTA_LUNGA = `PAGANO TUTTO
@@ -64,6 +79,81 @@ const PRENOTAZIONI = [
   // arrivi di oggi
   { codpratica: 70201, codCliente: 1201, camere: '211', tipologie: 'SUP', dtarrivo: piu(0), dtpartenza: piu(5), trattamento: 'Mezza Pensione', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 310, oraArrivo: '15.30', note: 'Prima volta in hotel. Arrivo previsto nel pomeriggio. Allergia alle arachidi segnalata al momento della prenotazione.', occupanti: [] },
   { codpratica: 70202, codCliente: 1003, camere: '215', tipologie: 'CLS', dtarrivo: piu(0), dtpartenza: piu(2), trattamento: 'B&B', tariffa: 'BAR', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 245, oraArrivo: '', note: '', occupanti: [] },
+
+  // --- Arrivi dei prossimi giorni -------------------------------------------
+  // Ogni pratica è pensata per mettere alla prova una cosa precisa: si naviga con
+  // le frecce nella pagina Arrivi. Il caso da verificare è scritto sopra ognuna.
+
+  // DOMANI — negazione nelle note: NON deve proporre allergie, e il nome del
+  // bambino c'è fra gli occupanti (a chi si attribuirebbe?). Ospite VIP e di ritorno.
+  {
+    codpratica: 70203, codCliente: 1009, camere: '118, 120', tipologie: 'SUP', dtarrivo: piu(1), dtpartenza: piu(8),
+    trattamento: 'Mezza Pensione', tariffa: 'DIRETTO', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 1, tariffaNotte: 480, oraArrivo: '16.00',
+    note: 'Camere comunicanti se possibile. Il bambino non è allergico alle arachidi, mangia di tutto. Tavolo fisso in veranda.',
+    occupanti: [{ codCli: 1009, camera: '118' }, { codCli: 1105, camera: '118' }, { codCli: 1106, camera: '120' }],
+  },
+  // DOMANI — celiachia in nota + compleanno durante il soggiorno.
+  {
+    codpratica: 70204, codCliente: 1010, camere: '207', tipologie: 'CLS', dtarrivo: piu(1), dtpartenza: piu(6),
+    trattamento: 'B&B', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 260, oraArrivo: '14.00',
+    note: 'La signora è celiaca, avvisare la cucina per la colazione.',
+    occupanti: [],
+  },
+  // DOMANI — caso pulito: nessun alert, nessuna proposta. Serve per confronto.
+  {
+    codpratica: 70205, codCliente: 1011, camere: '210', tipologie: 'CLS', dtarrivo: piu(1), dtpartenza: piu(3),
+    trattamento: 'B&B', tariffa: 'WEB', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 235, oraArrivo: '',
+    note: 'Arrivo in tarda serata, tenere la reception avvisata.',
+    occupanti: [],
+  },
+
+  // FRA 2 GIORNI — ospite indesiderato con reclamo aperto: card in rosso, il
+  // testo del reclamo e il suo reparto devono comparire in evidenza.
+  {
+    codpratica: 70206, codCliente: 1012, camere: '221', tipologie: 'SUP', dtarrivo: piu(2), dtpartenza: piu(4),
+    trattamento: 'B&B', tariffa: 'BAR', extra: 0, stato: 'arrivo', paxAdulti: 1, paxBambini: 0, tariffaNotte: 290, oraArrivo: '12.30',
+    note: 'Richiesto upgrade gratuito già in fase di prenotazione.',
+    occupanti: [],
+  },
+  // FRA 2 GIORNI — DUE allergie in frasi diverse, con una negazione in mezzo:
+  // devono uscire due proposte (glutine e crostacei) e nessuna dalla negazione.
+  {
+    codpratica: 70207, codCliente: 1013, camere: '224', tipologie: 'JS', dtarrivo: piu(2), dtpartenza: piu(9),
+    trattamento: 'Mezza Pensione', tariffa: 'DIRETTO', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 520, oraArrivo: '15.00',
+    note: 'Madame Dubois: senza glutine a tutti i pasti. Il marito non ha allergie. È allergica anche ai crostacei, attenzione al buffet.',
+    occupanti: [{ codCli: 1013, camera: '224' }, { codCli: 1107, camera: '224' }],
+  },
+
+  // FRA 3 GIORNI — nota lunga e commerciale con parole "pericolose" (noci, pesce,
+  // uova): non deve uscire NESSUNA proposta. È il test dei falsi positivi.
+  {
+    codpratica: 70208, codCliente: 1014, camere: '301, 302, 303', tipologie: 'SUP, CLS', dtarrivo: piu(3), dtpartenza: piu(7),
+    trattamento: 'Pensione Completa', tariffa: 'T.O.', extra: 0, stato: 'arrivo', paxAdulti: 5, paxBambini: 1, tariffaNotte: 890, oraArrivo: '17.30',
+    note: `Gruppo Schmidt — 3 camere, voucher T.O. da allegare al conto.
+Cena a base di pesce prenotata per la seconda sera, tavolo da 6.
+Torta alle noci per l'anniversario, da concordare con la pasticceria.
+Colazione con uova strapazzate tutti i giorni.
+Transfer da BRI il giorno dell'arrivo, volo LH1234 ore 16:05.`,
+    occupanti: [{ codCli: 1014, camera: '301' }, { codCli: 1108, camera: '302' }],
+  },
+
+  // FRA 4 GIORNI — ospite di ritorno con storico ricco, note personali e
+  // preferenze già in scheda: verifica "Nª volta", nota ospite e export.
+  {
+    codpratica: 70209, codCliente: 1001, camere: '101', tipologie: 'SUP', dtarrivo: piu(4), dtpartenza: piu(11),
+    trattamento: 'Mezza Pensione', tariffa: 'DIRETTO', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 330, oraArrivo: '15.00',
+    note: 'Solita camera, quotidiano italiano ogni mattina.',
+    occupanti: [{ codCli: 1001, camera: '101' }, { codCli: 1101, camera: '101' }],
+  },
+
+  // FRA 6 GIORNI — allergia FUORI elenco (pollini) più una già registrata in
+  // scheda (Nichel): la prima si propone, la seconda no.
+  {
+    codpratica: 70210, codCliente: 1015, camere: '226', tipologie: 'JS', dtarrivo: piu(6), dtpartenza: piu(13),
+    trattamento: 'B&B', tariffa: 'DIRETTO', extra: 0, stato: 'arrivo', paxAdulti: 2, paxBambini: 0, tariffaNotte: 610, oraArrivo: '11.00',
+    note: 'Ospite allergica ai pollini di betulla: evitare fiori freschi in camera. Intolleranza al nichel già segnalata.',
+    occupanti: [],
+  },
 ];
 
 // Pianificazione di soggiorno: tariffe a gradini per notte (GG = indice notte
@@ -82,6 +172,11 @@ const STORICO = [
   { codpratica: 60031, codCli: 1007, dtarrivo: '2022-08-14', dtpartenza: '2022-08-19', camere: '232', arrangiamento: 2600, extra: 300 },
   { codpratica: 60032, codCli: 1007, dtarrivo: '2021-08-10', dtpartenza: '2021-08-15', camere: '230', arrangiamento: 2400, extra: 190 },
   { codpratica: 60041, codCli: 1006, dtarrivo: '2024-06-05', dtpartenza: '2024-06-08', camere: '124', arrangiamento: 750, extra: 90 },
+  // Zanardelli: cliente affezionato → in card deve leggersi "4ª volta".
+  { codpratica: 60051, codCli: 1009, dtarrivo: '2025-07-12', dtpartenza: '2025-07-19', camere: '118', arrangiamento: 3200, extra: 640 },
+  { codpratica: 60052, codCli: 1009, dtarrivo: '2024-07-14', dtpartenza: '2024-07-21', camere: '118', arrangiamento: 3050, extra: 520 },
+  { codpratica: 60053, codCli: 1009, dtarrivo: '2023-07-15', dtpartenza: '2023-07-22', camere: '120', arrangiamento: 2900, extra: 480 },
+  { codpratica: 60061, codCli: 1013, dtarrivo: '2024-09-02', dtpartenza: '2024-09-09', camere: '224', arrangiamento: 3600, extra: 720 },
 ];
 
 // Consumi F&B e SPA per la scheda ospite.
@@ -118,6 +213,8 @@ const CRM_INIZIALE = {
     { id: 1, pms_customer_id: 1004, testo: 'Lattosio', autore: 'admin' },
     { id: 2, pms_customer_id: 1102, testo: 'Frutta a guscio', autore: 'reception' },
     { id: 3, pms_customer_id: 1008, testo: 'Glutine', autore: 'admin' },
+    // già in scheda: la nota della pratica 70210 la ricita, non va riproposta
+    { id: 4, pms_customer_id: 1015, testo: 'Nichel', autore: 'admin' },
   ],
   complaints: [
     { id: 1, pms_customer_id: 1006, testo: 'Rumore dal corridoio, camera cambiata', stato: 'risolto', periodo: 'giu 2024', reparto: 'Rooms', categoria: 'Rumore', follow_up: 'Spostato in 118 lato mare, upgrade gratuito per le due notti restanti.', autore: 'admin' },
@@ -127,6 +224,9 @@ const CRM_INIZIALE = {
     // classificazione. Serve a vedere che i vecchi reclami restano leggibili,
     // mostrano "da classificare" e non rompono niente.
     { id: 4, pms_customer_id: 1001, testo: 'Aria condizionata rumorosa in camera 101', stato: 'risolto', periodo: 'ago 2025', reparto: null, categoria: null, follow_up: null, autore: 'admin' },
+    // Bianchi arriva fra 2 giorni con un reclamo ancora aperto: in card deve
+    // comparire il testo, non il numero, col reparto davanti.
+    { id: 5, pms_customer_id: 1012, testo: 'Attesa di 40 minuti al check-in in alta stagione', stato: 'aperto', periodo: 'lug 2025', reparto: 'Front office', categoria: 'Attesa', follow_up: null, autore: 'admin' },
   ],
   nucleo: [
     { id: 1, pms_customer_id: 1001, pms_occupant_id: 1101, tipo_relazione: 'Coniuge', nome: 'GIULIA', cognome: 'TOSTI', nota: '', autore: 'admin' },

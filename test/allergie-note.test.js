@@ -47,6 +47,24 @@ test('sostanze fuori elenco: si propone comunque il testo dopo il marcatore', ()
   assert.deepStrictEqual(termini('Intolleranza al nichel.'), ['Nichel']); // questa è in elenco
 });
 
+test('la cattura si ferma ai due punti: la sostanza, non le istruzioni', () => {
+  // Caso reale trovato con le fixture: senza lo stop sui ':' il termine
+  // diventava "Pollini di betulla: evitare fiori fresch".
+  assert.deepStrictEqual(
+    termini('Ospite allergica ai pollini di betulla: evitare fiori freschi in camera.'),
+    ['Pollini di betulla']
+  );
+});
+
+test('coda lunghissima: nessun termine tagliato a metà parola', () => {
+  const t = termini('È allergica alle graminacee spontanee mediterranee delle campagne pugliesi')[0];
+  assert.ok(t.length <= 40);
+  assert.doesNotMatch(t, /\s$/);
+  // l'ultima parola c'è tutta: nessun troncone tipo "campagn"
+  assert.ok(t.split(' ').every((w) => /^[\wàèéìòùÀÈÉÌÒÙ']+$/.test(w)));
+  assert.ok('È allergica alle graminacee spontanee mediterranee delle campagne pugliesi'.toLowerCase().includes(t.toLowerCase()));
+});
+
 test('niente doppioni, né fra frasi né nella stessa', () => {
   assert.deepStrictEqual(termini('Allergia al glutine. Ricordare: senza glutine anche a cena.'), ['Glutine']);
 });

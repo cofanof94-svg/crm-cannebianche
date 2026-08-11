@@ -59,7 +59,10 @@ const NEGAZIONE = /\bnon\s+(?:è|e|ha|sono|hanno|risulta|risultano)?\s*(?:altre?
 // combacia, quindi le preposizioni lunghe vanno prima ("ai" prima di "a"),
 // altrimenti "ai pollini" diventa "i pollini".
 const PREPOSIZIONI = 'della|delle|degli|dello|alla|alle|agli|allo|del|dei|ai|ad|al|a';
-const DOPO_MARCATORE = new RegExp(`\\b(?:allergi\\w*|intolleran\\w*)\\s*(?:${PREPOSIZIONI})?\\s*[:\\-—]?\\s*([^.;,\\n]{2,40})`, 'i');
+// La cattura si ferma anche sui due punti: "allergica ai pollini: evitare i
+// fiori" deve dare "pollini", non tutta la frase con le istruzioni operative.
+const DOPO_MARCATORE = new RegExp(`\\b(?:allergi\\w*|intolleran\\w*)\\s*(?:${PREPOSIZIONI})?\\s*[:\\-—]?\\s*([^.;,:\\n]{2,40})`, 'i');
+const CODA_MAX = 40;
 
 // La nota è testo libero scritto a mano: si spezza su punti, punti e virgola e
 // a capo. Ogni pezzo si valuta da solo, così una negazione non "contagia" il
@@ -80,7 +83,10 @@ function ritaglia(frase, max = 120) {
 
 // Ripulisce la coda catturata ("ai pollini di betulla" → "Pollini di betulla").
 function ripulisci(t) {
-  const s = String(t || '').replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|i|il|lo|la|le|gli|un|una)\\s+`, 'i'), '');
+  let s = String(t || '').replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|i|il|lo|la|le|gli|un|una)\\s+`, 'i'), '');
+  // Se la cattura è arrivata al limite, l'ultima parola è quasi certamente
+  // tagliata a metà ("fiori fresch"): si butta invece di salvarla monca.
+  if (String(t || '').trim().length >= CODA_MAX && s.includes(' ')) s = s.slice(0, s.lastIndexOf(' ')).trim();
   if (!s) return null;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
