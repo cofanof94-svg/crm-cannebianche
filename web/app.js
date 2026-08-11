@@ -241,7 +241,7 @@ async function eseguiBriefing(btn) {
   const riabilita = () => { btn.disabled = false; };
   try {
     const { status, body } = await api(`/api/clienti/${encodeURIComponent(cli)}/briefing`, { method: 'POST', body: JSON.stringify({}) });
-    if (status === 503) { riabilita(); box.innerHTML = briefMsg('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); return; }
+    if (status === 503) { riabilita(); box.innerHTML = briefMsg(motivoAiNonDisponibile(body)); return; }
     if (status !== 200) { riabilita(); box.innerHTML = briefMsg('Errore durante la generazione del briefing.'); return; }
     briefingTesti[cli] = body;
     box.innerHTML = renderBriefResult(body, cli);
@@ -283,6 +283,14 @@ function aggiornaNotaNelleCard(codCli, nota) {
     toccate += 1;
   }
   if (toccate) renderArrivi();
+}
+
+// Il 503 dell'AI non ha una causa sola: chiave assente, credito esaurito, servizio
+// giù. Il server sa quale ed è l'unico a saperlo, quindi si mostra il suo messaggio.
+// La frase fissa resta solo per le versioni del server che non lo mandano.
+function motivoAiNonDisponibile(body) {
+  const m = body && body.error ? String(body.error).trim() : '';
+  return m || 'AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.';
 }
 
 function briefMsg(t) { return `<div class="brief-card"><div class="ai-msg">${esc(t)}</div></div>`; }
@@ -1347,7 +1355,7 @@ async function generaNotePers() {
   };
   try {
     const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/briefing`, { method: 'POST', body: JSON.stringify({}) });
-    if (status === 503) { riabilita(); msg.textContent = 'AI non configurata.'; return; }
+    if (status === 503) { riabilita(); msg.textContent = motivoAiNonDisponibile(body); return; }
     if (status !== 200) { riabilita(); msg.textContent = 'Errore durante la generazione.'; return; }
     // Ricerca fatta: anche "nessuna informazione" è una risposta, rifarla darebbe lo stesso esito.
     fatto();
@@ -1510,7 +1518,7 @@ $('#btn-suggerisci').addEventListener('click', async () => {
     const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/suggerimenti`, {
       method: 'POST', body: JSON.stringify({ giaMostrate: suggerimentiMostrati }),
     });
-    if (status === 503) { renderSuggerimenti('AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.'); riabilita(); return; }
+    if (status === 503) { renderSuggerimenti(motivoAiNonDisponibile(body)); riabilita(); return; }
     if (status !== 200) { renderSuggerimenti('Errore durante la generazione dei suggerimenti.'); riabilita(); return; }
     suggerimentiCorrenti = body.suggerimenti || [];
     // memorizzo i testi proposti così una nuova richiesta non li ripropone

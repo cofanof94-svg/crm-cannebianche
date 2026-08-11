@@ -37,9 +37,31 @@ function getAiClient() {
   return cached;
 }
 
+// Traduce un errore dell'SDK Anthropic in un messaggio che abbia senso per chi sta
+// in reception. Senza, un credito esaurito arrivava a schermo come "Errore durante
+// la generazione": nessuno poteva capire che bastava ricaricare, e sarebbe partita
+// una segnalazione di bug per un problema di fatturazione.
+//
+// Ritorna null se l'errore non è riconosciuto: in quel caso è giusto che risalga e
+// diventi un 500 nei log, invece di essere nascosto sotto un messaggio rassicurante.
+function guastoAi(err) {
+  const stato = err && err.status;
+  const dett = err && err.error && err.error.error;
+  const testo = String((dett && dett.message) || (err && err.message) || '');
+  if (/credit balance/i.test(testo)) {
+    return 'Credito AI esaurito: ricaricare il piano Anthropic. Le altre funzioni del CRM non sono toccate.';
+  }
+  if (stato === 401 || /invalid x-api-key|authentication/i.test(testo)) {
+    return 'Chiave API Anthropic non valida o scaduta: da sistemare nel file .env.';
+  }
+  if (stato === 429) return 'Troppe richieste all\'AI in poco tempo: riprovare fra qualche minuto.';
+  if (stato === 529 || stato === 503) return 'Servizio AI momentaneamente non disponibile: riprovare fra qualche minuto.';
+  return null;
+}
+
 // Per i test: azzera la cache così un cambio di env viene rivalutato.
 function _reset() {
   cached = undefined;
 }
 
-module.exports = { getAiClient, _reset };
+module.exports = { getAiClient, guastoAi, _reset };

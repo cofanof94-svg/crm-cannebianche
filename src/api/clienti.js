@@ -11,7 +11,7 @@ const { listPreferenze, listCondivise, createPreferenza, updatePreferenza, delet
 const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
 const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
 const { aggregaCumulativi } = require('../stats');
-const { getAiClient } = require('../ai/client');
+const { getAiClient, guastoAi } = require('../ai/client');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
 const briefingAi = require('../ai/briefing');
 const { getGruppo, mergeInto, unmerge, listMappature, separaGruppiDuplicati } = require('../crm/merge');
@@ -175,7 +175,15 @@ function createClientiRouter(pmsDb, crmDb) {
     const notePms = anags.filter(Boolean).map((a) => a.note).filter(Boolean).join('\n');
     const fatti = costruisciFatti({ gusti, spa, notePms, intolleranze, preferenze, giaMostrate });
     if (!haFatti(fatti)) return res.json({ suggerimenti: [], motivo: 'dati insufficienti' });
-    const suggerimenti = await suggerisci(ai.client, fatti, { model: ai.model });
+    let suggerimenti;
+    try {
+      suggerimenti = await suggerisci(ai.client, fatti, { model: ai.model });
+    } catch (err) {
+      const guasto = guastoAi(err);
+      if (!guasto) throw err; // sconosciuto: meglio un 500 nei log che un messaggio inventato
+      console.log(`[AI suggerimenti] cliente=${codCli} utente=${req.session.user.username} GUASTO: ${guasto}`);
+      return res.status(503).json({ error: guasto });
+    }
     // Audit minimale (Fase 3 privacy): chi ha generato suggerimenti, per chi, quanti.
     console.log(`[AI suggerimenti] cliente=${codCli} utente=${req.session.user.username} n=${suggerimenti.length}`);
     res.json({ suggerimenti });
@@ -197,7 +205,15 @@ function createClientiRouter(pmsDb, crmDb) {
       email: cliente.email,
     });
     if (!briefingAi.haFatti(fatti)) return res.json(briefingAi.NIENTE());
-    const out = await briefingAi.briefing(ai.client, fatti, { model: ai.modelBriefing });
+    let out;
+    try {
+      out = await briefingAi.briefing(ai.client, fatti, { model: ai.modelBriefing });
+    } catch (err) {
+      const guasto = guastoAi(err);
+      if (!guasto) throw err; // sconosciuto: meglio un 500 nei log che un messaggio inventato
+      console.log(`[AI briefing] cliente=${codCli} utente=${req.session.user.username} GUASTO: ${guasto}`);
+      return res.status(503).json({ error: guasto });
+    }
     // Audit (privacy): chi ha richiesto un briefing pubblico, per chi, con quante fonti.
     console.log(`[AI briefing] cliente=${codCli} utente=${req.session.user.username} identificazione=${out.identificazione} fonti=${out.fonti.length}`);
     res.json(out);

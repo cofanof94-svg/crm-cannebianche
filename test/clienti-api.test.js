@@ -255,6 +255,33 @@ test('POST /api/clienti/:codCli/briefing → 503 se AI non configurata', async (
   assert.match(res.body.error, /AI non configurata/);
 });
 
+test('POST briefing → credito esaurito: 503 con il motivo, non un 500 muto', async () => {
+  // Successo dal vivo: a credito finito la card diceva "Errore durante la
+  // generazione". Qui si finge la stessa eccezione dell'SDK e si verifica che il
+  // motivo arrivi fino alla risposta.
+  process.env.ANTHROPIC_API_KEY = 'chiave-finta-per-il-test';
+  const modulo = require('../src/ai/client');
+  modulo._reset();
+  const ai = modulo.getAiClient();
+  assert.ok(ai, 'con la chiave impostata il client deve esistere');
+  ai.client = { messages: { create: async () => {
+    throw Object.assign(new Error('400'), {
+      status: 400,
+      error: { error: { message: 'Your credit balance is too low to access the Anthropic API.' } },
+    });
+  } } };
+  try {
+    const app = await makeApp();
+    const ag = await agente(app);
+    const res = await ag.post('/api/clienti/47186/briefing');
+    assert.strictEqual(res.status, 503);
+    assert.match(res.body.error, /Credito AI esaurito/);
+  } finally {
+    delete process.env.ANTHROPIC_API_KEY;
+    modulo._reset();
+  }
+});
+
 test('GET /api/clienti/:codCli/confronto → anagrafiche, conflitti e principale suggerito', async () => {
   const app = await makeApp();
   const ag = await agente(app);
