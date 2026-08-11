@@ -313,12 +313,33 @@
             <h2 class="sez">Complaints <span class="info" data-tip="Reclami e criticità segnalati dal cliente, con periodo e stato aperto/risolto. Dato interno CRM.">i</span></h2>
             <div class="card note-box">
               <form id="compl-form" class="pref-form">
+                <select name="reparto" required></select>
+                <select name="categoria" required></select>
                 <input name="testo" placeholder="Aggiungi un complaint…" required autocomplete="off" />
                 <input name="periodo" placeholder="Periodo (es. ago 2025)" autocomplete="off" maxlength="60" />
                 <button type="submit" class="btn btn-primary">Aggiungi</button>
               </form>
               <ul id="cli-complaints" class="note-list"></ul>
             </div>
+
+            <!-- MODALE: classifica un complaint (reparto + categoria). Serve
+                 soprattutto ai reclami inseriti prima che i due campi esistessero. -->
+            <dialog id="classe-dialog" class="modal">
+              <form id="classe-form" method="dialog">
+                <div class="modal-title">Classifica il complaint</div>
+                <p class="fu-quale" id="classe-quale"></p>
+                <div class="modal-grid">
+                  <label class="field">Reparto <select id="classe-reparto" required></select></label>
+                  <label class="field">Categoria <select id="classe-categoria" required></select></label>
+                </div>
+                <p class="exp-nota">Il reparto dice a chi gira il problema; la categoria che tipo di problema è.</p>
+                <div class="fu-msg" id="classe-msg"></div>
+                <div class="modal-actions">
+                  <button type="button" class="btn" id="classe-annulla">Annulla</button>
+                  <button type="submit" class="btn btn-primary" id="classe-conferma">Salva</button>
+                </div>
+              </form>
+            </dialog>
 
             <!-- MODALE: risoluzione di un complaint. Un campo solo, obbligatorio:
                  non si chiude un reclamo senza dire come è stato gestito. -->

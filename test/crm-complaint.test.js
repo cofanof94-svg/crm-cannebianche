@@ -15,12 +15,44 @@ test('listComplaints filtra per cliente e ordina gli aperti per primi', async ()
   assert.match(db.calls[0].text, /stato = 'aperto'/);
 });
 
-test('createComplaint inserisce con stato aperto', async () => {
+test('createComplaint inserisce con stato aperto, reparto e categoria', async () => {
   const db = fakeDb([{ id: 5 }]);
-  const r = await c.createComplaint(db, { pmsCustomerId: 47186, autoreUserId: 1, testo: 'reclamo' });
+  const r = await c.createComplaint(db, { pmsCustomerId: 47186, autoreUserId: 1, testo: 'reclamo', reparto: 'Rooms', categoria: 'Pulizia' });
   assert.strictEqual(r.id, 5);
   assert.strictEqual(db.calls[0].params.testo, 'reclamo');
+  assert.strictEqual(db.calls[0].params.reparto, 'Rooms');
+  assert.strictEqual(db.calls[0].params.categoria, 'Pulizia');
   assert.match(db.calls[0].text, /'aperto'/);
+});
+
+test('liste chiuse: reparto condiviso con le preferenze, categorie proprie', () => {
+  const { REPARTI, CATEGORIE_COMPLAINT } = c;
+  const pref = require('../src/crm/preferenze');
+  // Stessa lista di reparti: è la dimensione con cui si segregano i dati.
+  assert.deepStrictEqual(REPARTI, pref.REPARTI);
+  // Categorie diverse: un reclamo dice cosa non ha funzionato, non un gradimento.
+  assert.ok(CATEGORIE_COMPLAINT.includes('Pulizia'));
+  assert.ok(CATEGORIE_COMPLAINT.includes('Altro'));
+  assert.ok(!CATEGORIE_COMPLAINT.includes('Occasioni'));
+  assert.notDeepStrictEqual(CATEGORIE_COMPLAINT, pref.CATEGORIE);
+});
+
+test('setComplaintClasse: aggiorna solo ciò che si passa, vuoto → NULL', async () => {
+  const db = fakeDb([{ id: 5 }]);
+  assert.strictEqual(await c.setComplaintClasse(db, 5, { reparto: 'F&B' }), true);
+  assert.match(db.calls[0].text, /reparto = @reparto/);
+  assert.doesNotMatch(db.calls[0].text, /categoria/);
+  const db2 = fakeDb([{ id: 5 }]);
+  await c.setComplaintClasse(db2, 5, { reparto: 'SPA', categoria: '' });
+  assert.strictEqual(db2.calls[0].params.categoria, null);
+  assert.strictEqual(await c.setComplaintClasse(fakeDb([]), 5, {}), false); // niente da fare
+});
+
+test('listComplaints legge reparto e categoria', async () => {
+  const db = fakeDb([]);
+  await c.listComplaints(db, 47186);
+  assert.match(db.calls[0].text, /c\.reparto/);
+  assert.match(db.calls[0].text, /c\.categoria/);
 });
 
 test('setComplaintStato aggiorna stato e resolved_at', async () => {

@@ -419,11 +419,16 @@ function flagAllergie(s, classe) {
 function flagReclami(s, classe) {
   const r = s && s.reclami;
   if (!r || !r.totali) return '';
-  const testi = (r.testiAperti || []).map((t) => anteprimaNota(t, 70)).filter(Boolean);
-  if (r.aperti && testi.length) {
+  const dett = (r.apertiDettaglio || []).filter((c) => c && c.testo);
+  const perEsteso = (c) => [c.reparto, c.categoria].filter(Boolean).join(' · ');
+  if (r.aperti && dett.length) {
+    const primo = dett[0];
     const altri = r.aperti - 1;
-    const etichetta = `⚑ Reclamo aperto: ${esc(testi[0])}${altri > 0 ? ` <span class="flag-piu">+${altri}</span>` : ''}`;
-    return `<span class="${esc(classe)} flag-warning" title="${esc(testi.join(' · '))}">${etichetta}</span>`;
+    // Il reparto davanti al testo: dice a chi gira il problema, in due parole.
+    const dove = perEsteso(primo) ? `<span class="flag-lbl">${esc(perEsteso(primo))}</span>` : '';
+    const etichetta = `⚑ Reclamo aperto: ${dove}${esc(anteprimaNota(primo.testo, 70))}${altri > 0 ? ` <span class="flag-piu">+${altri}</span>` : ''}`;
+    const titolo = dett.map((c) => (perEsteso(c) ? `${perEsteso(c)} — ${c.testo}` : c.testo)).join(' · ');
+    return `<span class="${esc(classe)} flag-warning" title="${esc(titolo)}">${etichetta}</span>`;
   }
   // Aperti senza testo (dato incompleto) o solo reclami chiusi: resta il numero.
   const testo = r.aperti ? `⚑ Reclami: ${r.aperti} ${r.aperti === 1 ? 'aperto' : 'aperti'} / ${r.totali}` : `⚑ Reclami passati: ${r.totali}`;
@@ -983,6 +988,8 @@ async function loadCliente(codCli) {
   $('#cli-consensi').innerHTML = cons(c.marketing, 'Marketing') + cons(c.telefonate, 'Telefonate in camera') + cons(c.conservazione, 'Conservazione') + cons(c.cessione, 'Cessione');
   popolaSelect($('#pref-form').reparto, REPARTI, 'Reparto');
   popolaSelect($('#pref-form').categoria, CATEGORIE, 'Categoria');
+  popolaSelect($('#compl-form').reparto, REPARTI, 'Reparto');
+  popolaSelect($('#compl-form').categoria, CATEGORIE_COMPLAINT, 'Categoria');
   popolaSelect($('#nucleo-form').tipoRelazione, RELAZIONI, 'Relazione');
   suggerimentiCorrenti = []; suggerimentiMostrati = []; $('#cli-suggerimenti').innerHTML = ''; // azzera proposte AL cambio cliente
   aiAzzera('scheda'); // aprire una scheda rende di nuovo disponibili i pulsanti AI (suggerimenti, note personali)
@@ -1063,6 +1070,10 @@ $('#view-cliente').addEventListener('keydown', (e) => {
 const REPARTI = ['Rooms', 'F&B', 'SPA', 'Front office'];
 const CATEGORIE = ['F&B', 'Camera', 'Persona', 'Occasioni', 'Generale'];
 const RELAZIONI = ['Coniuge', 'Figlio-a', 'Genitore', 'Amico-a', 'Assistente', 'Altro'];
+// I complaint condividono i REPARTI con le preferenze (è la dimensione con cui
+// si segregano i dati), ma hanno categorie proprie: una preferenza dice cosa
+// gradisce l'ospite, un reclamo cosa non ha funzionato.
+const CATEGORIE_COMPLAINT = ['Pulizia', 'Manutenzione', 'Rumore', 'Servizio', 'Cibo e bevande', 'Attesa', 'Conto', 'Altro'];
 function popolaSelect(sel, valori, placeholder) {
   sel.innerHTML = `<option value="" disabled selected>${placeholder}</option>` +
     valori.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
@@ -1808,11 +1819,20 @@ async function caricaComplaints(codCli) {
     const followUp = c.follow_up
       ? `<div class="compl-fu"><span class="compl-fu-lbl">Follow-up</span><span class="compl-fu-testo">${esc(c.follow_up)}</span></div>`
       : '';
+    // Reparto e categoria in testa alla riga, come sulle preferenze. Chi non li
+    // ha (inserito prima che esistessero) mostra un tag da riempire, cliccabile.
+    const classe = c.reparto || c.categoria
+      ? `<button type="button" class="pref-tag tag-classe" data-classe-compl="${c.id}" title="Cambia reparto e categoria">${esc([c.reparto, c.categoria].filter(Boolean).join(' · '))}</button>`
+      : `<button type="button" class="pref-tag tag-classe tag-vuoto" data-classe-compl="${c.id}" title="Assegna reparto e categoria">da classificare</button>`;
     return `
-    <li data-compl="${c.id}" data-periodo="${esc(c.periodo || '')}" data-followup="${esc(c.follow_up || '')}" class="${risolto ? 'compl-risolto' : ''}">
-      <div class="compl-top">
+    <li data-compl="${c.id}" data-periodo="${esc(c.periodo || '')}" data-followup="${esc(c.follow_up || '')}"
+        data-reparto="${esc(c.reparto || '')}" data-categoria="${esc(c.categoria || '')}" class="${risolto ? 'compl-risolto' : ''}">
+      <div class="compl-tags">
         <span class="pill ${risolto ? 'pill-risolto' : 'pill-aperto'}">${risolto ? 'Risolto' : 'Aperto'}</span>
+        ${classe}
         ${c.periodo ? `<span class="pref-tag">${esc(c.periodo)}</span>` : ''}
+      </div>
+      <div class="compl-top">
         <span class="compl-testo nota-testo">${esc(c.testo)}</span>
       </div>
       ${followUp}
@@ -1833,17 +1853,62 @@ $('#compl-form').addEventListener('submit', async (e) => {
   const f = e.target;
   const testo = f.testo.value.trim();
   const periodo = f.periodo.value.trim();
-  if (!testo || !clienteCorrente) return;
+  const reparto = f.reparto.value, categoria = f.categoria.value;
+  if (!testo || !reparto || !categoria || !clienteCorrente) return;
   const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints`, {
-    method: 'POST', body: JSON.stringify({ testo, periodo }),
+    method: 'POST', body: JSON.stringify({ testo, periodo, reparto, categoria }),
   });
-  if (status === 201) { f.reset(); caricaComplaints(clienteCorrente); }
+  if (status === 201) {
+    f.reset();
+    // reset() svuota anche le select: vanno riportate al placeholder
+    popolaSelect(f.reparto, REPARTI, 'Reparto');
+    popolaSelect(f.categoria, CATEGORIE_COMPLAINT, 'Categoria');
+    caricaComplaints(clienteCorrente);
+  }
+});
+
+// --- Classificazione di un complaint (reparto + categoria) ---
+let classeId = null;
+
+function apriClasse(id, testoCompl, reparto, categoria) {
+  classeId = id;
+  $('#classe-quale').textContent = testoCompl || '';
+  popolaSelect($('#classe-reparto'), REPARTI, 'Reparto');
+  popolaSelect($('#classe-categoria'), CATEGORIE_COMPLAINT, 'Categoria');
+  if (reparto) $('#classe-reparto').value = reparto;
+  if (categoria) $('#classe-categoria').value = categoria;
+  $('#classe-msg').textContent = '';
+  $('#classe-dialog').showModal();
+}
+
+$('#classe-annulla').addEventListener('click', () => { classeId = null; $('#classe-dialog').close(); });
+
+$('#classe-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const reparto = $('#classe-reparto').value, categoria = $('#classe-categoria').value;
+  if (!reparto || !categoria || !classeId) return;
+  const btn = $('#classe-conferma');
+  btn.disabled = true; btn.textContent = 'Salvataggio…';
+  const { status, body } = await api(`/api/complaints/${classeId}`, {
+    method: 'PATCH', body: JSON.stringify({ reparto, categoria }),
+  });
+  btn.disabled = false; btn.textContent = 'Salva';
+  if (status !== 200) { $('#classe-msg').textContent = (body && body.error) || 'Errore nel salvataggio.'; return; }
+  classeId = null;
+  $('#classe-dialog').close();
+  caricaComplaints(clienteCorrente);
 });
 
 $('#cli-complaints').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-compl]');
   const edit = e.target.closest('[data-edit-compl]');
   const toggle = e.target.closest('[data-toggle-compl]');
+  const classe = e.target.closest('[data-classe-compl]');
+  if (classe) {
+    const li = classe.closest('[data-compl]');
+    apriClasse(classe.dataset.classeCompl, li.querySelector('.compl-testo').textContent, li.dataset.reparto, li.dataset.categoria);
+    return;
+  }
   if (del) {
     await api(`/api/complaints/${del.dataset.delCompl}`, { method: 'DELETE' });
     caricaComplaints(clienteCorrente);

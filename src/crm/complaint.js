@@ -7,15 +7,25 @@
 // esistere un complaint "risolto ma senza sapere cosa è stato fatto".
 
 const { inClause } = require('../db/query');
+const { REPARTI } = require('./preferenze');
 
 // Il follow-up è una descrizione breve dell'intervento, non un racconto: il
 // limite è anche sulla colonna (NVARCHAR(500)), qui serve a dare un 400 chiaro.
 const FOLLOWUP_MAX = 500;
 
+// Reparto: la STESSA lista delle preferenze, di proposito. È la dimensione con
+// cui si segregano i dati per reparto: due liste diverse renderebbero
+// impossibile mettere insieme "cosa gradisce" e "cosa è andato storto".
+// Categoria: lista PROPRIA. Quelle delle preferenze (Camera, Persona,
+// Occasioni…) descrivono un gradimento; un reclamo deve dire cosa non ha
+// funzionato, ed è questo che rende leggibile un "tipologie più frequenti".
+const CATEGORIE_COMPLAINT = ['Pulizia', 'Manutenzione', 'Rumore', 'Servizio', 'Cibo e bevande', 'Attesa', 'Conto', 'Altro'];
+
 // ids: codice singolo o array (gruppo di anagrafiche fuse).
 async function listComplaints(db, ids) {
   return db.query(
-    `SELECT c.id, c.pms_customer_id, c.testo, c.stato, c.periodo, c.follow_up, c.created_at, c.resolved_at,
+    `SELECT c.id, c.pms_customer_id, c.testo, c.stato, c.periodo, c.reparto, c.categoria,
+            c.follow_up, c.created_at, c.resolved_at,
             c.autore_user_id, u.username AS autore
      FROM customer_complaints c LEFT JOIN users u ON u.id = c.autore_user_id
      WHERE c.pms_customer_id IN ${inClause(ids)}
@@ -23,14 +33,29 @@ async function listComplaints(db, ids) {
   );
 }
 
-async function createComplaint(db, { pmsCustomerId, autoreUserId, testo, periodo = null }) {
+async function createComplaint(db, { pmsCustomerId, autoreUserId, testo, periodo = null, reparto = null, categoria = null }) {
   const rows = await db.query(
-    `INSERT INTO customer_complaints (pms_customer_id, autore_user_id, testo, periodo, stato, created_at)
+    `INSERT INTO customer_complaints (pms_customer_id, autore_user_id, testo, periodo, reparto, categoria, stato, created_at)
      OUTPUT INSERTED.id
-     VALUES (@pmsCustomerId, @autoreUserId, @testo, @periodo, 'aperto', SYSUTCDATETIME())`,
-    { pmsCustomerId, autoreUserId, testo, periodo }
+     VALUES (@pmsCustomerId, @autoreUserId, @testo, @periodo, @reparto, @categoria, 'aperto', SYSUTCDATETIME())`,
+    { pmsCustomerId, autoreUserId, testo, periodo, reparto, categoria }
   );
   return rows[0];
+}
+
+// Riclassificazione di un reclamo già inserito (o classificazione di uno vecchio,
+// che nasce senza). Aggiorna solo ciò che viene passato.
+async function setComplaintClasse(db, id, { reparto, categoria }) {
+  const set = [];
+  const params = { id };
+  if (reparto !== undefined) { set.push('reparto = @reparto'); params.reparto = reparto || null; }
+  if (categoria !== undefined) { set.push('categoria = @categoria'); params.categoria = categoria || null; }
+  if (!set.length) return false;
+  const rows = await db.query(
+    `UPDATE customer_complaints SET ${set.join(', ')} OUTPUT INSERTED.id WHERE id = @id`,
+    params
+  );
+  return rows.length > 0;
 }
 
 async function updateComplaintTesto(db, id, testo) {
@@ -80,5 +105,6 @@ const deleteComplaint = (db, id) => deleteById(db, 'customer_complaints', id);
 
 module.exports = {
   listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo,
-  setComplaintStato, setComplaintFollowUp, deleteComplaint, FOLLOWUP_MAX,
+  setComplaintStato, setComplaintFollowUp, setComplaintClasse, deleteComplaint,
+  FOLLOWUP_MAX, REPARTI, CATEGORIE_COMPLAINT,
 };

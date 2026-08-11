@@ -82,7 +82,10 @@ function ctxDiProva() {
       [100, [{ ambito: 'nucleo', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè leccese' }]],
       [101, [{ ambito: 'nucleo', reparto: 'F&B', categoria: 'F&B', testo: 'caffè leccese' }, { ambito: 'personale', testo: 'roba personale' }]], // dup semantico (case) + personale scartata
     ]),
-    complBy: new Map([[100, [{ stato: 'aperto', testo: 'Doccia fredda al terzo piano' }, { stato: 'risolto', testo: 'Rumore in corridoio' }]]]),
+    complBy: new Map([[100, [
+      { stato: 'aperto', testo: 'Doccia fredda al terzo piano', reparto: 'Rooms', categoria: 'Manutenzione' },
+      { stato: 'risolto', testo: 'Rumore in corridoio', reparto: 'Rooms', categoria: 'Rumore' },
+    ]]]),
     intolBy: new Map([[100, [{ testo: 'Lattosio' }]], [200, [{ testo: 'lattosio' }]]]), // dup case
     relBy: new Map([['100|200', 'Coniuge']]),
     // La nota sta sul 101, anagrafica FUSA col referente 100 = stessa persona.
@@ -104,9 +107,11 @@ test('costruisciSnapshot: VIP, indesiderato, preferenze nucleo dedup, intolleran
   assert.deepStrictEqual(s.intolleranze, ['Lattosio']);
   assert.strictEqual(s.reclami.aperti, 1);
   assert.strictEqual(s.reclami.totali, 2);
-  // il testo degli aperti viaggia con lo snapshot: card ed export devono poter
-  // dire QUALE è il reclamo, non solo quanti sono
-  assert.deepStrictEqual(s.reclami.testiAperti, ['Doccia fredda al terzo piano']);
+  // il dettaglio degli aperti viaggia con lo snapshot: card ed export devono poter
+  // dire QUALE è il reclamo e a chi gira, non solo quanti sono
+  assert.deepStrictEqual(s.reclami.apertiDettaglio, [
+    { testo: 'Doccia fredda al terzo piano', reparto: 'Rooms', categoria: 'Manutenzione' },
+  ]);
   assert.strictEqual(s.relazioni[200], 'Coniuge');
   assert.strictEqual(s.relazioni[300], undefined);
   assert.strictEqual(s.compleanno.data, '2026-08-05');

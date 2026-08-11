@@ -67,7 +67,7 @@ const arrivo = {
     vip: { descrizione: 'BOLLICINE + FRUTTA FRESCA' },
     intolleranze: ['Arachidi', 'Lattosio'],
     preferenzeTop: [{ testo: 'Coca-Cola Zero' }, { testo: 'Cuscino rigido' }],
-    reclami: { aperti: 1, totali: 2, testiAperti: ['Ritardo nella pulizia camera'] },
+    reclami: { aperti: 1, totali: 2, apertiDettaglio: [{ testo: 'Ritardo nella pulizia camera', reparto: 'Rooms', categoria: 'Pulizia' }] },
     compleanno: { data: '2026-08-12', nome: 'PAGLIUSO NATALIA' },
     indesiderato: false,
     notaPersonale: { sintesi: 'CEO settore Fashion', testo: 'CEO settore Fashion. Cena presto, mai dopo le 21.', troncata: true },
@@ -94,9 +94,9 @@ test('rigaExport: dati operativi sì, dati economici no', () => {
   assert.strictEqual(JSON.stringify(r).includes('DIRETTO'), false);
 });
 
-test('attenzioniDi: del reclamo si legge il TESTO, non il numero', () => {
+test('attenzioniDi: del reclamo si legge il TESTO e il reparto, non il numero', () => {
   const a = E.attenzioniDi(arrivo);
-  assert.ok(a.some((x) => /Reclamo aperto: Ritardo nella pulizia camera/.test(x)));
+  assert.ok(a.some((x) => /Reclamo aperto: \[Rooms\/Pulizia\] Ritardo nella pulizia camera/.test(x)));
   assert.ok(a.some((x) => /Compleanno 12\/08\/2026 — PAGLIUSO NATALIA/.test(x)));
   const b = E.attenzioniDi({ snapshot: { indesiderato: true, reclami: { aperti: 0 } }, statoPartenza: 'checkout' });
   assert.deepStrictEqual(b, ['Ospite indesiderato', 'Check-out effettuato']);
@@ -104,8 +104,15 @@ test('attenzioniDi: del reclamo si legge il TESTO, non il numero', () => {
 });
 
 test('attenzioniDi: più reclami aperti → i primi due, poi il conteggio', () => {
-  const tre = E.attenzioniDi({ snapshot: { reclami: { aperti: 3, totali: 3, testiAperti: ['Rumore', 'Conto extra', 'Wi-Fi'] } } });
-  assert.strictEqual(tre[0], 'Reclamo aperto: Rumore | Conto extra (+1)');
+  const tre = E.attenzioniDi({ snapshot: { reclami: { aperti: 3, totali: 3, apertiDettaglio: [
+    { testo: 'Rumore', reparto: 'Rooms', categoria: 'Rumore' },
+    { testo: 'Conto extra', reparto: 'F&B', categoria: 'Conto' },
+    { testo: 'Wi-Fi', reparto: null, categoria: null }, // vecchio, non classificato
+  ] } } });
+  assert.strictEqual(tre[0], 'Reclamo aperto: [Rooms/Rumore] Rumore | [F&B/Conto] Conto extra (+1)');
+  // un reclamo non classificato non deve mostrare parentesi vuote
+  const vecchio = E.attenzioniDi({ snapshot: { reclami: { aperti: 1, totali: 1, apertiDettaglio: [{ testo: 'Wi-Fi assente', reparto: null, categoria: null }] } } });
+  assert.strictEqual(vecchio[0], 'Reclamo aperto: Wi-Fi assente');
   // Aperti ma senza testo (dato incompleto): si ripiega sul numero, non si tace.
   const senzaTesto = E.attenzioniDi({ snapshot: { reclami: { aperti: 2, totali: 2 } } });
   assert.strictEqual(senzaTesto[0], 'Reclamo aperto (2)');

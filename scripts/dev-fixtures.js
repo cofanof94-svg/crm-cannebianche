@@ -119,12 +119,13 @@ const CRM_INIZIALE = {
     { id: 3, pms_customer_id: 1008, testo: 'Glutine', autore: 'admin' },
   ],
   complaints: [
-    { id: 1, pms_customer_id: 1006, testo: 'Rumore dal corridoio, camera cambiata', stato: 'risolto', periodo: 'giu 2024', follow_up: 'Spostato in 118 lato mare, upgrade gratuito per le due notti restanti.', autore: 'admin' },
-    { id: 2, pms_customer_id: 1006, testo: 'Contestazione conto extra bar', stato: 'aperto', periodo: 'oggi', follow_up: null, autore: 'reception' },
-    { id: 3, pms_customer_id: 1003, testo: 'Ritardo nella pulizia camera', stato: 'aperto', periodo: 'ieri', follow_up: null, autore: 'reception' },
-    // Storico: risolto prima di questa evolutiva, quindi senza follow-up. Serve a
-    // vedere che i vecchi reclami restano leggibili e non chiedono nulla.
-    { id: 4, pms_customer_id: 1001, testo: 'Aria condizionata rumorosa in camera 101', stato: 'risolto', periodo: 'ago 2025', follow_up: null, autore: 'admin' },
+    { id: 1, pms_customer_id: 1006, testo: 'Rumore dal corridoio, camera cambiata', stato: 'risolto', periodo: 'giu 2024', reparto: 'Rooms', categoria: 'Rumore', follow_up: 'Spostato in 118 lato mare, upgrade gratuito per le due notti restanti.', autore: 'admin' },
+    { id: 2, pms_customer_id: 1006, testo: 'Contestazione conto extra bar', stato: 'aperto', periodo: 'oggi', reparto: 'F&B', categoria: 'Conto', follow_up: null, autore: 'reception' },
+    { id: 3, pms_customer_id: 1003, testo: 'Ritardo nella pulizia camera', stato: 'aperto', periodo: 'ieri', reparto: 'Rooms', categoria: 'Pulizia', follow_up: null, autore: 'reception' },
+    // Storico: risolto prima di queste evolutive, quindi senza follow-up E senza
+    // classificazione. Serve a vedere che i vecchi reclami restano leggibili,
+    // mostrano "da classificare" e non rompono niente.
+    { id: 4, pms_customer_id: 1001, testo: 'Aria condizionata rumorosa in camera 101', stato: 'risolto', periodo: 'ago 2025', reparto: null, categoria: null, follow_up: null, autore: 'admin' },
   ],
   nucleo: [
     { id: 1, pms_customer_id: 1001, pms_occupant_id: 1101, tipo_relazione: 'Coniuge', nome: 'GIULIA', cognome: 'TOSTI', nota: '', autore: 'admin' },

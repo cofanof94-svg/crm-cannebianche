@@ -85,7 +85,12 @@ function attenzioniDi(x) {
   if (s.indesiderato) out.push('Ospite indesiderato');
   if (s.reclami && s.reclami.aperti) {
     // Il testo del reclamo, non il numero: il reparto deve sapere cosa è successo.
-    const testi = (s.reclami.testiAperti || []).map((t) => accorcia(t, 90));
+    // Reparto e categoria davanti, quando ci sono: è l'informazione che permette
+    // di girare il foglio a chi se ne deve occupare.
+    const testi = (s.reclami.apertiDettaglio || []).map((c) => {
+      const dove = [c.reparto, c.categoria].filter(Boolean).join('/');
+      return `${dove ? `[${dove}] ` : ''}${accorcia(c.testo, 90)}`;
+    });
     if (!testi.length) out.push(`Reclamo aperto (${s.reclami.aperti})`);
     else out.push(`Reclamo aperto: ${testi.slice(0, 2).join(' | ')}${testi.length > 2 ? ` (+${testi.length - 2})` : ''}`);
   }

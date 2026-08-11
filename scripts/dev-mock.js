@@ -338,7 +338,7 @@ const crmDb = {
 
     // --- customer_complaints ---
     if (/INSERT INTO customer_complaints/.test(t)) {
-      const r = { id: prossimoId(store.complaints), pms_customer_id: params.pmsCustomerId, autore_user_id: params.autoreUserId, testo: params.testo, periodo: params.periodo, stato: 'aperto', created_at: new Date().toISOString(), resolved_at: null };
+      const r = { id: prossimoId(store.complaints), pms_customer_id: params.pmsCustomerId, autore_user_id: params.autoreUserId, testo: params.testo, periodo: params.periodo, reparto: params.reparto, categoria: params.categoria, stato: 'aperto', created_at: new Date().toISOString(), resolved_at: null };
       store.complaints.unshift(r);
       return [{ id: r.id }];
     }
@@ -348,6 +348,8 @@ const crmDb = {
       if (params.testo !== undefined) r.testo = params.testo;
       if (params.periodo !== undefined) r.periodo = params.periodo;
       if (params.followUp !== undefined) r.follow_up = params.followUp;
+      if (params.reparto !== undefined) r.reparto = params.reparto;
+      if (params.categoria !== undefined) r.categoria = params.categoria;
       if (params.stato !== undefined) { r.stato = params.stato; r.resolved_at = params.stato === 'risolto' ? new Date().toISOString() : null; }
       return [{ id: r.id }];
     }

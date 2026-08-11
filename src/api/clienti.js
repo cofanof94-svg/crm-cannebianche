@@ -3,7 +3,7 @@ const { requireAuth } = require('../auth/middleware');
 const { cercaClienti, getCliente, getSoggiorniCliente } = require('../pms/clienti');
 const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
-const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, setComplaintFollowUp, deleteComplaint, FOLLOWUP_MAX } = require('../crm/complaint');
+const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, setComplaintFollowUp, setComplaintClasse, deleteComplaint, FOLLOWUP_MAX, CATEGORIE_COMPLAINT } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
 const { getProfilo, upsertLingua, upsertNotePersonali } = require('../crm/profilo');
 const { sintetizzaNota } = require('../crm/arrivi-brief');
@@ -214,9 +214,15 @@ function createClientiRouter(pmsDb, crmDb) {
     const b = req.body || {};
     const testo = (b.testo ? String(b.testo) : '').trim();
     const periodo = (b.periodo != null ? String(b.periodo).trim() : '') || null;
+    const reparto = (b.reparto != null ? String(b.reparto).trim() : '');
+    const categoria = (b.categoria != null ? String(b.categoria).trim() : '');
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     if (!testo) return res.status(400).json({ error: 'Testo mancante' });
-    const complaint = await createComplaint(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo, periodo });
+    // Obbligatori sui NUOVI reclami: è la classificazione che permette di girare
+    // il problema al reparto giusto. I vecchi restano senza, e va bene così.
+    if (!REPARTI.includes(reparto)) return res.status(400).json({ error: 'Reparto non valido' });
+    if (!CATEGORIE_COMPLAINT.includes(categoria)) return res.status(400).json({ error: 'Categoria non valida' });
+    const complaint = await createComplaint(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo, periodo, reparto, categoria });
     res.status(201).json({ complaint });
   });
 
@@ -228,19 +234,29 @@ function createClientiRouter(pmsDb, crmDb) {
     const stato = body.stato != null ? String(body.stato).trim() : null;
     const periodo = body.periodo != null ? String(body.periodo).trim() : null;
     const followUp = body.followUp != null ? String(body.followUp).trim() : null;
+    const reparto = body.reparto != null ? String(body.reparto).trim() : null;
+    const categoria = body.categoria != null ? String(body.categoria).trim() : null;
     if (stato != null && stato !== 'aperto' && stato !== 'risolto') return res.status(400).json({ error: 'Stato non valido' });
     if (testo === '') return res.status(400).json({ error: 'Testo mancante' });
+    if (reparto != null && !REPARTI.includes(reparto)) return res.status(400).json({ error: 'Reparto non valido' });
+    if (categoria != null && !CATEGORIE_COMPLAINT.includes(categoria)) return res.status(400).json({ error: 'Categoria non valida' });
     // Risolvere senza dire cosa è stato fatto lascia un dato inutile a chi legge
     // dopo: la regola sta qui, non solo nella maschera, così vale per ogni client.
     if (stato === 'risolto' && !followUp) return res.status(400).json({ error: 'Follow-up mancante: descrivi come è stato gestito il problema' });
     if (followUp && followUp.length > FOLLOWUP_MAX) return res.status(400).json({ error: `Follow-up troppo lungo (max ${FOLLOWUP_MAX} caratteri)` });
-    if (testo == null && stato == null && periodo == null && followUp == null) return res.status(400).json({ error: 'Niente da aggiornare' });
+    if (testo == null && stato == null && periodo == null && followUp == null && reparto == null && categoria == null) return res.status(400).json({ error: 'Niente da aggiornare' });
     let ok = true;
     if (testo != null) ok = await updateComplaintTesto(crmDb, id, testo);
     // Stato e follow-up nello stesso UPDATE: si risolve e si registra come, insieme.
     if (ok && stato != null) ok = await setComplaintStato(crmDb, id, stato, stato === 'risolto' ? followUp : undefined);
     else if (ok && followUp != null) ok = await setComplaintFollowUp(crmDb, id, followUp);
     if (ok && periodo != null) ok = await setComplaintPeriodo(crmDb, id, periodo);
+    if (ok && (reparto != null || categoria != null)) {
+      ok = await setComplaintClasse(crmDb, id, {
+        ...(reparto != null ? { reparto } : {}),
+        ...(categoria != null ? { categoria } : {}),
+      });
+    }
     if (!ok) return res.status(404).json({ error: 'Complaint non trovato' });
     res.json({ ok: true });
   });

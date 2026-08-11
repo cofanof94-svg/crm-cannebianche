@@ -142,7 +142,15 @@ function costruisciSnapshot(a, ctx) {
   const reclami = {
     aperti: aperti.length,
     totali: compl.length,
-    testiAperti: aperti.map((c) => (c.testo == null ? '' : String(c.testo)).trim()).filter(Boolean),
+    // Con reparto e categoria: chi legge la card sa anche a chi gira il problema.
+    // I reclami inseriti prima della classificazione hanno reparto/categoria nulli.
+    apertiDettaglio: aperti
+      .map((c) => ({
+        testo: (c.testo == null ? '' : String(c.testo)).trim(),
+        reparto: c.reparto || null,
+        categoria: c.categoria || null,
+      }))
+      .filter((c) => c.testo),
   };
 
   // Relazioni degli occupanti col referente (o con un membro del suo gruppo).

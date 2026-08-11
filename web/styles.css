@@ -691,8 +691,15 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .scope-on-nucleo { background: var(--sea-050); color: var(--sea-700); }
 .pref-cond-head { list-style: none; font-size: 12px; font-weight: 700; color: var(--sea-700); margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--accent); }
 .pref-condivisa { background: var(--sea-050); border-radius: var(--radius-sm); }
+.compl-tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.compl-tags .pill, .compl-tags .pref-tag { flex: none; margin-right: 0; }
 .compl-top { display: flex; align-items: baseline; gap: 10px; }
 .compl-top .pill { flex: none; }
+/* Il tag della classificazione è cliccabile: si può correggere o assegnare. */
+.tag-classe { border: none; font-family: inherit; cursor: pointer; }
+.tag-classe:hover { filter: brightness(.96); }
+/* Non classificato (reclami inseriti prima dei due campi): si vede che manca. */
+.tag-vuoto { background: var(--surface-2); color: var(--muted); border: 1px dashed var(--border-strong); }
 .compl-risolto .compl-testo { color: var(--muted); text-decoration: line-through; }
 /* Follow-up: come è stato gestito. Sta sotto al reclamo, mai barrato — è la
    parte che serve rileggere quando l'ospite torna. */
