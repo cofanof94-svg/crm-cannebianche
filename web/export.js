@@ -22,6 +22,10 @@ const COLONNE_EXPORT = {
   camera: { etichetta: 'Camera', valore: (r) => r.camere, classe: 'st-camera' },
   ospite: { etichetta: 'Ospite', valore: (r) => r.ospite, classe: 'st-ospite' },
   inCamera: { etichetta: 'In camera', valore: (r) => r.inCamera },
+  // Sul foglio le tre informazioni sul periodo stanno in una colonna sola: su A4
+  // ogni colonna in meno è spazio che va al testo. Nel CSV restano separate,
+  // perché lì servono per ordinare e filtrare.
+  soggiorno: { etichetta: 'Soggiorno', valore: (r) => `${r.arrivo} → ${r.partenza}${r.notti != null ? ` (${r.notti} notti)` : ''}`, classe: 'st-sogg' },
   arrivo: { etichetta: 'Arrivo', valore: (r) => r.arrivo },
   partenza: { etichetta: 'Partenza', valore: (r) => r.partenza },
   notti: { etichetta: 'Notti', valore: (r) => (r.notti == null ? '' : String(r.notti)) },
@@ -29,6 +33,10 @@ const COLONNE_EXPORT = {
   allergie: { etichetta: 'Allergie', valore: (r) => r.allergie, classe: 'st-allergie' },
   attenzioni: { etichetta: 'Attenzioni', valore: (r) => r.attenzioni.join(' · '), classe: 'st-attenzioni' },
   preferenze: { etichetta: 'Preferenze', valore: (r) => r.preferenze },
+  // Nota personale dell'anagrafica (chi è l'ospite): sul foglio la sintesi, nel
+  // CSV il testo intero. È la stessa nota della scheda, non una copia.
+  notaOspite: { etichetta: 'Nota ospite', valore: (r) => r.notaOspite, classe: 'st-nota' },
+  notaOspiteIntera: { etichetta: 'Nota ospite', valore: (r) => r.notaOspiteIntera },
   trattamento: { etichetta: 'Trattamento', valore: (r) => r.trattamento },
   notePms: { etichetta: 'Note prenotazione', valore: (r) => r.notePms, classe: 'st-note' },
   pratica: { etichetta: 'Pratica', valore: (r) => String(r.pratica || '') },
@@ -36,13 +44,14 @@ const COLONNE_EXPORT = {
 
 // --- Viste -------------------------------------------------------------------
 // V1: una sola vista, generica, come chiesto. I reparti si aggiungono qui.
+// Foglio e CSV hanno liste separate: sono due mezzi diversi, non lo stesso
+// contenuto in due formati. Sul foglio conta la leggibilità a colpo d'occhio,
+// nel CSV la completezza (pratica, date separate, testi interi).
 const VISTE_EXPORT = {
   generale: {
     nome: 'Vista generale',
-    colonne: ['camera', 'ospite', 'inCamera', 'arrivo', 'partenza', 'notti', 'vip', 'allergie', 'attenzioni', 'preferenze', 'trattamento', 'notePms'],
-    // Il numero di pratica serve a ritrovare la prenotazione nel gestionale: utile
-    // nel foglio di calcolo, rumore inutile su un foglio da appendere in reparto.
-    colonneCsv: ['pratica'],
+    foglio: ['camera', 'ospite', 'inCamera', 'soggiorno', 'vip', 'allergie', 'attenzioni', 'preferenze', 'notaOspite', 'trattamento', 'notePms'],
+    csv: ['camera', 'ospite', 'inCamera', 'arrivo', 'partenza', 'notti', 'vip', 'allergie', 'attenzioni', 'preferenze', 'notaOspiteIntera', 'trattamento', 'notePms', 'pratica'],
   },
 };
 
@@ -84,6 +93,8 @@ function rigaExport(x, opts = {}) {
     allergie: (s.intolleranze || []).join(', '),
     attenzioni: attenzioniDi(x),
     preferenze: (s.preferenzeTop || []).map((p) => p.testo).join(' · '),
+    notaOspite: s.notaPersonale ? s.notaPersonale.sintesi : '',
+    notaOspiteIntera: s.notaPersonale ? (s.notaPersonale.testo || s.notaPersonale.sintesi) : '',
     trattamento: x.trattamento || '',
     notePms: accorcia(x.note, opts.noteMax),
     pratica: x.codpratica,
@@ -219,12 +230,12 @@ function aggiornaAnteprimaExport() {
     : `${n} ${n === 1 ? 'prenotazione' : 'prenotazioni'} · ${p === 'incasa' ? 'in casa al' : 'in arrivo il'} ${fmtData(d.data)}`;
 }
 
-function metaExport(popolazione, data) {
+function metaExport(popolazione, data, formato) {
   const vista = VISTE_EXPORT.generale;
   return {
     titolo: popolazione === 'incasa' ? 'Ospiti in casa' : 'Ospiti in arrivo',
     sottotitolo: `${vista.nome} · ${popolazione === 'incasa' ? 'situazione al' : 'arrivi del'} ${fmtData(data)}`,
-    colonne: vista.colonne,
+    colonne: formato === 'csv' ? vista.csv : vista.foglio,
     nomeFile: `${popolazione === 'incasa' ? 'in-casa' : 'arrivi'}-${data || 'oggi'}`,
   };
 }
@@ -238,13 +249,12 @@ async function eseguiExport() {
   const dati = await listaDaEsportare(popolazione);
   btn.disabled = false;
   if (!dati) { $('#export-msg').textContent = 'Non riesco a leggere i dati da esportare.'; return; }
-  const meta = metaExport(popolazione, dati.data);
+  const meta = metaExport(popolazione, dati.data, formato);
   $('#export-msg').textContent = '';
 
   if (formato === 'csv') {
-    const colonne = [...meta.colonne, ...VISTE_EXPORT.generale.colonneCsv];
-    const righe = costruisciExport(dati.lista); // note intere nel CSV
-    scaricaFile(`${meta.nomeFile}.csv`, toCsv(righe, colonne), 'text/csv;charset=utf-8');
+    const righe = costruisciExport(dati.lista); // testi interi nel CSV
+    scaricaFile(`${meta.nomeFile}.csv`, toCsv(righe, meta.colonne), 'text/csv;charset=utf-8');
     $('#export-dialog').close();
     return;
   }

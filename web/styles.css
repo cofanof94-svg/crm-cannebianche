@@ -387,7 +387,9 @@ tbody tr:hover { background: var(--surface-2); }
 .btn-icon.danger:hover { background: #f6e4e2; }
 
 /* Modale */
-dialog.modal { border: none; border-radius: 18px; padding: 0; box-shadow: var(--shadow-md); width: 500px; max-width: calc(100vw - 32px); color: var(--text); }
+/* max-height + scroll: su un portatile basso una modale alta finirebbe sotto il
+   bordo dello schermo, coi pulsanti irraggiungibili. */
+dialog.modal { border: none; border-radius: 18px; padding: 0; box-shadow: var(--shadow-md); width: 500px; max-width: calc(100vw - 32px); max-height: calc(100vh - 48px); overflow: auto; color: var(--text); }
 dialog.modal::backdrop { background: rgba(8,42,52,.45); }
 #user-form, #followup-form { padding: 26px; }
 /* Il testo del reclamo che si sta chiudendo: contesto, non un campo da compilare. */
@@ -793,11 +795,21 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
 }
 
 /* ===== Export per i reparti ================================================ */
-.exp-gruppo { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+/* Il pulsante sta su fondo chiaro: .btn-ghost è pensato per la barra scura e qui
+   sarebbe bianco su bianco. Questo è il secondario su chiaro. */
+.btn-export { background: var(--surface); color: var(--brand); border-color: var(--border-strong); white-space: nowrap; }
+.btn-export:hover { background: var(--brand-050); border-color: var(--brand); }
+
+.exp-gruppo { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px 12px; margin-bottom: 14px; }
 .exp-gruppo legend { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 0 6px; }
-.exp-gruppo .check { margin: 4px 0; font-weight: 500; }
-.exp-hint { color: var(--muted); font-weight: 400; }
-.exp-nota { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+/* Griglia (pallino | testo) invece di una riga sola: la descrizione va a capo
+   dentro la sua colonna, senza uscire dal riquadro. */
+.exp-opz { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 7px 0; cursor: pointer; }
+.exp-opz + .exp-opz { border-top: 1px solid var(--border); }
+.exp-opz input { width: 16px; height: 16px; margin: 2px 0 0; }
+.exp-opz b { display: block; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.exp-opz small { display: block; font-size: 12px; line-height: 1.45; color: var(--muted); margin-top: 2px; }
+.exp-nota { font-size: 12px; line-height: 1.45; color: var(--muted); margin: 10px 0 0; }
 
 /* Il foglio non si vede a schermo: esiste solo per la stampa. */
 #stampa-box { display: none; }
@@ -825,6 +837,8 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
 .st-tab thead { display: table-header-group; } /* testata ripetuta a ogni pagina */
 .st-camera { font-weight: 700; white-space: nowrap; }
 .st-ospite { font-weight: 600; }
+.st-sogg { white-space: nowrap; }
+.st-nota { font-style: italic; }
 .st-note { color: #444; font-size: 8.5pt; }
 /* Le allergie devono saltare all'occhio anche in bianco e nero: rosso + neretto
    + un bordo sulla riga, così restano leggibili su una fotocopia. */

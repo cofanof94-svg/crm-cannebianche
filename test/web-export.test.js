@@ -68,6 +68,7 @@ const arrivo = {
     reclami: { aperti: 1, totali: 2 },
     compleanno: { data: '2026-08-12', nome: 'PAGLIUSO NATALIA' },
     indesiderato: false,
+    notaPersonale: { sintesi: 'CEO settore Fashion', testo: 'CEO settore Fashion. Cena presto, mai dopo le 21.', troncata: true },
   },
 };
 
@@ -149,12 +150,37 @@ test('tabellaStampa: il testo dell\'ospite passa per l\'escape', () => {
 });
 
 test('vista generale: colonne attese, e nessun campo economico', () => {
-  const c = E.VISTE_EXPORT.generale.colonne;
-  ['camera', 'ospite', 'arrivo', 'partenza', 'vip', 'allergie', 'attenzioni', 'preferenze'].forEach((k) => {
-    assert.ok(c.includes(k), `manca la colonna ${k}`);
+  const { foglio, csv } = E.VISTE_EXPORT.generale;
+  ['camera', 'ospite', 'soggiorno', 'vip', 'allergie', 'attenzioni', 'preferenze', 'notaOspite'].forEach((k) => {
+    assert.ok(foglio.includes(k), `manca la colonna ${k} sul foglio`);
   });
-  assert.ok(c.indexOf('allergie') < c.indexOf('preferenze'), 'le allergie vengono prima delle preferenze');
-  ['importo', 'extra', 'tariffa'].forEach((k) => assert.ok(!c.includes(k)));
-  // le colonne dichiarate devono esistere davvero
-  [...c, ...E.VISTE_EXPORT.generale.colonneCsv].forEach((k) => assert.ok(E.COLONNE_EXPORT[k], `colonna ${k} non definita`));
+  ['camera', 'ospite', 'arrivo', 'partenza', 'notti', 'allergie', 'pratica'].forEach((k) => {
+    assert.ok(csv.includes(k), `manca la colonna ${k} nel CSV`);
+  });
+  [foglio, csv].forEach((c) => {
+    assert.ok(c.indexOf('allergie') < c.indexOf('preferenze'), 'le allergie vengono prima delle preferenze');
+    ['importo', 'extra', 'tariffa'].forEach((k) => assert.ok(!c.includes(k), `${k} non deve uscire`));
+    c.forEach((k) => assert.ok(E.COLONNE_EXPORT[k], `colonna ${k} non definita`));
+  });
+  // La pratica serve a ritrovare la prenotazione nel gestionale: utile in Excel,
+  // rumore su un foglio appeso in reparto.
+  assert.ok(!foglio.includes('pratica'));
+});
+
+test('nota personale: sintesi sul foglio, testo intero nel CSV', () => {
+  const r = E.rigaExport(arrivo);
+  assert.strictEqual(E.COLONNE_EXPORT.notaOspite.valore(r), 'CEO settore Fashion');
+  assert.match(E.COLONNE_EXPORT.notaOspiteIntera.valore(r), /Cena presto/);
+  // resta separata dalle preferenze: sono due cose diverse
+  assert.doesNotMatch(r.preferenze, /Fashion/);
+  const senza = E.rigaExport({ ...arrivo, snapshot: {} });
+  assert.strictEqual(senza.notaOspite, '');
+  assert.strictEqual(senza.notaOspiteIntera, '');
+});
+
+test('colonna soggiorno: periodo e notti in una cella sola', () => {
+  const r = E.rigaExport(arrivo);
+  assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valore(r), '10/08/2026 → 14/08/2026 (4 notti)');
+  const senzaNotti = E.rigaExport({ ...arrivo, notti: null });
+  assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valore(senzaNotti), '10/08/2026 → 14/08/2026');
 });
