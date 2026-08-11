@@ -118,11 +118,21 @@ confermare* (quest'ultima non è salvabile nel profilo).
 ### Fonti del briefing
 Sistemato l'11/08: l'elenco mostrava **tutti i risultati della ricerca**, letti o
 no (16 su un ospite noto, molti blog). Ora mostra le fonti che il modello ha
-davvero citato; i risultati grezzi restano solo come ripiego se non cita nulla.
-Sullo stesso ospite: da 16 a 10, con Wikipedia, Sky TG24 e Corriere in testa.
+davvero **citato**; i risultati grezzi restano come ripiego, al massimo 6 e sotto
+un'etichetta diversa ("Risultati della ricerca — non citati dall'AI").
 
-- [ ] Guardare la lista su 4-5 ospiti veri: se restano fonti deboli, ormai è una
-      scelta del modello, non un problema di raccolta
+Su un'ospite molto nota si è visto un comportamento da tenere d'occhio: **0
+citazioni su 40 risultati**, cioè il modello ha risposto da quello che già sapeva
+senza agganciarsi alla ricerca. Il testo era corretto, ma non era verificato.
+Aggiungere al prompt "non scrivere ciò che non hai trovato ora" non ha cambiato
+nulla: è per questo che l'etichetta ora distingue i due casi.
+
+- [ ] Guardare su 4-5 ospiti veri **quante volte compare l'etichetta "non citati
+      dall'AI"**: se è la norma e non l'eccezione, il briefing sta lavorando a
+      memoria e va ripensato (es. obbligare una ricerca prima di rispondere)
+- [ ] Se restano link deboli fra quelli citati, ormai è una scelta del modello:
+      il passo successivo sarebbe una lista bianca di domini, da decidere con
+      casi veri in mano
 
 ---
 

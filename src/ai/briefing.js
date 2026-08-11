@@ -29,6 +29,7 @@ const SYSTEM = [
   '',
   'REGOLE FERREE:',
   '- Usa SOLO informazioni pubbliche e verificabili; CITA sempre le fonti.',
+  '- Ogni riga deve poggiare su un risultato della ricerca che hai appena fatto, NON sulla tua memoria: se non lo hai trovato ora nella ricerca, non scriverlo. Anche quando credi di conoscere già la persona, verifica e cita.',
   '- Cita ESCLUSIVAMENTE fonti AUTOREVOLI e pertinenti: siti ufficiali/istituzionali, enciclopedie (Treccani, Britannica, Wikipedia), stampa affidabile, pagine ufficiali dell\'organizzazione, profili professionali (LinkedIn). NON citare aggregatori/scraper di contatti (email, telefoni), marketplace, blog non verificati, social personali (Facebook, Instagram, TikTok, X) o pagine non pertinenti. Meglio poche fonti solide che molte deboli.',
   "- Includi SOLO ciò che è utile all'accoglienza: ruolo/professione pubblica, cariche/ruoli pubblici, motivo di notorietà, come rivolgersi (titolo/appellativo).",
   '- Da un profilo professionale prendi SOLO ruolo, azienda/organizzazione e settore. NON riportare percorso di studi, storia lavorativa, post, contatti, foto, collegamenti o qualunque altro contenuto del profilo.',
@@ -41,11 +42,11 @@ const SYSTEM = [
   '- ULTIMA RIGA OBBLIGATORIA, sempre, esattamente in questo formato: "Identificazione: pubblica" se è un personaggio pubblico con fonti autorevoli; "Identificazione: professionale" se non ha rilievo pubblico ma il profilo professionale è confermato dalla regola dei due riscontri; "Identificazione: incerta" se il profilo è plausibile ma non confermato. Questa riga non conta nel limite di righe e non deve contenere altro.',
   '- FORMATO: SINTESI per PAROLE CHIAVE, non prosa. Massimo 4-5 righe, ognuna "Etichetta: poche parole chiave" (max ~10 parole per riga). VIETATI: frasi complete e verbi narrativi ("è stato", "ha ricevuto"), ripetere il nome dell\'ospite, il markdown/grassetto (**), qualsiasi riga di intestazione o titolo. INIZIA DIRETTAMENTE dalla prima etichetta (es. "Ruolo:"). Includi sempre una riga "Appellativo:" e, come ultimissima, la riga "Identificazione:". Esempi di STILE (adatta i contenuti all\'ospite reale):',
   '',
-  'Personaggio pubblico:',
-  'Ruolo: modella e socialite britannica',
-  'Notorietà: nipote di Diana Spencer; cugina dei principi William e Harry',
-  'Ambito: ambasciatrice brand di lusso (Schiaparelli, Armani, Bvlgari)',
-  'Appellativo: "Lady Amelia"',
+  'Personaggio pubblico (persona INVENTATA: copia la forma, non i contenuti):',
+  "Ruolo: direttrice d'orchestra",
+  'Notorietà: prima donna alla guida di un teatro lirico nazionale',
+  'Ambito: musica classica, direzione artistica',
+  'Appellativo: "Maestra"',
   'Identificazione: pubblica',
   '',
   'Profilo professionale (nessun rilievo pubblico, azienda confermata dal dominio della mail):',
@@ -60,6 +61,9 @@ const SYSTEM = [
 const DOMINI_ESCLUSI = [
   'rocketreach', 'signalhire', 'zoominfo', 'lusha', 'contactout', 'apollo.io',
   'rocketreach.co', 'leadiq', 'hunter.io', '1stdibs', 'pressreader',
+  // Banche di immagini: compaiono spesso cercando persone note, ma come fonte
+  // di un briefing non dicono nulla.
+  'gettyimages', 'alamy.com', 'shutterstock', 'depositphotos', 'imago-images',
   // Social personali: LinkedIn è ammesso (è una presentazione professionale
   // autopubblicata), questi no. 'x.com' non è in elenco apposta: il confronto è
   // per sottostringa e scarterebbe anche linux.com, matrix.com, essex.com…
@@ -133,6 +137,19 @@ function buildRequest(fatti, { model = 'claude-sonnet-5', maxTokens = 2000, maxU
 //     gossip, aggregatori). Mostrarli come "Fonti" è una promessa falsa.
 // Quindi: se ci sono citazioni si mostrano SOLO quelle. I risultati grezzi restano
 // come ripiego, per non lasciare la card senza nemmeno un link da controllare.
+//
+// Il ripiego non è un caso di scuola: su una persona molto nota il modello a volte
+// risponde da quello che già sa senza agganciarsi alla ricerca (visto dal vivo:
+// 0 citazioni e 30 risultati). Lì i link NON sono le fonti del briefing, sono solo
+// quello che ha trovato il motore: si mostrano pochi e con un'etichetta diversa,
+// altrimenti la card promette una verifica che non c'è stata.
+const MAX_RIPIEGO = 6;
+
+// Il modello ha davvero agganciato quello che scrive ai risultati della ricerca?
+function haCitazioni(blocchi) {
+  return (blocchi || []).some((b) => b && ((b.citations || []).some((c) => c && c.url)));
+}
+
 function estraiFonti(blocchi) {
   const citate = [];
   const cercate = [];
@@ -152,7 +169,7 @@ function estraiFonti(blocchi) {
     for (const c of b.citations || []) aggiungi('citate', c && c.url, c && c.title);
     if (Array.isArray(b.content)) for (const r of b.content) if (r && r.url) aggiungi('cercate', r.url, r.title);
   }
-  return citate.length ? citate : cercate;
+  return citate.length ? citate : cercate.slice(0, MAX_RIPIEGO);
 }
 
 // Ripulisce l'output: toglie il grassetto markdown e un'eventuale riga di
@@ -198,6 +215,9 @@ function parseBriefing(resp) {
   return {
     testo: testo || 'Nessuna informazione pubblica rilevante.',
     fonti: pubblico ? fonti : [],
+    // false = il briefing non è agganciato a quei link: sono solo i risultati
+    // della ricerca. Chi legge deve saperlo, l'etichetta in card cambia.
+    fontiCitate: pubblico && haCitazioni(blocchi),
     pubblico,
     identificazione,
     salvabile,
@@ -207,7 +227,7 @@ function parseBriefing(resp) {
 // Esito "niente da dire", nella stessa forma di parseBriefing: chi lo consuma non
 // deve distinguere fra "non abbiamo cercato" e "cercato senza esito".
 const NIENTE = () => ({
-  testo: 'Nessuna informazione pubblica rilevante.', fonti: [], pubblico: false, identificazione: 'nessuna', salvabile: false,
+  testo: 'Nessuna informazione pubblica rilevante.', fonti: [], fontiCitate: false, pubblico: false, identificazione: 'nessuna', salvabile: false,
 });
 
 async function briefing(client, fatti, opts = {}) {
@@ -218,5 +238,5 @@ async function briefing(client, fatti, opts = {}) {
 
 module.exports = {
   SYSTEM, costruisciFatti, haFatti, buildRequest, estraiFonti, parseBriefing, briefing,
-  dominioAziendale, estraiIdentificazione, NIENTE,
+  dominioAziendale, estraiIdentificazione, haCitazioni, NIENTE,
 };

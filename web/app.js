@@ -300,8 +300,14 @@ function renderBriefResult(b, cli) {
     .map((f) => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.titolo || f.url)}</a></li>`)
     .join('');
   const nFonti = (b.fonti || []).length;
+  // "Fonti" solo se il briefing poggia davvero su quei link. Quando l'AI risponde
+  // da quello che già sa, restano i risultati della ricerca: utili per verificare,
+  // ma chiamarli fonti sarebbe una garanzia che nessuno ha dato.
+  const etichettaFonti = b.fontiCitate
+    ? `Fonti (${nFonti})`
+    : `Risultati della ricerca (${nFonti}) — non citati dall'AI`;
   const fontiBlock = fonti
-    ? `<details class="brief-fonti"><summary>Fonti (${nFonti})</summary><ul>${fonti}</ul></details>`
+    ? `<details class="brief-fonti"><summary>${esc(etichettaFonti)}</summary><ul>${fonti}</ul></details>`
     : '';
   const e = ESITI_BRIEF[b.identificazione];
   const esito = e ? `<span class="brief-esito ${e.cls}" title="${esc(e.tit)}">${esc(e.txt)}</span>` : '';

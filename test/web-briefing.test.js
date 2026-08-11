@@ -46,8 +46,18 @@ const renderBriefResult = new Function(`
 
 const risultato = (b) => renderBriefResult(b, 1234);
 
+test('link citati e link solo trovati non si chiamano allo stesso modo', () => {
+  const citate = risultato({ testo: 'Ruolo: x', fonti: [{ url: 'https://it.wikipedia.org/x', titolo: 'W' }], fontiCitate: true, pubblico: true, identificazione: 'pubblica', salvabile: true });
+  assert.match(citate, /Fonti \(1\)/);
+  assert.doesNotMatch(citate, /non citati/);
+
+  const trovate = risultato({ testo: 'Ruolo: x', fonti: [{ url: 'https://it.wikipedia.org/x', titolo: 'W' }], fontiCitate: false, pubblico: true, identificazione: 'pubblica', salvabile: true });
+  assert.match(trovate, /Risultati della ricerca \(1\)/);
+  assert.match(trovate, /non citati dall&#39;AI/); // passato da esc(), quindi con entità
+});
+
 test('personaggio pubblico: etichetta dedicata e salvataggio nel profilo', () => {
-  const h = risultato({ testo: 'Ruolo: imprenditore', fonti: [{ url: 'https://it.wikipedia.org/x', titolo: 'Wikipedia' }], pubblico: true, identificazione: 'pubblica', salvabile: true });
+  const h = risultato({ testo: 'Ruolo: imprenditore', fonti: [{ url: 'https://it.wikipedia.org/x', titolo: 'Wikipedia' }], fontiCitate: true, pubblico: true, identificazione: 'pubblica', salvabile: true });
   assert.match(h, /brief-esito-pub/);
   assert.match(h, /Personaggio pubblico/);
   assert.match(h, /brief-save/);

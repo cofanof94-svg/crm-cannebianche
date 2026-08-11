@@ -30,12 +30,14 @@ test('SYSTEM: tutele privacy, fonti autorevoli, formato asciutto, fallback espli
   assert.match(SYSTEM, /Appellativo:/);  // riga finale su come rivolgersi
 });
 
-test('estraiFonti: scarta i domini non autorevoli (scraper di contatti/marketplace)', () => {
+test('estraiFonti: scarta i domini non autorevoli (scraper di contatti/marketplace/foto)', () => {
   const fonti = estraiFonti([
     { type: 'text', text: 'x', citations: [
       { url: 'https://it.wikipedia.org/wiki/X', title: 'Wikipedia' },
       { url: 'https://rocketreach.co/x-email', title: 'contatti' },
       { url: 'https://www.1stdibs.com/art/y', title: 'quadro' },
+      { url: 'https://www.gettyimages.com/photos/x', title: 'foto' },
+      { url: 'https://www.alamy.com/x', title: 'foto' },
     ] },
   ]);
   assert.strictEqual(fonti.length, 1);
@@ -77,6 +79,34 @@ test('estraiFonti: se il modello ha citato, i risultati grezzi non si mostrano',
     { type: 'text', text: 'Ruolo: imprenditore', citations: [{ url: 'https://it.wikipedia.org/x', title: 'Wikipedia' }] },
   ]);
   assert.deepStrictEqual(fonti, [{ url: 'https://it.wikipedia.org/x', titolo: 'Wikipedia' }]);
+});
+
+test('senza citazioni: pochi link e detto chiaramente che non sono fonti', () => {
+  // Caso vero (Amelia Spencer): 0 citazioni e 30 risultati. Il modello ha
+  // risposto da quello che sapeva, non dalla ricerca: quei link non sono le
+  // fonti del briefing e non vanno mostrati a valanga.
+  const molti = Array.from({ length: 30 }, (_, i) => ({ url: `https://sito${i}.it/x`, title: `S${i}` }));
+  const out = parseBriefing({ content: [
+    { type: 'web_search_tool_result', content: molti },
+    { type: 'text', text: 'Ruolo: modella\nIdentificazione: pubblica' }, // nessuna citazione
+  ] });
+  assert.strictEqual(out.fontiCitate, false);
+  assert.strictEqual(out.fonti.length, 6);
+  // Con le citazioni invece l'elenco è quello vero e completo.
+  const citato = parseBriefing({ content: [
+    { type: 'web_search_tool_result', content: molti },
+    { type: 'text', text: 'Ruolo: modella', citations: [{ url: 'https://it.wikipedia.org/x', title: 'W' }] },
+  ] });
+  assert.strictEqual(citato.fontiCitate, true);
+  assert.deepStrictEqual(citato.fonti, [{ url: 'https://it.wikipedia.org/x', titolo: 'W' }]);
+});
+
+test('SYSTEM: le righe devono poggiare sulla ricerca, non sulla memoria del modello', () => {
+  assert.match(SYSTEM, /NON sulla tua memoria/);
+  // L'esempio di stile non nomina più una persona reale: era Lady Amelia Spencer,
+  // e su un'ospite con quel nome il modello copiava l'esempio invece di cercare.
+  assert.doesNotMatch(SYSTEM, /Spencer|Diana|Amelia/);
+  assert.match(SYSTEM, /INVENTATA/);
 });
 
 test('estraiFonti: nessuna fonte utilizzabile → elenco vuoto', () => {
