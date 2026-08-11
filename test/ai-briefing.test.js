@@ -101,6 +101,22 @@ test('senza citazioni: pochi link e detto chiaramente che non sono fonti', () =>
   assert.deepStrictEqual(citato.fonti, [{ url: 'https://it.wikipedia.org/x', titolo: 'W' }]);
 });
 
+test('parseBriefing: niente righe vuote fra le etichette', () => {
+  // Il modello a volte intercala righe vuote: nella card, che è in pre-wrap, si
+  // vedono tutte e sparpagliano un briefing che deve stare in cinque righe.
+  const out = parseBriefing({ content: [
+    { type: 'text', text: 'Ruolo: manager\n\nNotorietà: ex direttore generale\n\n\nAppellativo: "Direttore"', citations: [{ url: 'https://x.it', title: 'X' }] },
+  ] });
+  assert.strictEqual(out.testo, 'Ruolo: manager\nNotorietà: ex direttore generale\nAppellativo: "Direttore"');
+});
+
+test('SYSTEM: si scrive in italiano anche con fonti in inglese', () => {
+  // Trovato dal vivo su un dirigente con pagine Wikipedia in inglese: il briefing
+  // usciva in inglese, con frasi intere e il nome dell'ospite ripetuto.
+  assert.match(SYSTEM, /SEMPRE in ITALIANO/);
+  assert.match(SYSTEM, /traduci/i);
+});
+
 test('SYSTEM: le righe devono poggiare sulla ricerca, non sulla memoria del modello', () => {
   assert.match(SYSTEM, /NON sulla tua memoria/);
   // L'esempio di stile non nomina più una persona reale: era Lady Amelia Spencer,

@@ -129,7 +129,10 @@ nulla: è per questo che l'etichetta ora distingue i due casi.
 
 - [ ] Guardare su 4-5 ospiti veri **quante volte compare l'etichetta "non citati
       dall'AI"**: se è la norma e non l'eccezione, il briefing sta lavorando a
-      memoria e va ripensato (es. obbligare una ricerca prima di rispondere)
+      memoria e va ripensato (es. obbligare una ricerca prima di rispondere).
+      Finora: citazioni presenti su un imprenditore, assenti su due persone molto
+      note (una nobildonna britannica e un dirigente universitario). Sembra che
+      più il modello conosce la persona, meno si aggancia alla ricerca
 - [ ] Se restano link deboli fra quelli citati, ormai è una scelta del modello:
       il passo successivo sarebbe una lista bianca di domini, da decidere con
       casi veri in mano

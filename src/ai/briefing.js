@@ -28,6 +28,7 @@ const SYSTEM = [
   "Se non è un personaggio pubblico, cerca comunque un PROFILO PROFESSIONALE (tipicamente LinkedIn): serve a riconoscere manager e dirigenti che non sono figure pubbliche.",
   '',
   'REGOLE FERREE:',
+  "- Scrivi SEMPRE in ITALIANO, anche quando le fonti sono in inglese o in un'altra lingua: traduci. Il briefing lo legge la reception.",
   '- Usa SOLO informazioni pubbliche e verificabili; CITA sempre le fonti.',
   '- Ogni riga deve poggiare su un risultato della ricerca che hai appena fatto, NON sulla tua memoria: se non lo hai trovato ora nella ricerca, non scriverlo. Anche quando credi di conoscere già la persona, verifica e cita.',
   '- Cita ESCLUSIVAMENTE fonti AUTOREVOLI e pertinenti: siti ufficiali/istituzionali, enciclopedie (Treccani, Britannica, Wikipedia), stampa affidabile, pagine ufficiali dell\'organizzazione, profili professionali (LinkedIn). NON citare aggregatori/scraper di contatti (email, telefoni), marketplace, blog non verificati, social personali (Facebook, Instagram, TikTok, X) o pagine non pertinenti. Meglio poche fonti solide che molte deboli.',
@@ -198,7 +199,10 @@ function pulisciTesto(t) {
   const iFonti = righe.findIndex((r) => /^\s*fonti\b/i.test(r));
   if (iFonti >= 0) righe = righe.slice(0, iFonti);
   righe = righe.filter((r) => !RIGA_IDENT.test(r)); // il marcatore diventa un'etichetta, non testo
-  return righe.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  // Il briefing è un elenco di righe "Etichetta: valore", non un testo a paragrafi:
+  // le righe vuote che il modello a volte intercala sparpagliano la card (si vedono,
+  // il testo è in pre-wrap) senza aggiungere nulla.
+  return righe.join('\n').replace(/\n\s*\n/g, '\n').trim();
 }
 
 function parseBriefing(resp) {
