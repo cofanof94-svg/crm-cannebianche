@@ -129,6 +129,26 @@ test('senza citazioni: pochi link e detto chiaramente che non sono fonti', () =>
   assert.deepStrictEqual(citato.fonti, [{ url: 'https://it.wikipedia.org/x', titolo: 'W' }]);
 });
 
+test('parseBriefing: risposta a pezzi — a capo solo davanti a una nuova etichetta', () => {
+  // Due rotture opposte viste dal vivo sullo stesso ospite tedesco.
+  // 1) Il pezzo dopo comincia con un'etichetta: senza a capo restava incollato
+  //    alla riga precedente ("…Comitato EsecutivoRuolo: CEO…"). Ed era pure un
+  //    doppione, che in cinque righe è sempre un errore.
+  const incollato = parseBriefing({ content: [
+    { type: 'text', text: 'Ruolo: CEO e presidente del Comitato Esecutivo' },
+    { type: 'text', text: 'Ruolo: CEO e presidente del Comitato Esecutivo\nAzienda: SAP SE' },
+  ] });
+  assert.strictEqual(incollato.testo, 'Ruolo: CEO e presidente del Comitato Esecutivo\nAzienda: SAP SE');
+
+  // 2) Il taglio cade fra l'etichetta e il suo valore: qui l'a capo NON ci vuole,
+  //    altrimenti "Ruolo:" resta su una riga e il valore su quella dopo.
+  const spezzato = parseBriefing({ content: [
+    { type: 'text', text: 'Ruolo: ' },
+    { type: 'text', text: 'CEO e presidente del Consiglio direttivo, SAP SE\nAmbito: software' },
+  ] });
+  assert.strictEqual(spezzato.testo, 'Ruolo: CEO e presidente del Consiglio direttivo, SAP SE\nAmbito: software');
+});
+
 test('parseBriefing: niente righe vuote fra le etichette', () => {
   // Il modello a volte intercala righe vuote: nella card, che è in pre-wrap, si
   // vedono tutte e sparpagliano un briefing che deve stare in cinque righe.
@@ -148,6 +168,16 @@ test('SYSTEM: fuori i dati che alla reception non servono', () => {
   }
   assert.match(SYSTEM, /NON copiare frasi dalle fonti/);
   assert.match(SYSTEM, /riga SBAGLIATA/); // l'esempio negativo accanto a quello giusto
+});
+
+test('SYSTEM: l\'appellativo segue la nazionalità dell\'ospite', () => {
+  // Su un manager tedesco usciva "Mister Klein": in un cinque stelle chiamare
+  // "Mister" un tedesco è una piccola figuraccia. Herr/Frau, Monsieur/Madame…
+  assert.match(SYSTEM, /mai in inglese per abitudine/);
+  for (const t of ['Herr/Frau', 'Monsieur/Madame', 'Dottore/Dottoressa']) {
+    assert.ok(SYSTEM.includes(t), `manca la forma: ${t}`);
+  }
+  assert.match(SYSTEM, /Accorda al genere/);
 });
 
 test('SYSTEM: si scrive in italiano anche con fonti in inglese', () => {

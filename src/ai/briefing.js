@@ -34,6 +34,7 @@ const SYSTEM = [
   '- Cita ESCLUSIVAMENTE fonti AUTOREVOLI e pertinenti: siti ufficiali/istituzionali, enciclopedie (Treccani, Britannica, Wikipedia), stampa affidabile, pagine ufficiali dell\'organizzazione, profili professionali (LinkedIn). NON citare aggregatori/scraper di contatti (email, telefoni), marketplace, blog non verificati, social personali (Facebook, Instagram, TikTok, X) o pagine non pertinenti. Meglio poche fonti solide che molte deboli.',
   "- Includi SOLO ciò che è utile all'accoglienza: ruolo/professione pubblica, cariche/ruoli pubblici, motivo di notorietà, come rivolgersi (titolo/appellativo).",
   "- VIETATI anche se pubblici, perché all'accoglienza non servono: età, data e luogo di nascita, titoli di studio e università, patrimonio personale, valutazione o fatturato dell'azienda.",
+  "- L'APPELLATIVO va nella lingua dell'ospite, ricavata dalla nazione che ti do, o in italiano: mai in inglese per abitudine. A un tedesco \"Herr/Frau\", a un francese \"Monsieur/Madame\", a uno spagnolo \"Señor/Señora\", a un anglofono \"Mr./Ms.\", a un italiano \"Dottore/Dottoressa\" o il titolo giusto. Accorda al genere della persona e scrivi SEMPRE anche il cognome (\"Herr Klein\", non \"Herr\").",
   '- NON copiare frasi dalle fonti: riassumi in parole chiave. Esempio di riga SBAGLIATA — "Notorietà: Mario Rossi, 38 anni, di Cuneo, è laureato in Economia a Torino, la sua azienda vale 1 miliardo" (frase intera, ripete il nome, dati inutili). La STESSA riga giusta — "Notorietà: fondatore di una fintech dei pagamenti".',
   '- Da un profilo professionale prendi SOLO ruolo, azienda/organizzazione e settore. NON riportare percorso di studi, storia lavorativa, post, contatti, foto, collegamenti o qualunque altro contenuto del profilo.',
   '- NON includere dati privati o sensibili: salute, vita sentimentale/familiare, orientamento, religione, opinioni politiche, patrimonio, indirizzi, recapiti.',
@@ -215,6 +216,21 @@ function estraiIdentificazione(grezzo) {
   return ESITI.includes(v) ? v : '';
 }
 
+// Con la ricerca web la risposta arriva a pezzi, e il taglio cade dove capita.
+// Unirli sempre senza separatore incolla una riga alla successiva ("…Comitato
+// EsecutivoRuolo: CEO…"); unirli sempre con un a capo spezza l'etichetta dal suo
+// valore ("Ruolo:" e sotto "CEO e presidente…"). Il separatore si decide al
+// confine: a capo solo se il pezzo dopo comincia con una nuova etichetta.
+const INIZIA_CON_ETICHETTA = /^\s*[A-ZÀ-Ù][^\n:]{1,30}:/;
+
+function uniscoTesti(testi) {
+  return testi.reduce((acc, t) => {
+    if (!acc) return t;
+    const serve = !/\n\s*$/.test(acc) && INIZIA_CON_ETICHETTA.test(t);
+    return acc + (serve ? '\n' : '') + t;
+  }, '').trim();
+}
+
 function pulisciTesto(t) {
   let s = String(t || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
   // Il briefing DEVE iniziare da "Ruolo:": taglio qualsiasi preambolo/ragionamento
@@ -226,6 +242,17 @@ function pulisciTesto(t) {
   const iFonti = righe.findIndex((r) => /^\s*fonti\b/i.test(r));
   if (iFonti >= 0) righe = righe.slice(0, iFonti);
   righe = righe.filter((r) => !RIGA_IDENT.test(r)); // il marcatore diventa un'etichetta, non testo
+  // Righe identiche ripetute: capita che il modello riscriva l'inizio del briefing
+  // in un secondo blocco di testo, dopo una ricerca. In cinque righe di parole
+  // chiave un doppione è sempre un errore, mai un'intenzione.
+  const gia = new Set();
+  righe = righe.filter((r) => {
+    const k = r.trim().toLowerCase();
+    if (!k) return true;
+    if (gia.has(k)) return false;
+    gia.add(k);
+    return true;
+  });
   // Il briefing è un elenco di righe "Etichetta: valore", non un testo a paragrafi:
   // le righe vuote che il modello a volte intercala sparpagliano la card (si vedono,
   // il testo è in pre-wrap) senza aggiungere nulla.
@@ -234,7 +261,7 @@ function pulisciTesto(t) {
 
 function parseBriefing(resp) {
   const blocchi = (resp && resp.content) || [];
-  const grezzo = blocchi.filter((b) => b && b.type === 'text').map((b) => b.text).join('').trim();
+  const grezzo = uniscoTesti(blocchi.filter((b) => b && b.type === 'text').map((b) => b.text));
   const testo = pulisciTesto(grezzo);
   const fonti = estraiFonti(blocchi);
   const pubblico = !!testo && !/nessuna informazione pubblica/i.test(testo);
