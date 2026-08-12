@@ -18,7 +18,13 @@ Ogni regola porta la sua fonte. Serve a sapere di quali affermazioni ci si può 
 
 Una regola può portare più marche: `[DOC][TEST]` significa che è richiesta ed è protetta da un test.
 
-**Avvertenza sulle regole `[CODICE]`.** Sono la maggioranza. Non vanno lette come "requisiti impliciti": vanno lette come "oggi il programma si comporta così". Le più significative sono ripetute in fondo, in *Domande aperte*, dove per ciascuna sono indicate le risposte possibili.
+**Avvertenza sulle regole `[CODICE]`.** Sono la maggioranza. Non vanno lette come "requisiti impliciti": vanno lette come "oggi il programma si comporta così". Le più significative erano raccolte in fondo, in *Domande aperte*: il **12/08/2026 sono state discusse una per una con Mik e decise**. Da lì in avanti portano la marca `[DECISO]`.
+
+| Marca | Significato |
+|---|---|
+| `[DECISO]` | Regola discussa e decisa con il committente il 12/08/2026. Non è più una deduzione: è un requisito. |
+
+Il documento è aggiornato alle decisioni prese. Le tre domande che restano aperte richiedono i dati veri dell'hotel e sono elencate in §20.
 
 ---
 
@@ -43,7 +49,7 @@ Una regola può portare più marche: `[DOC][TEST]` significa che è richiesta ed
 17. [Gestione utenti](#17-gestione-utenti)
 18. [Funzioni AI](#18-funzioni-ai)
 19. [Import periodico (scritto, non collegato)](#19-import-periodico-scritto-non-collegato)
-20. [Domande aperte](#20-domande-aperte)
+20. [Decisioni prese e domande ancora aperte](#20-decisioni-prese-e-domande-ancora-aperte)
 
 ---
 
@@ -93,7 +99,7 @@ Solo chi ha un account entra, e ciascuno vede e può fare quello che gli compete
 - Credenziali sbagliate e utente inesistente danno **lo stesso messaggio**: non si può capire dall'esterno se un nome utente esiste `[DOC][TEST]`.
 - La sessione dura **8 ore** e viaggia su un cookie non leggibile da JavaScript `[CODICE]` (`src/app.js:18`).
 - Dopo il logout il vecchio cookie non vale più `[DOC]` (verificato nel collaudo dell'11/08).
-- Non esiste blocco dopo N tentativi falliti, né limite di frequenza sul login `[CODICE]`.
+- Non esiste blocco dopo N tentativi falliti, né limite di frequenza sul login: **è una scelta**, non una dimenticanza `[DECISO]`. Un blocco chiuderebbe fuori chi ha davvero dimenticato la password, e non esiste recupero via email. Vedi §17 per il quadro completo.
 
 ### I tre ruoli
 
@@ -114,6 +120,8 @@ Fissati da `[TEST]` (`test/permessi.test.js`, «i tre ruoli della Fase 1, e ness
 - Un ruolo sconosciuto nel database (per esempio il vecchio `marketing`) vale **sola lettura**, non pieni poteri. L'utente resta operativo per consultare e nella pagina Utenti compare con un'etichetta gialla "non previsto" `[DOC][TEST]`.
 - Nascondere i pulsanti non è la difesa: chiamando le interfacce a mano si prende comunque un 403. La matrice ruoli × operazioni è verificata chiamando le API senza passare dall'interfaccia `[TEST]` (`test/permessi-api.test.js`).
 - **Le maiuscole nell'indirizzo non aggirano il controllo.** Era un buco reale — la reception poteva crearsi un amministratore — chiuso il 12/08 con un test che rifà l'attacco `[DOC][TEST]`.
+- **La regola del metodo ha un limite, e va conosciuto**: una rotta di lettura che internamente scrive sfugge al controllo, perché la guardia guarda il metodo e non cosa succede dentro. È capitato con la precompilazione del nucleo (§14), corretta il 12/08 controllando il permesso dentro la rotta. Chi aggiunge una lettura che scrive deve fare lo stesso `[DECISO][TEST]`.
+- **Le righe si toccano solo dalla scheda del loro ospite**: il percorso delle richieste di modifica e cancellazione porta anche il codice ospite, e una riga che non è sua risulta inesistente `[DECISO][TEST]`. Non difende dal personale — chi può scrivere può scrivere — ma rende innocuo un errore di programmazione.
 
 ### Cosa vede chi non può scrivere
 
@@ -132,13 +140,15 @@ La fotografia della giornata in tre numeri, all'apertura dell'applicazione.
 
 ### Regole
 
-- Tre riquadri: **Arrivi oggi**, **Partenze oggi**, **Presenti in casa**, riferiti alla data di lavoro del gestionale `[DOC]`.
+- Tre riquadri: **Arrivi oggi**, **Partenze oggi**, **Restano stanotte**, riferiti alla data di lavoro del gestionale `[DOC]`.
 - Sono conteggi di **prenotazioni**, non di persone `[CODICE]`.
-- Arrivi = prenotazioni non annullate con data di arrivo pari a oggi, escluse quelle già segnate come partite. Partenze = stesso criterio sulla data di partenza. Presenti = check-in fatto e oggi compreso fra arrivo e partenza, **partenza esclusa** `[CODICE]` (`src/pms/prenotazioni.js:121-126`).
+- Arrivi = prenotazioni non annullate con data di arrivo pari a oggi, escluse quelle già segnate come partite. Partenze = stesso criterio sulla data di partenza. **Restano stanotte** = check-in fatto e oggi compreso fra arrivo e partenza, **partenza esclusa** `[CODICE]` (`src/pms/prenotazioni.js:121-126`).
 - Cliccando "Partenze oggi" si apre la pagina In casa già filtrata sui partenti `[CODICE]`.
 - Se il gestionale non risponde, i tre numeri diventano trattini con un messaggio `[CODICE]`.
 
-> Attenzione: il criterio dei "presenti" della Home **non coincide** con quello della pagina In casa (vedi §5 e *Domande aperte* D3).
+> **Il terzo riquadro e la pagina "In casa" rispondono a due domande diverse, e il nome lo dice** `[DECISO]`.
+> La Home conta le **camere ancora occupate stanotte**: chi parte oggi non c'è più. La lista "Oggi in hotel" (§5) elenca **chi è in hotel adesso**, partenze di oggi comprese, e dà quindi un numero più alto.
+> Prima si chiamavano entrambe "presenti" e la differenza sembrava un errore. Sono due informazioni utili a momenti diversi della giornata: il numero della Home serve alla notte, quello della lista serve al banco.
 
 ---
 
@@ -153,7 +163,7 @@ Preparare l'accoglienza: chi arriva oggi, in che camera, cosa serve sapere prima
 Una scheda per prenotazione, non per persona `[CODICE]`. Contiene:
 
 - **Referente** (cliccabile, apre la scheda ospite), stato *Atteso* / *In casa*, ora prevista di arrivo, badge VIP.
-- **Banda di accoglienza**: ospite indesiderato, compleanno durante il soggiorno, allergie, reclami aperti con il loro testo, fino a 3 preferenze, nota personale accorciata.
+- **Banda di accoglienza**: ospite indesiderato, compleanno durante il soggiorno, allergie *col nome di chi le ha*, reclami aperti con il loro testo, fino a 3 preferenze, nota personale accorciata.
 - **Camere e tipologie**, date, notti.
 - **Ospiti in camera**: gli occupanti, con la relazione col referente quando è nota. Le camere senza occupanti assegnati compaiono lo stesso, con la dicitura "nessun ospite assegnato" `[CODICE]`.
 - **Dati operativi**: importo del soggiorno, extra maturati, trattamento e tariffa, numero pratica, data di creazione.
@@ -178,7 +188,7 @@ Per ogni prenotazione si raccolgono i codici del referente **e di tutti gli occu
 |---|---|---|
 | VIP | PMS (classificazione decodificata) | Vale quella del referente; se manca, quella di un occupante `[CODICE]` |
 | Ospite indesiderato | PMS | Se **almeno uno** del gruppo è classificato indesiderato `[CODICE]`. Riconosciuto dalla descrizione, non da un elenco fisso di codici |
-| Allergie | CRM | Tutte quelle del gruppo, senza doppioni. **Non si dice di chi sono** `[CODICE]` |
+| Allergie | CRM | Tutte quelle del gruppo, **ciascuna col nome di chi la ha** `[DECISO][TEST]`. Doppioni tolti per coppia persona+allergia: due occupanti celiaci restano due voci, perché sono due piatti da preparare |
 | Preferenze | CRM | Solo quelle di ambito **nucleo**, senza doppioni, **massimo 3** `[CODICE][TEST]` |
 | Reclami | CRM | Conteggio di tutti + testo di quelli aperti (i risolti restano solo numero) `[CODICE][TEST]` |
 | Compleanno | PMS (data di nascita) | Il primo membro che compie gli anni fra arrivo e partenza compresi; gestisce il soggiorno a cavallo di capodanno `[CODICE][TEST]` |
@@ -193,7 +203,7 @@ Per ogni prenotazione si raccolgono i codici del referente **e di tutti gli occu
 - In cima: Arrivi · VIP · Compleanni · Reclami · Alert, con i relativi numeri. Ogni voce filtra la lista; ricliccarla torna a mostrare tutto `[CODICE]`.
 - **Alert** = c'è almeno un'allergia registrata, oppure un ospite indesiderato `[CODICE][TEST]`.
 - **Reclami** conta le prenotazioni con almeno un reclamo, aperto **o** risolto `[CODICE]`.
-- Nel riepilogo compaiono i campi *anniversari* e *suggerimenti AI*, sempre a zero: manca la fonte dati `[CODICE]` (dichiarato nel codice come da fare).
+- I campi *anniversari* e *suggerimenti AI*, che il server mandava sempre a zero e che nessuna schermata mostrava, sono stati **tolti** `[DECISO]`. Un contatore fermo a zero, il giorno che finisce in una pagina, non dice "non lo sappiamo" ma "oggi non festeggia nessuno". L'anniversario di matrimonio richiede un dato che il PMS non ha: si rifarà quando ci sarà un campo da compilare, insieme alla sua pastiglia.
 - Ricerca libera nella pagina: numero pratica (anche parziale), camera, referente, occupante `[CODICE][TEST]`.
 - Con un filtro attivo il contatore dice **"0 di 5"**, non "5 arrivi": diceva il numero pieno anche a schermo vuoto e sembrava che la pagina nascondesse qualcosa `[DOC][TEST]`.
 
@@ -218,13 +228,16 @@ Gestire l'ospite durante il soggiorno: chi c'è, in che camera, a che punto è d
 - **Avanzamento del soggiorno**: "Notte 3 di 7 · parte il …", con pallini solo fino a 14 notti; oltre diventano rumore. Il giorno dell'arrivo è la notte 1. Chi ha fatto il check-out mostra "Soggiorno concluso" `[CODICE][TEST]`.
 - **Badge "Nª volta"** con la data dell'ultima visita, per chi è già stato in hotel; chi non c'è mai stato non ha badge `[CODICE]`.
 - Stessa banda di accoglienza degli Arrivi, stesse regole (§4).
-- Filtri: In casa · Partono oggi · VIP · Alert · Ricorrenze · Reclami · Usciti `[CODICE]`.
+- Filtri: **Oggi in hotel** · Partono oggi · VIP · Alert · Ricorrenze · Reclami · Usciti `[CODICE]`.
 - **"Partono oggi"** comprende sia chi è ancora in camera con partenza odierna sia chi ha già fatto il check-out `[CODICE][TEST]`.
-- Il contatore "presenti" **esclude** chi ha già fatto il check-out `[CODICE][TEST]`.
+- Il contatore **esclude** chi ha già fatto il check-out `[CODICE][TEST]`.
+- Con un filtro che non seleziona nulla il contatore dice **"0 di 5"**, non "5": diceva il numero pieno a schermo vuoto `[DOC][TEST]`.
+
+> **"Oggi in hotel" non è il numero della Home** `[DECISO]`. Questa lista comprende chi parte oggi, il riquadro "Restano stanotte" della Home no. Sono due domande diverse (vedi §3): i nomi lo dichiarano, invece di lasciar credere a un errore.
 
 ### Casi limite
 
-- Il check-out è determinato da **una sola riga** del conto alberghiero, presa senza criterio di scelta: con più camere, se il gestionale ne segna una come chiusa, l'intera prenotazione può risultare uscita `[CODICE]` (`src/pms/prenotazioni.js:109`). Vedi *Domande aperte* D4.
+- Il check-out è determinato da **una sola riga** del conto alberghiero, presa senza criterio di scelta: con più camere, se il gestionale ne segna una come chiusa, l'intera prenotazione può risultare uscita `[CODICE]` (`src/pms/prenotazioni.js:109`). **Resta da chiarire con la software house del PMS**: vedi §20, domanda A.
 - Se il CRM non risponde, la lista viene comunque servita, almeno ordinata per camera `[CODICE]`.
 
 ---
@@ -273,8 +286,9 @@ Numero di soggiorni, notti totali, LTV (arrangiamenti + extra), spesa media a so
 
 - Sono calcolate **in tempo reale** dallo storico, non da una tabella precalcolata `[DOC]` (`HANDOFF.md` §7).
 - **La city tax è esclusa** da extra e LTV: è una tassa di passaggio, non un ricavo `[DOC]`.
-- Dai conteggi si escludono i soggiorni in stato **Eliminata** e **No-show** `[CODICE][TEST]` (`test/clienti-api.test.js`).
-- **I soggiorni futuri (stato "Pianificata") contano** nel numero di soggiorni e abbassano le medie, pur avendo importo maturato zero `[CODICE]`. Vedi *Domande aperte* D5.
+- **Contano solo i soggiorni avvenuti** `[DECISO][TEST]`. Restano fuori: *Eliminata*, *No-show*, e le prenotazioni che devono ancora cominciare (*Pianificata*, *Confermato*). Queste ultime hanno importi a zero perché non c'è ancora nulla di maturato: contarle gonfiava il numero dei soggiorni e abbassava tutte le medie — un ospite con 10 soggiorni e 2 prenotazioni per l'estate prossima ne risultava 12.
+- Restano invece **dentro** i soggiorni *In casa* e *Partito*: stanno avvenendo o sono appena finiti, e i soldi sono veri. Così il numero coincide con il badge "Nª volta" delle schede, che mostra i soggiorni archiviati più quello in corso.
+- **Le prenotazioni future restano visibili nello storico** `[DECISO][TEST]`: non contano nei numeri, ma sapere che l'ospite torna a giugno serve a chi lo accoglie.
 - Prima e ultima visita sono cliccabili e portano allo storico, che si apre e lampeggia `[CODICE]`.
 
 ### Storico soggiorni
@@ -284,7 +298,7 @@ Una riga per pratica: numero, arrivo → partenza, notti, camere, importo, extra
 - Entrano le prenotazioni in cui l'ospite è **referente oppure occupante**: chi viaggia in famiglia vede i soggiorni condivisi `[DOC]`.
 - Correnti e archiviate sono unite; se una pratica è presente in entrambe vince quella archiviata, per non contarla due volte `[CODICE]`.
 - **Importo**: pianificato per le prenotazioni correnti, maturato per quelle concluse (la pianificazione non sopravvive all'archiviazione) `[CODICE]`.
-- **Stati possibili**: In casa, Partito, Pianificata (arrivo futuro), No-show (arrivo passato senza check-in), Confermato (arriva oggi), Concluso, Eliminata `[CODICE]`.
+- **Stati possibili**: In casa, Partito, Pianificata (arrivo futuro), No-show (arrivo passato senza check-in), Confermato (arriva oggi), Concluso, Eliminata `[DECISO]`. Lo stato *No-show* è dedotto dal CRM, non letto dal gestionale: le specifiche del 30/07 chiedevano di non averlo, ma alla prova dei fatti serve alla reception e **resta com'è** — sono quelle specifiche a dover essere corrette.
 - I soggiorni futuri o senza maturato mostrano zero. Decisione registrata: "per ora lascia così" `[DOC]` (`HANDOFF.md` §9).
 
 ### Chi può
@@ -334,7 +348,8 @@ Reparto e categoria sono **liste chiuse**, validate sia dall'applicazione sia da
 
 ### Regole
 
-- **L'ambito predefinito è `nucleo`** `[CODICE][TEST]` (`src/api/clienti.js:441`; `test/clienti-api.test.js`, «preferenze: ambito default nucleo»). Il modulo della scheda non chiede l'ambito: chi inserisce una preferenza ne crea una condivisa senza doverlo scegliere `[CODICE]`. **Il documento di analisi del 04/08 chiedeva il contrario** (default personale, con adesione volontaria al nucleo) `[DOC]`. Vedi *Domande aperte* D1.
+- **L'ambito predefinito è `nucleo`, ed è una decisione presa** `[DECISO][TEST]` (`test/clienti-api.test.js`, «preferenze: ambito default nucleo»). Il modulo della scheda non chiede l'ambito: chi inserisce una preferenza ne crea una condivisa senza doverlo scegliere. La maggior parte delle preferenze riguarda davvero chi viaggia insieme, e chiedere ogni volta rallenterebbe il banco per il caso raro. **Il documento di analisi del 04/08 chiedeva il contrario** (default personale con adesione volontaria): quel documento è superato su questo punto e va corretto.
+- Chi inserisce una preferenza davvero personale la marca dopo, con l'interruttore sulla riga.
 - L'ambito si cambia dopo, con un interruttore a due voci sulla riga `[CODICE]`.
 - Le preferenze di ambito `nucleo` **di un altro membro del nucleo** compaiono sulla scheda in un blocco separato, **in sola lettura**, con il nome di chi le possiede (cliccabile). Si correggono solo dalla sua scheda `[CODICE][TEST]`.
 - Le preferenze `personale` non escono mai dalla scheda del loro proprietario `[CODICE][TEST]`.
@@ -342,7 +357,8 @@ Reparto e categoria sono **liste chiuse**, validate sia dall'applicazione sia da
 - Una preferenza si elimina, non si archivia. Si può correggere testo, reparto, categoria e ambito `[CODICE]`.
 - Ogni riga porta autore e data di inserimento `[CODICE]`.
 - **Non è registrato se una preferenza è stata scritta a mano o confermata da un suggerimento dell'AI**: passano dalla stessa strada `[DOC]` (`DOCS/2026-08-10-analytics-dashboard-analisi.md` §3.2).
-- Testo oltre i 400 caratteri → messaggio che dice quanto ci sta e quanto è stato scritto, e il testo resta nel campo `[DOC][TEST]`. **La correzione di una preferenza esistente non ha questo controllo** `[CODICE]` (vedi D8).
+- Testo oltre i 400 caratteri → messaggio che dice quanto ci sta e quanto è stato scritto, e il testo resta nel campo `[DOC][TEST]`. **Lo stesso controllo vale in correzione**, non solo in inserimento: correggere una riga non è meno rischioso che crearla `[DECISO][TEST]`.
+- Una preferenza si corregge o si elimina **solo dalla scheda dell'ospite a cui appartiene** `[DECISO][TEST]`: il percorso della richiesta porta anche il codice ospite, e una riga di un altro risulta inesistente. Serve a rendere innocuo un errore di programmazione, non a difendersi dal personale.
 
 ### Chi può
 
@@ -366,9 +382,12 @@ Il dato di sicurezza. Sbagliarlo o perderlo ha conseguenze reali in cucina.
 - Ogni riga porta autore e data `[CODICE]`.
 - Nelle schede di Arrivi e In casa compaiono in evidenza con l'etichetta esplicita "⚠ Allergie:" davanti al valore: "Noci" da solo sembrerebbe una preferenza `[CODICE][TEST]` (`test/web-ricerca.test.js`).
 - Campo vuoto → nessun alert, non un alert vuoto `[CODICE][TEST]`.
-- **Nelle schede le allergie sono aggregate su tutta la prenotazione** (referente + occupanti + anagrafiche fuse) e **non si dice a chi appartengono** `[CODICE]`. L'analisi del 04/08 le classifica invece come dato strettamente personale `[DOC]`. Vedi *Domande aperte* D2.
+- **Nelle schede e sul foglio per i reparti ogni allergia porta il nome di chi la ha** `[DECISO][TEST]`. La prenotazione è di più persone: "Glutine" da solo non dice a quale commensale preparare il piatto senza, e la cucina non può cliccare per scoprirlo. Sul foglio stampato le allergie vanno una per riga.
+- I doppioni si tolgono per **coppia persona + allergia**: due occupanti celiaci restano due voci, perché sono due piatti `[DECISO][TEST]`.
+- Se il nome manca (dato vecchio, anagrafica non raggiungibile) l'allergia si mostra lo stesso: meglio un allarme senza nome che nessun allarme `[DECISO][TEST]`.
 - Un salvataggio fallito **lo dice**, e il testo resta nel campo: prima non succedeva niente e si credeva di aver registrato un'allergia che non c'era `[DOC][TEST]`.
-- Nella scheda le allergie sono lette su tutte le anagrafiche fuse; la scrittura va sul codice che si sta guardando `[CODICE]`.
+- Le allergie si leggono su tutte le anagrafiche fuse; **la scrittura va sull'anagrafica principale del gruppo** `[DECISO][TEST]` (vedi §15).
+- Si elimina **solo dalla scheda dell'ospite a cui appartiene** `[DECISO][TEST]`.
 
 ### Chi può
 
@@ -485,14 +504,14 @@ Interamente CRM.
 ### Regole
 
 - Entrambe stanno sulla stessa riga di profilo (una per ospite) e si caricano insieme `[CODICE]`.
-- La **nota personale non ha limite di lunghezza**; la lingua ne ha 40 `[CODICE]`.
+- La nota personale ha un tetto di **4.000 caratteri**, la lingua di 40 `[DECISO][TEST]`. Il tetto è largo apposta: oltre, la nota non è leggibile da nessuno e pesa su ogni caricamento degli Arrivi, dove viene letta per ogni ospite del giorno. Il controllo è sul **risultato**, non su quello che si scrive: a farla crescere è l'accodamento del briefing AI (§18), non una singola scrittura.
 - Nelle schede di Arrivi e In casa la nota compare **accorciata**: non è un riassunto, è l'inizio della nota tagliato dove finisce la frase, al massimo 90 caratteri. Chi scrive mette l'identikit in apertura e il dettaglio dopo `[CODICE][TEST]` (`test/arrivi-brief.test.js`, sei casi su `sintetizzaNota`).
 - Il taglio non spezza mai una parola a metà e non lascia un punto e virgola in coda; il segno "c'è dell'altro" lo mette la scheda, una volta sola `[CODICE][TEST]`.
 - Nelle schede compare **solo la nota del referente** (e delle sue anagrafiche fuse), mai quella di un occupante: la scheda è intestata al referente `[CODICE][TEST]`.
 - La versione accorciata la calcola il server, così chi salva la vede comparire subito nelle schede a video senza ricaricare `[CODICE]`.
 - **Su una scheda fusa, "Elimina" cancella su tutto il gruppo.** La lettura prende il primo valore non nullo di tutte le anagrafiche fuse: svuotandone una sola, la nota di un altro codice riaffiorava e sembrava che il pulsante non funzionasse. Decisione presa il 12/08: **la nota è della persona, non dell'anagrafica**. Conseguenza accettata: dopo uno "Scollega" quell'anagrafica non ritrova la sua vecchia nota `[DOC][TEST]` (`test/profilo-fusa.test.js`).
 - Cancellare la nota **non porta via la lingua**, e viceversa `[TEST]`.
-- La modifica invece scrive **solo sul codice che si sta guardando**: la riga toccata diventa la più recente e vince in lettura `[CODICE]`.
+- La modifica scrive **sull'anagrafica principale del gruppo** `[DECISO][TEST]` (vedi §15).
 - **Non si mostra chi/quando** accanto alla lingua: la riga di profilo ha una sola data di modifica, condivisa con la nota, e mostrarla sarebbe una data sbagliata `[CODICE]`.
 - Per lo stesso motivo l'andamento nel tempo delle note non è ricostruibile `[DOC]`.
 - Entrambi i riquadri hanno due stati: valore salvato con ✎ Modifica / Elimina, oppure modulo di inserimento. Dopo il salvataggio si torna sempre alla vista, ricaricando dal server: è la conferma che il dato c'è `[CODICE]`.
@@ -534,7 +553,8 @@ Per decidere con chi condividere le preferenze si considera: l'ospite, i membri 
 
 Leggere: tutti. Aggiungere, modificare, eliminare: `reception` e `admin`.
 
-> **Attenzione**: la precompilazione automatica avviene durante una **lettura** della scheda. Un utente di sola lettura che apre la scheda di un ospite mai visitato provoca la scrittura delle righe del nucleo, che risultano inserite a suo nome `[CODICE]`. Vedi *Domande aperte* D6.
+- La precompilazione avviene durante una **lettura** della scheda, quindi **si esegue solo per chi ha il permesso di scrivere** `[DECISO][TEST]`. Prima, un utente di sola consultazione che apriva una scheda mai vista lasciava righe a suo nome nel database: la guardia dei permessi non poteva accorgersene, perché ragiona sul metodo HTTP e una lettura la considera — giustamente — una lettura. Il nucleo resta vuoto finché non apre la scheda qualcuno che ne ha titolo.
+- Nome, cognome e nota rispettano i limiti di lunghezza **anche in correzione** `[DECISO][TEST]`, e un membro si corregge o si elimina **solo dalla scheda dell'ospite a cui appartiene** `[DECISO][TEST]`.
 
 ### Da dove vengono i dati
 
@@ -570,7 +590,8 @@ Le anagrafiche senza data di nascita e senza codice fiscale non vengono mai prop
 
 Sulla scheda compare un banner "Scheda fusa" con i codici del gruppo. Vengono letti sull'intero gruppo: soggiorni, statistiche, consumi F&B e SPA, preferenze, allergie, reclami, note personali e lingua `[CODICE]`.
 
-- **Le scritture vanno sul codice che si sta guardando**, non sul principale. Fa eccezione la cancellazione di nota personale e lingua, che agisce su tutto il gruppo (§13) `[CODICE]`.
+- **Tutte le scritture vanno sull'anagrafica principale del gruppo** — preferenze, allergie, reclami, nucleo, nota personale, lingua `[DECISO][TEST]`. Finché i codici restano uniti non cambia nulla, perché le letture prendono comunque tutto il gruppo. Cambia allo **Scollega**: prima il dato inserito guardando il codice A restava su A e quello inserito guardando B restava su B, e sciogliendo la fusione l'ospite si ritrovava con due schede a metà. Ora scollegare un duplicato **non porta via niente**, perché sul duplicato non è mai stato scritto nulla.
+- La cancellazione di nota personale e lingua agisce su **tutto** il gruppo (§13), per cancellare davvero anche ciò che era stato scritto prima di questa regola `[DECISO][TEST]`.
 - Il pulsante **"Confronta anagrafiche"** riapre i dati delle singole anagrafiche affiancati: dopo la fusione la scheda mostra l'insieme, ed è l'unico modo per accorgersi che due codici hanno email o codice fiscale diversi. È una lettura, quindi disponibile anche a chi non può scrivere `[CODICE][TEST]` (`test/web-confronto-fusa.test.js`).
 
 ### La schermata di confronto
@@ -609,6 +630,7 @@ Dare a un reparto il foglio della giornata: chi arriva o chi è in casa, con que
 - **Copre una sola data.** L'intervallo richiederebbe una interrogazione nuova sul gestionale `[DOC]` (checklist §4).
 - Oggi c'è **una sola vista** ("generale"). Le viste per reparto (F&B, Housekeeping, SPA, Concierge) sono previste e si aggiungono senza rimettere mano alle pagine `[DOC][CODICE]`.
 - **Allergie e preferenze restano in colonne diverse**, e le allergie vengono prima, in rosso, con un simbolo di avviso: una Coca-Cola Zero gradita e un'allergia alle arachidi non possono avere lo stesso peso `[CODICE][TEST]` (`test/web-export.test.js`).
+- **Ogni allergia porta il nome di chi la ha, una per riga** `[DECISO][TEST]`: è il foglio che va in cucina, e chi cucina non può cliccare per scoprire a quale commensale serve il piatto senza glutine.
 - La riga di un ospite con allergie è marcata per intero `[CODICE][TEST]`.
 - **Fuori dall'export, di proposito: importi, tariffe ed extra.** Non servono a nessun reparto per servire meglio un ospite e non devono girare su carta `[CODICE][TEST]`.
 - Ordine per numero di camera, come il rack `[CODICE][TEST]`.
@@ -644,7 +666,8 @@ Creare e mantenere gli account del team.
 - Se l'utente ha dati collegati (è autore di preferenze, reclami, note…) l'eliminazione viene rifiutata `[DOC]`.
 - L'elenco dei ruoli assegnabili **lo manda il server**, con etichetta e descrizione: un ruolo nuovo compare nel menu senza toccare l'interfaccia, e chi assegna un permesso vede scritto cosa sta dando `[CODICE][TEST]`.
 - Un utente con un ruolo non più previsto non può conservarlo: il menu si posiziona sul primo ruolo valido `[CODICE]`.
-- **La password non ha lunghezza minima, e email, nome e cognome non sono validati** in alcun modo `[CODICE]`. Vedi *Domande aperte* D9.
+- **Password: almeno 8 caratteri**, sia alla creazione sia al cambio — senza il controllo anche sul cambio, il minimo si aggirava con una modifica `[DECISO][TEST]`.
+- **Quello che deliberatamente NON c'è** `[DECISO]`: nessun requisito di complessità, nessuna scadenza, **nessun blocco dopo tentativi falliti** (chiuderebbe fuori chi dimentica la password, e non esiste recupero via email), nessuna validazione dell'email — che infatti non serve a niente, perché non c'è recupero. E il cookie di sessione **non è marcato "solo su connessione cifrata"**: in hotel si va in HTTP semplice e marcarlo impedirebbe di accedere del tutto. Sono scelte prese sapendo che l'applicazione gira su rete interna: **da rivedere il giorno che uscirà dall'hotel**.
 
 ### Chi può
 
@@ -693,6 +716,7 @@ Due funzioni, entrambe **solo su richiesta esplicita dell'operatore**, mai autom
 - **Fonti citate contro risultati della ricerca**: se il modello ha agganciato quello che scrive ai risultati, si mostrano solo le fonti citate; altrimenti si mostrano al massimo 6 risultati grezzi, **un link per sito**, sotto un'etichetta diversa ("non citati dall'AI"). Su un CEO americano la ricerca aveva restituito sei profili di sei persone diverse `[DOC][CODICE][TEST]`.
 - Domini esclusi comunque: aggregatori di contatti, marketplace, banche di immagini, social personali. **LinkedIn è ammesso** (è una presentazione autopubblicata), ma solo i profili, non i post `[CODICE][TEST]`.
 - Il briefing **non viene conservato da nessuna parte**: resta a schermo finché non si cambia pagina, a meno che non lo si salvi nelle note personali (in coda a quelle esistenti, mai sovrascrivendole) `[CODICE]`.
+- L'accodamento **non è illimitato**: se il risultato supera i 4.000 caratteri della nota personale (§13) il salvataggio viene rifiutato con l'invito ad accorciare prima `[DECISO][TEST]`. Rigenerare più volte non fa più crescere la nota all'infinito.
 - Modelli: il briefing usa il modello più capace, le altre funzioni uno più economico. La scelta nasce da un confronto dal vivo `[DOC]`.
 
 ### 18.3 Regole comuni
@@ -720,218 +744,81 @@ Esiste un import che copia lo storico prenotazioni dal gestionale in tabelle del
 
 ---
 
-## 20. Domande aperte
+## 20. Decisioni prese e domande ancora aperte
 
-Questa è la parte che vale di più. Sono contraddizioni fra codice e documenti, comportamenti che potrebbero non essere quelli voluti, e regole che valgono in un punto e non in un altro simile. Ognuna è formulata come domanda, con le risposte possibili.
+La prima stesura di questo documento si chiudeva con **16 domande**: contraddizioni fra codice e documenti, comportamenti che potevano non essere quelli voluti, regole applicate in un punto e non in un altro simile.
 
----
+Il **12/08/2026 sono state discusse una per una con Mik.** Tredici sono state decise e implementate: le decisioni sono scritte nelle sezioni delle rispettive funzionalità, con la marca `[DECISO]`, e ognuna ha almeno un test che riproduce il caso originale. Tre restano aperte perché **richiedono i dati veri dell'hotel**: nessuno può rispondere da fuori.
 
-### D1 — L'ambito predefinito delle preferenze è `nucleo`. Il documento chiedeva `personale`.
+### Le tre che restano
 
-**Dove.** `src/api/clienti.js:441` (`ambito = ... : 'nucleo'`), `src/crm/preferenze.js` (`createPreferenza`, default `nucleo`), `scripts/crm-preferenze-ambito.sql` (`DEFAULT 'nucleo'`), `web/app.js:1587` (il modulo non manda l'ambito).
-**Contro.** `DOCS/2026-08-04-condivisione-dati-nucleo-analisi.md` §3.2: «preferenze → default `personale`, con possibilità di marcare "di nucleo"». Lo stesso documento elenca fra le decisioni da prendere: «Preferenze: default `personale` con opt-in "nucleo", oppure il contrario?».
+#### A — Lo stato di check-out è deciso da una riga scelta senza criterio
 
-Oggi ogni preferenza scritta dalla reception nasce **condivisa con chi viaggia con l'ospite**, e compare sulle schede dei familiari. Il codice non registra da nessuna parte che questa decisione sia stata presa: il commento nella migrazione dice solo «la maggior parte delle preferenze è di nucleo».
+**Dove.** `src/pms/prenotazioni.js:109`: `SELECT TOP 1 al.flgpar FROM Alberg al WHERE al.codpratica = p.codpratica`, senza ordinamento.
 
-**Risposte possibili:**
-1. La decisione è stata presa dopo il documento, a favore di `nucleo`, e il documento non è stato aggiornato. Va scritto da qualche parte.
-2. Il documento vale ancora e il default è un difetto: preferenze personali ("lei vegetariana") stanno finendo sulle schede di altre persone.
-3. Il default giusto dipende dal tipo: camera e occasioni sono di nucleo, persona è personale. Nessuna delle due opzioni è quella buona.
+Il conto alberghiero ha **una riga per occupante** (`HANDOFF.md` §6.2). Con quattro persone, o con due camere di cui una già chiusa, quale riga risponda dipende dal piano di esecuzione del database. Da quel valore dipendono la pastiglia "Check-out effettuato", la posizione in fondo alla lista, il conteggio degli usciti, il filtro "Partono oggi" e una voce dell'export.
 
----
+**Perché non si chiude da qui.** Le risposte possibili portano a tre correzioni diverse e opposte:
+1. nel gestionale il flag è identico su tutte le righe della pratica → la scelta è irrilevante e non si tocca niente;
+2. basta **una** riga chiusa perché la prenotazione conti come uscita → va scritto `EXISTS`;
+3. servono **tutte** chiuse → la condizione è l'opposto, e oggi la lista starebbe nascondendo ospiti ancora in casa.
 
-### D2 — Nelle schede di Arrivi/In casa le allergie del gruppo sono mostrate senza dire di chi sono.
-
-**Dove.** `src/crm/arrivi-brief.js:127-135`: le intolleranze di referente e di tutti gli occupanti (più le anagrafiche fuse) finiscono in un unico elenco. `web/app.js`, `flagAllergie`: le stampa come "⚠ Allergie: Glutine, Arachidi". Stessa cosa nella colonna Allergie dell'export (`web/export.js`).
-**Contro.** `DOCS/2026-08-04-...` §2.C classifica le intolleranze come «dato di **sicurezza del singolo** (l'allergia è di UNA persona, non del gruppo)». E `DOCS/2026-08-11-allergie-da-note-pms.md` §2.1 argomenta che attribuire un'allergia alla persona sbagliata è **peggio del non averla**, «perché sposta l'attenzione della cucina sul commensale sbagliato».
-
-Il sistema è quindi rigorosissimo nel far **scegliere** a chi attribuire un'allergia quando la propone, e poi la **rimostra senza il nome** in scheda e sul foglio che va in cucina.
-
-**Risposte possibili:**
-1. È voluto: in scheda serve l'allarme, il dettaglio si apre nella scheda ospite. Allora vale la pena verificare che il foglio stampato basti alla cucina.
-2. È una svista: l'elenco dovrebbe portare il nome ("Glutine — Bebie Sienna"), almeno nell'export.
-3. Va distinto: allarme aggregato nella scheda a video (dove il nome si legge un clic più in là), nome obbligatorio sul foglio stampato.
+**Cosa serve.** La conferma della software house del PMS, oppure l'osservazione di una pratica reale con più camere in fase di check-out parziale.
 
 ---
 
-### D3 — "Presenti in casa" della Home e la lista "In casa" contano cose diverse.
+#### B — La tabella delle "Note CRM" esiste e non la usa più nessuno
 
-**Dove.** `src/pms/prenotazioni.js:126` — la Home conta i presenti con `dtpartenza > data` (partenza **esclusa**). `src/pms/prenotazioni.js:118` — la lista In casa seleziona con `dtpartenza >= data` (partenza **inclusa**). In più, il contatore della pagina In casa esclude chi ha già fatto il check-out (`src/crm/incasa-brief.js:62`).
+**Dove.** `scripts/crm-schema.sql` crea `customer_notes` (note interne del team, con autore e data). Nessuna riga di `src/` o `web/` la legge o la scrive.
 
-Risultato: nel giorno in cui qualcuno parte, la Home dice per esempio 40 presenti e la pagina In casa ne elenca 45, di cui alcuni marcati "Parte oggi" o "Check-out effettuato". Nessun documento dice quale sia il numero giusto.
+Le specifiche di Fase 2 la definivano come uno dei cinque blocchi della scheda ospite, e `HANDOFF.md` §5 la elenca ancora fra le tabelle in uso. Le sue funzioni sembrano assorbite dalle note personali (che però sono una riga per persona, non un diario) e dai reclami.
 
-**Risposte possibili:**
-1. Sono due domande diverse e vanno bene entrambe: la Home dice "quante camere restano occupate stanotte", la pagina dice "chi c'è in hotel adesso". Allora vanno etichettate diversamente.
-2. È un'incoerenza: il numero della Home deve essere quello della pagina che si apre cliccandolo.
-3. La Home ha ragione (definizione alberghiera di presenza notturna) e la lista deve smettere di mostrare i partiti fra i presenti.
+**Perché non si chiude da qui.** Dipende da cosa c'è dentro nel database dell'hotel. Se contiene righe, sono **dati che qualcuno ha scritto e che oggi nessuno vede**.
 
----
+**Cosa serve.** Una interrogazione, da fare al primo accesso:
 
-### D4 — Lo stato di check-out di una prenotazione è deciso da una riga scelta a caso.
+```bash
+sqlcmd -S CB-DH -d HolidayCanneBianche_CRM -Q "SELECT COUNT(*) AS note_orfane FROM customer_notes"
+```
 
-**Dove.** `src/pms/prenotazioni.js:109`: `SELECT TOP 1 al.flgpar FROM Alberg al WHERE al.codpratica = p.codpratica`, senza alcun criterio di ordinamento.
-
-Il conto alberghiero ha **una riga per occupante** (regola di dominio dichiarata in `HANDOFF.md` §6.2). Con una prenotazione di quattro persone, o con due camere di cui una già chiusa, quale riga risponda non è determinato: dipende dal piano di esecuzione del database. Da questa riga dipendono la pastiglia "Check-out effettuato", la posizione in fondo alla lista, il conteggio "usciti", il filtro "Partono oggi" e una voce dell'export.
-
-**Risposte possibili:**
-1. Nel gestionale il flag è identico su tutte le righe della pratica, quindi la scelta è irrilevante. Da confermare con l'autore del PMS.
-2. Basta che **una** riga sia chiusa perché la prenotazione conti come uscita — allora va scritto `EXISTS`, non `TOP 1`.
-3. Servono **tutte** chiuse — allora la condizione è l'opposto, e oggi la lista sta nascondendo ospiti ancora in casa.
+Zero → si elimina la tabella e si aggiornano i due documenti. Diverso da zero → si decide se recuperarle in sola lettura o rimettere in piedi il blocco note.
 
 ---
 
-### D5 — Le prenotazioni future contano nel numero di soggiorni e abbassano le medie.
+#### C — "Ignora" su una proposta di allergia dura quanto la scheda del browser
 
-**Dove.** `src/api/clienti.js:22-24`: dai cumulativi si escludono solo gli stati `Eliminata` e `No-show`. Lo stato `Pianificata` (arrivo futuro, `src/pms/clienti.js:67`) resta dentro, con arrangiamento ed extra a zero perché non c'è ancora nulla di maturato.
+**Dove.** `web/app.js`, insieme in memoria con chiave prenotazione + termine. Ricaricando la pagina la proposta scartata torna.
 
-Un ospite con 10 soggiorni fatti e 2 prenotazioni per l'estate prossima risulta con **12 soggiorni** e una spesa media più bassa del vero. Nella stessa applicazione, il badge "Nª volta" delle schede conta invece **solo i soggiorni conclusi** (`src/pms/clienti.js:248-258`): due numeri diversi per la stessa domanda, sulla stessa persona.
+È documentato come consapevole: «da decidere con dati d'uso, non per ipotesi» (`2026-08-11-allergie-da-note-pms.md` §5). Non è quindi una svista, ma una decisione rinviata.
 
-**Risposte possibili:**
-1. È voluto: "numero di soggiorni" include le prenotazioni in essere, e le medie sono un dettaglio accettabile.
-2. I cumulativi devono escludere anche `Pianificata` e `Confermato`, allineandosi al badge.
-3. Vanno mostrati due numeri distinti — soggiorni fatti e prenotazioni future — perché sono informazioni diverse per chi accoglie.
+**Perché non si chiude da qui.** La risposta dipende da **quanti** falsi positivi ricorrenti produce il vocabolario sulle note vere:
+1. pochi → si lascia così;
+2. tornano ogni mattina → serve una tabella dedicata, quindi una migrazione;
+3. tanti → il problema non è "Ignora" ma il vocabolario, e si corregge quello.
 
----
-
-### D6 — Un utente di sola lettura, aprendo una scheda, scrive nel database.
-
-**Dove.** `src/api/clienti.js:486-492`: la lettura del nucleo chiama `autoPopulaNucleo`, che inserisce righe in `customer_travel_party` con `autore_user_id = req.session.user.id`. La guardia dei permessi classifica le letture come `leggi` (`src/auth/middleware.js`), quindi il profilo di sola consultazione passa.
-
-Conseguenze: chi consulta e basta risulta autore di righe che non ha inserito; la prima apertura di una scheda produce una scrittura non richiesta; l'operazione non è ripetibile (un marcatore la blocca), quindi **il primo che apre la scheda fissa il nucleo per tutti**, anche se in quel momento i dati del gestionale erano incompleti.
-
-**Risposte possibili:**
-1. È accettabile: la precompilazione è un servizio, l'autore è irrilevante.
-2. La precompilazione va spostata su un'azione esplicita ("Precompila dai soggiorni"), soggetta al permesso di scrittura.
-3. Va mantenuta automatica ma attribuita al sistema, non all'utente collegato, e ripetibile su richiesta.
+**Cosa serve.** Qualche giorno di uso reale, annotando le proposte sbagliate che si ripresentano.
 
 ---
 
-### D7 — La stessa applicazione valida gli identificativi in due modi diversi.
+### Le tredici chiuse
 
-**Dove.** `src/api/clienti.js:35-42` definisce `intParam`, che accetta **solo cifre**, proprio perché `Number(true)` vale 1 e `Number('')` vale 0 e questo aveva già creato gruppi di fusione fantasma (correzione del 12/08, `DOCS/2026-08-11-bug-da-collaudo.md`).
+Per riferimento, con il punto del documento in cui la decisione è ora scritta.
 
-`intParam` è usato per: fusione, preferenze, nucleo, complaints (solo in cancellazione). **Non** è usato per: il codice ospite di tutte le rotte della scheda (`Number(req.params.codCli)`, righe 94, 122, 130, 139, 149, 206, 248, 276, 283, 342, 349, 362, 369, 390, 416, 437, 487, 495), la modifica dei reclami (riga 304), gli identificativi utente (`src/api/admin.js:70, 119`).
-
-Non risulta un caso di danno concreto: sono percorsi di sola lettura o comunque legati a chiavi esistenti. Resta però che la difesa introdotta dopo un incidente è stata applicata a metà.
-
-**Risposte possibili:**
-1. È una scelta di rischio: dove il valore finisce in una chiave di gruppo serve il controllo stretto, altrove basta un intero.
-2. È una dimenticanza: `intParam` va usato ovunque, ed è una modifica di poche righe.
-3. È irrilevante finché il database rifiuta i valori non validi; da chiudere solo se emerge un caso reale.
-
----
-
-### D8 — I limiti di lunghezza valgono in inserimento e non in correzione.
-
-**Dove.** `src/api/clienti.js:49-56` definisce i tetti (preferenza 400, allergia 200, nome 80, nota nucleo 400, lingua 40, periodo 60), presi dalle colonne del database. Sono applicati in creazione (`campoTesto`). **Non** sono applicati in `PATCH /preferenze/:id` (righe 454-470, controlla solo che il testo non sia vuoto) né in `PATCH /nucleo/:id` (righe 514-530, nessun controllo). Anche `PATCH /admin/users/:id` non controlla nome, cognome ed email.
-
-Il difetto che questi tetti dovevano chiudere — "i moduli non dicevano niente quando il salvataggio falliva", con un errore interno del database al posto di un messaggio — si ripresenta quindi identico correggendo una riga esistente invece di crearne una nuova `[DOC]` (`2026-08-11-bug-da-collaudo.md`).
-
-**Risposte possibili:**
-1. È una svista: gli stessi controlli vanno estesi alle correzioni.
-2. Non capita mai, perché in correzione si accorcia. Da verificare sui dati veri prima di decidere.
-3. Il controllo va spostato in un punto solo, attraversato da tutte le scritture, invece di essere ripetuto per rotta.
-
----
-
-### D9 — Sugli account non c'è nessun requisito di password né validazione dell'email.
-
-**Dove.** `src/api/admin.js:55`: basta che la password sia una stringa non vuota. Nessuna lunghezza minima, nessun controllo di complessità, nessuna scadenza, nessun blocco dopo tentativi falliti (`src/auth/routes.js`). L'email non è validata in alcun modo (righe 51, 105) e non viene usata per nulla — non c'è recupero password.
-
-L'applicazione gira sulla rete interna dell'hotel, il che riduce l'esposizione ma non la elimina (il cookie di sessione non è marcato come "solo su connessione cifrata", `src/app.js:18`).
-
-**Risposte possibili:**
-1. È adeguato a un'applicazione interna con pochi utenti e una rete controllata.
-2. Serve almeno una lunghezza minima e il marcatore di sicurezza sul cookie, prima di andare in produzione.
-3. Il tema va affrontato quando si deciderà se esporre l'applicazione fuori dall'hotel; fino ad allora è un rischio accettato — ma va scritto che lo è.
-
----
-
-### D10 — Lo stato "No-show" esiste nel codice, e il documento dice che non deve esistere.
-
-**Dove.** `src/pms/clienti.js:68`: una prenotazione corrente con arrivo precedente alla data di lavoro e senza check-in viene mostrata come **No-show**. Lo stato compare nello storico con una pastiglia dedicata (`web/app.js:1262`) ed è escluso dai cumulativi.
-**Contro.** `DOCS/2026-07-30-crm-anagrafica-v2-mapping-specs.md` §4.4: «Stato prenotazione → solo Confermata / Completata / Cancellata. **Nessun No-show**: il PMS non ha un flag dedicato e `Motivo` è testo libero inaffidabile».
-
-Inoltre l'import usa i tre stati del documento e lo storico della scheda ne usa sette: le due strade danno nomi diversi alla stessa prenotazione. Il "No-show" dedotto qui non distingue un ospite che non si è presentato da una prenotazione che nessuno ha chiuso nel gestionale.
-
-**Risposte possibili:**
-1. La deduzione è utile alla reception ed è stata aggiunta consapevolmente: allora il documento va corretto e va scelto un nome che non prometta più di quanto sappia (per esempio "Non arrivata").
-2. Il documento vale: lo stato va tolto, e quelle prenotazioni vanno mostrate per quello che sono (correnti, non archiviate).
-3. Va tenuto ma solo come segnalazione, senza escluderlo dai cumulativi in silenzio.
-
----
-
-### D11 — Le note personali non hanno un tetto di lunghezza, tutti gli altri campi sì.
-
-**Dove.** `src/api/clienti.js:389-412`: la nota personale è accettata di qualunque lunghezza (la colonna è senza limite). Il testo del reclamo, stessa cosa (riga 289, tetto dichiarato pari al massimo intero).
-
-Il briefing AI, con "Salva nel profilo", **accoda** il testo generato a quello esistente senza limiti (riga 405). Nulla impedisce che una nota cresca indefinitamente a forza di generazioni ripetute su schede diverse (il blocco del pulsante vale per sessione e per anagrafica, non per sempre). Nelle schede la nota viene comunque tagliata a 90 caratteri, quindi il problema non si vede.
-
-**Risposte possibili:**
-1. È voluto: la nota personale è il posto dove si scrive liberamente, e la colonna lo consente.
-2. Serve un tetto, foss'anche generoso, perché una nota di 20.000 caratteri rende inutilizzabile il riquadro e pesa su ogni caricamento di Arrivi.
-3. Il problema non è la lunghezza ma l'accodamento cieco dell'AI: dovrebbe sostituire la parte generata invece di aggiungerne un'altra.
-
----
-
-### D12 — La tabella delle "Note CRM" esiste, ma non la usa più nessuno.
-
-**Dove.** `scripts/crm-schema.sql` crea `customer_notes` (note interne del team, con autore e data). Nessuna riga di `src/` o `web/` la legge o la scrive: la ricerca su tutto il repository trova solo lo script di creazione.
-**Contro.** `DOCS/2026-07-07-crm-fase2-scheda-cliente-360-specs.md` la definisce come uno dei cinque blocchi della scheda ospite («Note CRM — note interne del team, crea/modifica/elimina») e ne dà le regole (modificabili da chiunque sia autenticato). `HANDOFF.md` §5 la elenca ancora fra le tabelle in uso.
-
-Le sue funzioni sembrano essere state assorbite da "Note personali" (che però sono per-persona e a riga unica, non un diario) e dai reclami.
-
-**Risposte possibili:**
-1. La funzione è stata deliberatamente sostituita e la tabella è residuo da eliminare: vanno aggiornati i due documenti.
-2. Serve ancora un blocco note libero, cronologico e a più voci, e la sua sparizione non è stata notata da nessuno. Se il database dell'hotel contiene righe, sono dati oggi invisibili.
-3. Va lasciata dov'è come archivio storico, in sola lettura, con un riquadro che le mostri.
-
----
-
-### D13 — Le scritture vanno sul codice visualizzato, le letture sull'intero gruppo fuso.
-
-**Dove.** In tutta la scheda: le letture usano `getGruppo` e leggono su tutti i codici (`src/api/clienti.js`, righe 98, 124, 132, 141, 213, 278, 344, 364, 418, 489); le creazioni usano `codCli` così com'è (righe 299, 354, 449, 509). Fa eccezione la cancellazione di nota e lingua, resa esplicitamente di gruppo il 12/08 `[DOC]`.
-
-Finché il gruppo resta unito non si vede nulla. **Dopo uno "Scollega", i dati si sparpagliano**: la preferenza inserita mentre si guardava il codice A resta su A, quella inserita guardando B resta su B, e l'ospite si ritrova con due schede parziali. Il documento del 04/08 poneva la domanda («Le informazioni condivise devono essere modificabili da qualsiasi membro o solo dal proprietario?») e non risulta una risposta.
-
-**Risposte possibili:**
-1. È coerente con la fusione come "vista logica": ogni anagrafica conserva ciò che le è stato scritto, e scollegare deve riportare indietro davvero.
-2. Le scritture dovrebbero andare tutte sul **principale**, così scollegare un duplicato non porta via niente.
-3. Il caso è raro (lo scollegamento è un'eccezione) e va lasciato com'è, ma l'operatore va avvisato al momento dello scollegamento.
-
----
-
-### D14 — Il riepilogo degli arrivi contiene due voci che valgono sempre zero.
-
-**Dove.** `src/crm/arrivi-brief.js:23-26`: `anniversari` e `suggerimentiAi` sono inizializzati a zero e non vengono mai incrementati; il commento dice «nessuna fonte dati affidabile per ora → 0 (TODO)». Non compaiono fra le voci filtranti mostrate a schermo (`web/app.js`, `BRIEF_CHIPS`), quindi oggi sono invisibili.
-
-**Risposte possibili:**
-1. Sono un segnaposto per funzioni previste: vanno tenuti e completati (gli anniversari di matrimonio sono un classico dell'accoglienza 5 stelle).
-2. Sono residui di un'idea abbandonata e vanno tolti, perché un campo sempre a zero prima o poi finisce in una schermata.
-
----
-
-### D15 — La cancellazione per identificativo non verifica a chi appartiene la riga.
-
-**Dove.** `src/api/clienti.js:79-84` (`delRoute`) e i moduli CRM: preferenze, allergie, reclami e membri del nucleo si cancellano per identificativo, senza controllare che appartengano all'ospite che si sta guardando. Stessa cosa per le correzioni (`PATCH /preferenze/:id`, `/nucleo/:id`, `/complaints/:id`).
-
-Dall'interfaccia non è possibile sbagliare, perché gli identificativi arrivano dalla scheda aperta. Chiamando le interfacce a mano, invece, un utente con permesso di scrittura può cancellare l'allergia di un altro ospite conoscendone il numero. Tutti gli utenti dell'applicazione sono personale interno di fiducia, quindi il rischio pratico è basso; resta che il registro degli autori non permette di ricostruire chi ha cancellato cosa (l'autore è salvato, la cancellazione no).
-
-**Risposte possibili:**
-1. Accettabile per un'applicazione interna: chi ha il permesso di scrivere ha il permesso di scrivere.
-2. Va aggiunto il controllo di appartenenza, se non altro perché rende gli errori di programmazione innocui.
-3. Il problema vero non è il controllo ma la mancanza di tracciamento delle cancellazioni su un dato di sicurezza come le allergie.
-
----
-
-### D16 — "Ignora" su una proposta di allergia dura quanto la scheda del browser.
-
-**Dove.** `web/app.js:532`, insieme in memoria con chiave prenotazione + termine. Ricaricando la pagina, la proposta scartata torna. È documentato come consapevole `[DOC]` (`2026-08-11-allergie-da-note-pms.md` §5 e §6.1: «Da decidere con dati d'uso, non per ipotesi»), quindi non è una domanda sul codice ma una decisione rinviata che va presa dopo i primi giorni d'uso reale.
-
-**Risposte possibili:**
-1. Se i falsi positivi ricorrenti sono pochi, si lascia così.
-2. Se tornano ogni mattina, serve una tabella dedicata (e quindi una migrazione sul database).
-3. Se i falsi positivi sono tanti, il problema non è "Ignora" ma il vocabolario, e va corretto quello.
+| # | Questione | Decisione | Dove |
+|---|---|---|---|
+| D1 | Ambito predefinito delle preferenze | Resta `nucleo`. Il documento del 04/08 è superato su questo punto | §9 |
+| D2 | Allergie mostrate senza dire di chi sono | Ogni allergia porta il nome, anche sul foglio per la cucina | §4, §10, §16 |
+| D3 | Due conteggi diversi dei presenti | Sono due domande diverse: "Restano stanotte" e "Oggi in hotel" | §3, §5 |
+| D5 | Prenotazioni future nelle statistiche | Contano solo i soggiorni avvenuti; le future restano visibili nello storico | §7 |
+| D6 | Una lettura che scrive (nucleo) | La precompilazione si esegue solo per chi può scrivere | §14, §2 |
+| D7 | Identificativi validati in due modi | Controllo unico e condiviso da tutte le rotte | §2 |
+| D8 | Limiti di lunghezza solo in inserimento | Valgono anche in correzione | §9, §14 |
+| D9 | Nessun requisito sulla password | Minimo 8 caratteri; il resto è rischio accettato e dichiarato | §17, §2 |
+| D10 | Lo stato "No-show" che le specifiche vietavano | Resta: sono le specifiche del 30/07 da correggere | §7 |
+| D11 | Nota personale senza limite | Tetto di 4.000 caratteri, controllato sul risultato | §13, §18 |
+| D13 | Scritture sul codice visualizzato | Vanno tutte sul principale del gruppo | §15 |
+| D14 | Contatori sempre a zero | Tolti | §4 |
+| D15 | Cancellazioni senza controllo di appartenenza | Le righe si toccano solo dalla scheda del loro ospite | §2, §9, §10, §14 |
 
 ---
 
