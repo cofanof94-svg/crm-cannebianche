@@ -81,7 +81,7 @@ quanto è stato scritto, invece di un 500 dal database.
 
 ## Validazione e casi limite
 
-### ✅ La fusione accettava valori non numerici e codici inesistenti — `f4a0e8c`
+### ✅ La fusione accettava valori non numerici e codici inesistenti — `f3bc3f2`
 
 `Number(true)` è 1, `Number('')` e `Number([])` sono 0: passavano tutti per interi
 validi, e nessuno controllava che il codice esistesse. Il gruppo si riempiva di
@@ -90,7 +90,7 @@ toglievano**, perché il pulsante per scollegare c'è solo per le anagrafiche vi
 Ora `intParam` accetta solo cifre, e la fusione verifica che entrambe le anagrafiche
 esistano in `Anagra`.
 
-### ✅ Gestione utenti: successo dichiarato su utenti inesistenti — `f4a0e8c`
+### ✅ Gestione utenti: successo dichiarato su utenti inesistenti — `f3bc3f2`
 
 `PATCH` e `DELETE` su un id inventato rispondevano `200 {"ok":true}`. Ora 404.
 Lo `username` passava senza controlli: soli spazi, numerico, o più lungo della
@@ -119,7 +119,7 @@ Diceva "5 arrivi" con zero risultati a schermo: sembrava che i cinque fossero l�
 pagina non li mostrasse. Ora "0 di 5", come già faceva quando il filtro trova
 qualcosa. Stessa cosa per In casa.
 
-### ✅ Solo mock: la salvaguardia "almeno un admin attivo" andava in 500 — `f4a0e8c`
+### ✅ Solo mock: la salvaguardia "almeno un admin attivo" andava in 500 — `f3bc3f2`
 
 Il finto database riconosceva `COUNT(1)`, la query vera usa `COUNT(*)`: non
 combaciavano, tornava `[]` e `rows[0].n` esplodeva. In sviluppo non si poteva
