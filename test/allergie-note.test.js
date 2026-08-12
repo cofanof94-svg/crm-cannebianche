@@ -115,3 +115,54 @@ test('frasi: spezza su punti, punti e virgola e a capo', () => {
   assert.deepStrictEqual(frasi('Uno. Due; tre\nquattro'), ['Uno', 'Due', 'tre', 'quattro']);
   assert.deepStrictEqual(frasi('a. b'), []); // frammenti troppo corti per dire qualcosa
 });
+
+// --- I tre difetti trovati nel collaudo dell'11/08/2026 ---------------------
+
+test('marcatore senza sostanza: nessuna proposta, nemmeno un troncone di parola', () => {
+  // Proponeva "Ca" da "allergica" e "Te" da "intollerante": la regex ripiegava
+  // dentro la parola stessa. Un clic e "Ca" finiva fra le allergie, in rosso.
+  assert.deepStrictEqual(termini('La signora è allergica'), []);
+  assert.deepStrictEqual(termini('Ospite allergico'), []);
+  assert.deepStrictEqual(termini('Il cliente è intollerante'), []);
+  assert.deepStrictEqual(termini('Cliente con allergie'), []);
+});
+
+test('dopo i due punti spesso c\'è un ordine di servizio, non un allergene', () => {
+  assert.deepStrictEqual(termini('allergica: verificare in cucina'), []);
+  assert.deepStrictEqual(termini('Intolleranza: avvisare lo chef'), []);
+  assert.deepStrictEqual(termini('Allergia: segnalare al ristorante'), []);
+  // Ma la sostanza vera, dopo i due punti, si prende ancora.
+  assert.deepStrictEqual(termini('Allergia: pollini di betulla'), ['Pollini di betulla']);
+});
+
+test('un\'avversativa ribalta la negazione: l\'allergia che segue non si perde', () => {
+  // Era il falso negativo peggiore: la frase comincia con una negazione, quindi
+  // veniva scartata tutta, e l'allergia vera della seconda metà spariva in silenzio.
+  assert.deepStrictEqual(termini('Il bambino non ha allergie ma la madre è allergica al lattosio'), ['Lattosio']);
+  assert.deepStrictEqual(termini('Nessuna allergia, ma la signora è celiaca'), ['Celiachia']);
+  assert.deepStrictEqual(termini('Non risulta intollerante però evitare i crostacei'), ['Crostacei']);
+  // E funziona anche al contrario: quello che viene escluso dopo il "ma" resta escluso.
+  assert.deepStrictEqual(termini('Allergia al glutine ma non al lattosio'), ['Glutine']);
+});
+
+test('gli elenchi restano interi: non si spezza sulla virgola', () => {
+  // Spezzare sulla virgola avrebbe risolto il caso sopra, ma le sostanze dopo la
+  // prima perderebbero il marcatore e si perderebbero gli elenchi — che sono il
+  // modo più comune di scrivere più allergie insieme.
+  assert.deepStrictEqual(
+    termini('Allergia a noci, arachidi e lattosio'),
+    ['Lattosio', 'Arachidi', 'Frutta a guscio']
+  );
+});
+
+test('"no" e "senza" contano solo se attaccati alla sostanza', () => {
+  // Sono parole comunissime: prese come marcatori a distanza qualsiasi
+  // trasformavano una nota di servizio in un'allergia.
+  assert.deepStrictEqual(termini('Camera no fumatori, servire crostacei alla cena di gala'), []);
+  assert.deepStrictEqual(termini('Il cliente adora i gamberi, no problem per il menù'), []);
+  assert.deepStrictEqual(termini('Camera senza vista mare, prevedere il pesce al ristorante'), []);
+  // Restano validi i casi veri, che è il motivo per cui questi marcatori esistono.
+  assert.deepStrictEqual(termini('No glutine per la signora'), ['Glutine']);
+  assert.deepStrictEqual(termini('Niente lattosio a colazione'), ['Lattosio']);
+  assert.deepStrictEqual(termini('Menù senza frutta a guscio'), ['Frutta a guscio']);
+});

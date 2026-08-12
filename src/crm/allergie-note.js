@@ -38,7 +38,19 @@ const SOSTANZE = [
 ];
 
 // Marcatori: dicono che quella sostanza è un problema, non un gradimento.
-const MARCATORE = /\ballerg\w*|\bintolleran\w*|\bsenza\b|\bevitare\b|\bvietat\w*|\bnon può\b|\bnon puo\b|\bniente\b|\bno\b/i;
+//
+// Sono di due forze diverse, e trattarli allo stesso modo produceva falsi positivi.
+// I FORTI parlano di allergie e basta: se compaiono nella frase, qualunque sostanza
+// citata lì dentro è sospetta. I DEBOLI sono parole comunissime — "no", "niente",
+// "senza" — che diventano marcatori solo se stanno attaccate alla sostanza:
+//   "no glutine"                              → restrizione vera
+//   "camera no fumatori, servire crostacei"   → non c'entra niente
+// Da qui la regola di vicinanza: fra un marcatore debole e la sua sostanza ci
+// possono stare al massimo due parole, e nessuna virgola — la virgola vuol dire
+// che si sta già parlando d'altro.
+const MARCATORE_FORTE = /\ballerg\w*|\bintolleran\w*|\bevita\w*|\bvietat\w*|\bnon può\b|\bnon puo\b/i;
+const MARCATORE_DEBOLE = /\bno\b|\bniente\b|\bsenza\b/gi;
+const PAROLE_FRA_DEBOLE_E_SOSTANZA = 2;
 
 // Termini che valgono da soli, senza bisogno di marcatore.
 const AUTONOMI = [
@@ -61,17 +73,59 @@ const NEGAZIONE = /\bnon\s+(?:è|e|ha|sono|hanno|risulta|risultano)?\s*(?:altre?
 const PREPOSIZIONI = 'della|delle|degli|dello|alla|alle|agli|allo|del|dei|ai|ad|al|a';
 // La cattura si ferma anche sui due punti: "allergica ai pollini: evitare i
 // fiori" deve dare "pollini", non tutta la frase con le istruzioni operative.
-const DOPO_MARCATORE = new RegExp(`\\b(?:allergi\\w*|intolleran\\w*)\\s*(?:${PREPOSIZIONI})?\\s*[:\\-—]?\\s*([^.;,:\\n]{2,40})`, 'i');
+// Il \b dopo \w* non è decorativo: senza, la regex tornava indietro dentro la
+// parola stessa. Su "La signora è allergica" non trovando niente dopo si accontentava
+// di "allergi" e proponeva "ca" come sostanza — e "Ca" finiva fra le allergie, in
+// rosso, su un canale che deve restare credibile. Con il \b il ripiegamento a metà
+// parola è impossibile: o c'è una sostanza dopo il marcatore, o non si propone nulla.
+const DOPO_MARCATORE = new RegExp(`\\b(?:allergi\\w*|intolleran\\w*)\\b\\s*(?:${PREPOSIZIONI})?\\s*[:\\-—]?\\s*([^.;,:\\n]{2,40})`, 'i');
 const CODA_MAX = 40;
+
+// Dopo i due punti la reception scrive quasi sempre cosa fare, non cosa evita:
+// "allergica: verificare in cucina" non è un'allergia chiamata "verificare in
+// cucina". Queste code si buttano.
+const ISTRUZIONE = /^(?:verificar|avvisar|avvertir|controllar|segnalar|informar|chieder|contattar|comunicar|ricordar|prepar|servir|evitar|confermar|vedi\b|come\b|da\s)/i;
 
 // La nota è testo libero scritto a mano: si spezza su punti, punti e virgola e
 // a capo. Ogni pezzo si valuta da solo, così una negazione non "contagia" il
 // resto della nota e viceversa.
+//
+// Si spezza ANCHE sulle congiunzioni avversative, perché ribaltano il senso di
+// quello che segue e senza di loro un'allergia vera spariva:
+//   "Il bambino non ha allergie ma la madre è allergica al lattosio"
+// era una frase sola, la negazione all'inizio la escludeva tutta, e il lattosio
+// non veniva mai proposto. Nessuno se ne accorgeva.
+//
+// NON si spezza sulla virgola, benché sembri naturale: "Allergia a noci, arachidi
+// e mandorle" diventerebbe tre pezzi, e "arachidi" da sola non ha più il marcatore
+// che la rende un'allergia. Si perderebbero proprio gli elenchi, che sono il modo
+// più comune di scrivere più allergie insieme.
+const AVVERSATIVE = /\s+(?:ma|però|pero|mentre|invece|tuttavia)\s+/i;
+
 function frasi(testo) {
   return String(testo == null ? '' : testo)
-    .split(/[.;\n\r]+/)
-    .map((f) => f.replace(/\s+/g, ' ').trim())
+    .split(new RegExp(`[.;\\n\\r]+|${AVVERSATIVE.source}`, 'i'))
+    .map((f) => String(f == null ? '' : f).replace(/\s+/g, ' ').trim())
     .filter((f) => f.length > 2);
+}
+
+// Quella sostanza è segnalata come problema, in questa frase?
+// Marcatore forte ovunque nella frase, oppure marcatore debole attaccato davanti.
+function marcata(frase, reSostanza) {
+  if (MARCATORE_FORTE.test(frase)) return true;
+  const m = frase.match(reSostanza);
+  if (!m) return false;
+  const inizio = m.index;
+  MARCATORE_DEBOLE.lastIndex = 0; // la regex è globale: lo stato va azzerato a ogni giro
+  let d;
+  while ((d = MARCATORE_DEBOLE.exec(frase)) !== null) {
+    const fine = d.index + d[0].length;
+    if (fine > inizio) break; // il marcatore viene dopo la sostanza: non la qualifica
+    const fra = frase.slice(fine, inizio);
+    if (/[,;:]/.test(fra)) continue; // c'è di mezzo una pausa: sono due cose diverse
+    if (fra.split(/\s+/).filter(Boolean).length <= PAROLE_FRA_DEBOLE_E_SOSTANZA) return true;
+  }
+  return false;
 }
 
 // Frase accorciata da mostrare nella proposta: si tiene il contorno del termine,
@@ -87,7 +141,7 @@ function ripulisci(t) {
   // Se la cattura è arrivata al limite, l'ultima parola è quasi certamente
   // tagliata a metà ("fiori fresch"): si butta invece di salvarla monca.
   if (String(t || '').trim().length >= CODA_MAX && s.includes(' ')) s = s.slice(0, s.lastIndexOf(' ')).trim();
-  if (!s) return null;
+  if (!s || ISTRUZIONE.test(s)) return null;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -96,8 +150,11 @@ function estraiAllergie(nota) {
   const out = [];
   const visti = new Set();
   const aggiungi = (termine, frase) => {
+    // Il controllo sul termine viene PRIMA di usarlo: `ripulisci` può tornare null
+    // (coda vuota, o istruzione operativa scartata) e questa riga esplodeva.
+    if (!termine) return;
     const chiave = termine.toLowerCase();
-    if (!termine || visti.has(chiave)) return;
+    if (visti.has(chiave)) return;
     visti.add(chiave);
     out.push({ termine, frase: ritaglia(frase) });
   };
@@ -105,10 +162,10 @@ function estraiAllergie(nota) {
   for (const frase of frasi(nota)) {
     if (NEGAZIONE.test(frase)) continue; // qui l'allergia viene esclusa, non dichiarata
     for (const a of AUTONOMI) if (a.re.test(frase)) aggiungi(a.termine, frase);
-    if (!MARCATORE.test(frase)) continue;
     let trovata = false;
     for (const s of SOSTANZE) {
       if (!s.re.test(frase)) continue;
+      if (!marcata(frase, s.re)) continue; // sostanza nominata, ma non come problema
       aggiungi(s.termine, frase);
       trovata = true;
     }
