@@ -43,6 +43,7 @@ const AMBIENTE = [
   estraiDa(SRC, 'rigaExport'),
   estraiDa(SRC, 'ordinaPerCamera'),
   estraiDa(SRC, 'costruisciExport'),
+  estraiConstDa(SRC, 'INIZIO_FORMULA'), // usata da campoCsv
   estraiDa(SRC, 'campoCsv'),
   estraiDa(SRC, 'toCsv'),
   estraiDa(SRC, 'tabellaStampa'),
@@ -171,6 +172,23 @@ test('toCsv: intestazioni, separatore ; e BOM per Excel', () => {
   // virgolette inutili attorno a "Arachidi, Lattosio". E niente a capo: quelli
   // stanno solo sul foglio.
   assert.strictEqual(linee[1], '109, 218;PAGLIUSO ROBERT RALPH;Arachidi, Lattosio;Coca-Cola Zero · Cuscino rigido');
+});
+
+test('CSV: un valore che inizia per = non diventa una formula in Excel', () => {
+  // Le note arrivano dal PMS, cioè da testo che scrive chiunque. Excel valuta come
+  // formula qualunque cella che inizi per = + - @: basta una nota scritta così.
+  // L'apostrofo davanti dice a Excel "questo è testo" e nella cella non si vede.
+  for (const cattivo of ['=1+1', '+1+1', '-1+1', '@SUM(A1)', '=cmd|\' /C calc\'!A0']) {
+    const out = E.campoCsv(cattivo);
+    assert.ok(out.startsWith("'"), `non neutralizzato: ${cattivo}`);
+    assert.ok(out.includes(cattivo.replace(/"/g, '""')) || out.includes(cattivo), 'il testo originale si perde');
+  }
+  // Il testo normale non viene toccato: nessun apostrofo di troppo nel foglio.
+  for (const buono of ['Celiachia', 'Camera 101', '2 notti', 'Sig.ra Rossi']) {
+    assert.strictEqual(E.campoCsv(buono), buono);
+  }
+  // Un valore pericoloso che contiene anche il separatore resta comunque quotato.
+  assert.strictEqual(E.campoCsv('=A1;B2'), '"\'=A1;B2"');
 });
 
 test('toCsv: virgolette e punto e virgola nel testo non spezzano la riga', () => {

@@ -73,6 +73,17 @@ test('quello che era valido prima resta valido', async () => {
   assert.match(vuoto.body.error, /mancante/i);
 });
 
+test('JSON malformato: 400, non un 500 che sembra un guasto nostro', async () => {
+  const ag = await entra();
+  const res = await ag.post(`/api/clienti/${CLI}/complaints`)
+    .set('Content-Type', 'application/json')
+    .send('{bad json');
+  assert.strictEqual(res.status, 400);
+  assert.match(res.body.error, /non valido/i);
+  // Non deve trapelare niente dell'interno: nessuno stack, nessun nome di modulo.
+  assert.doesNotMatch(JSON.stringify(res.body), /SyntaxError|at Object|node_modules/);
+});
+
 // --- Il silenzio dei form -----------------------------------------------------
 
 const APP = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');

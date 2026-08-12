@@ -152,8 +152,16 @@ function costruisciExport(lista, opts = {}) {
 // --- CSV ---------------------------------------------------------------------
 // Separatore ';' e BOM: è ciò che apre correttamente in Excel italiano con un
 // doppio clic. Con la virgola, Excel mette tutta la riga in una cella sola.
+// Un valore che comincia per = + - @ (o per un tab, che Excel tratta allo stesso
+// modo) viene interpretato come FORMULA appena si apre il file. Le note arrivano
+// dal PMS, cioè da testo che scrive chiunque: basta una nota che inizia con "="
+// perché Excel provi a eseguirla. Si antepone un apostrofo, che Excel riconosce
+// come "questo è testo" e non mostra nella cella.
+const INIZIO_FORMULA = /^[=+\-@\t\r]/;
+
 function campoCsv(v) {
-  const s = String(v == null ? '' : v);
+  let s = String(v == null ? '' : v);
+  if (INIZIO_FORMULA.test(s)) s = `'${s}`;
   return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

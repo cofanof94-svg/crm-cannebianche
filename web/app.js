@@ -151,6 +151,15 @@ function route() {
   hashRoutePrec = hash;
   // Scheda ospite: #cliente/<CodCli>
   if (hash.startsWith('cliente/')) {
+    // Senza un codice valido la scheda restava ferma su "Carico…" per sempre: la
+    // richiesta finiva sulla rotta di ricerca, che risponde 200 con un elenco
+    // vuoto, e il render andava in errore su un'anagrafica che non c'era.
+    const cod = Number(hash.split('/')[1]);
+    if (!Number.isInteger(cod) || cod <= 0) {
+      avviso('Scheda ospite non valida.');
+      location.hash = `#${vistaPrecedente || 'arrivi'}`;
+      return;
+    }
     $('#topbar-title').textContent = 'Scheda ospite';
     document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
     document.querySelectorAll('.sidebar a').forEach((a) => a.classList.remove('active'));
@@ -160,7 +169,7 @@ function route() {
     back.setAttribute('href', `#${dest}`);
     back.textContent = `‹ ${backLabel[dest]}`;
     $('#view-cliente').hidden = false;
-    loadCliente(hash.split('/')[1]);
+    loadCliente(cod);
     return;
   }
   // Le altre viste accettano un parametro dopo la barra: oggi solo
@@ -469,7 +478,12 @@ function renderArrivi() {
   if (lista.length === 0) {
     cards.hidden = true; msg.hidden = false;
     msg.textContent = arriviAll.length === 0 ? 'Nessun arrivo per questa data.' : 'Nessun risultato per il filtro.';
-    stato.textContent = `${arriviAll.length} ${arriviAll.length === 1 ? 'arrivo' : 'arrivi'}`;
+    // Zero risultati, ma l'indicatore diceva ancora "5 arrivi": sembrava che i
+    // cinque fossero lì e la pagina non li mostrasse. Con un filtro attivo si
+    // conta come sempre, "0 di 5".
+    stato.textContent = arriviAll.length === 0
+      ? '0 arrivi'
+      : `0 di ${arriviAll.length}`;
     return;
   }
   stato.textContent = lista.length === arriviAll.length
@@ -849,7 +863,11 @@ function renderInCasa() {
   if (lista.length === 0) {
     cards.hidden = true; msg.hidden = false;
     msg.textContent = incasaAll.length === 0 ? 'Nessun cliente in casa.' : 'Nessun risultato per il filtro.';
-    stato.textContent = `${presenti} ${presenti === 1 ? 'presente' : 'presenti'}`;
+    // Vedi renderArrivi: con un filtro che non seleziona nulla il totale da solo
+    // fa credere che i presenti siano lì e non vengano mostrati.
+    stato.textContent = incasaAll.length === 0
+      ? '0 presenti'
+      : `0 di ${incasaAll.length}`;
     return;
   }
   stato.textContent = lista.length === incasaAll.length

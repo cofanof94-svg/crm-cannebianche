@@ -48,6 +48,12 @@ function createApp({ crmDb, pmsDb, sessionSecret }) {
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
+    // Corpo JSON malformato: è un errore di chi chiama, non un guasto del server.
+    // Finiva nel ramo generico, quindi rispondeva 500 e riempiva i log di stack per
+    // una richiesta scritta male — nascondendo i 500 veri.
+    if (err && err.type === 'entity.parse.failed') {
+      return res.status(400).json({ error: 'Corpo della richiesta non valido' });
+    }
     console.error('Errore non gestito:', err);
     res.status(500).json({ error: 'Errore interno del server' });
   });
