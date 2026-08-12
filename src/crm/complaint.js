@@ -101,7 +101,7 @@ async function setComplaintFollowUp(db, id, followUp) {
 }
 
 const { deleteById } = require('./helpers');
-const deleteComplaint = (db, id) => deleteById(db, 'customer_complaints', id);
+const deleteComplaint = (db, id, membri) => deleteById(db, 'customer_complaints', id, membri);
 
 module.exports = {
   listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo,

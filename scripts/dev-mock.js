@@ -344,6 +344,19 @@ const crmDb = {
     }
     if (/FROM customer_profile/.test(t)) return store.profili.filter((p) => ids.includes(p.pms_customer_id)).map(conAutore);
 
+    // Appartenenza di una riga al gruppo (usata prima di correggere: vedi
+    // appartieneA in src/crm/helpers.js). Va PRIMA delle letture di elenco, che
+    // altrimenti la intercettano e rispondono di sì per qualunque id.
+    {
+      const m = String(t).match(/SELECT TOP 1 id FROM (\w+) WHERE id = @id/);
+      if (m) {
+        const tabelle = { customer_preferences: store.preferenze, customer_intolerances: store.intolleranze, customer_complaints: store.complaints, customer_travel_party: store.nucleo };
+        const righe = tabelle[m[1]] || [];
+        const r = righe.find((x) => x.id === params.id && ids.includes(codiceDi(x)));
+        return r ? [{ id: r.id }] : [];
+      }
+    }
+
     // --- customer_preferences ---
     if (/INSERT INTO customer_preferences/.test(t)) {
       const r = { id: prossimoId(store.preferenze), pms_customer_id: params.pmsCustomerId, autore_user_id: params.autoreUserId, reparto: params.reparto, categoria: params.categoria, testo: params.testo, ambito: params.ambito, created_at: new Date().toISOString() };
@@ -351,7 +364,7 @@ const crmDb = {
       return [{ id: r.id }];
     }
     if (/UPDATE customer_preferences/.test(t)) return aggiorna(store.preferenze, params, ['ambito', 'testo', 'reparto', 'categoria']);
-    if (/DELETE FROM customer_preferences/.test(t)) return elimina(store.preferenze, params.id);
+    if (/DELETE FROM customer_preferences/.test(t)) return elimina(store.preferenze, params.id, ids);
     if (/FROM customer_preferences/.test(t)) {
       const soloNucleo = /ambito = 'nucleo'/.test(t);
       return store.preferenze.filter((r) => ids.includes(r.pms_customer_id) && (!soloNucleo || (r.ambito || 'nucleo') === 'nucleo')).map(conAutore);
@@ -363,7 +376,7 @@ const crmDb = {
       store.intolleranze.unshift(r);
       return [{ id: r.id }];
     }
-    if (/DELETE FROM customer_intolerances/.test(t)) return elimina(store.intolleranze, params.id);
+    if (/DELETE FROM customer_intolerances/.test(t)) return elimina(store.intolleranze, params.id, ids);
     if (/FROM customer_intolerances/.test(t)) return store.intolleranze.filter((r) => ids.includes(r.pms_customer_id)).map(conAutore);
 
     // --- customer_complaints ---
@@ -383,7 +396,7 @@ const crmDb = {
       if (params.stato !== undefined) { r.stato = params.stato; r.resolved_at = params.stato === 'risolto' ? new Date().toISOString() : null; }
       return [{ id: r.id }];
     }
-    if (/DELETE FROM customer_complaints/.test(t)) return elimina(store.complaints, params.id);
+    if (/DELETE FROM customer_complaints/.test(t)) return elimina(store.complaints, params.id, ids);
     if (/FROM customer_complaints/.test(t)) {
       return store.complaints.filter((r) => ids.includes(r.pms_customer_id)).map(conAutore)
         .sort((a, b) => (a.stato === 'aperto' ? 0 : 1) - (b.stato === 'aperto' ? 0 : 1));
@@ -404,7 +417,7 @@ const crmDb = {
       ['nome', 'cognome', 'nota'].forEach((k) => { if (params[k] !== undefined) r[k] = params[k]; });
       return [{ id: r.id }];
     }
-    if (/DELETE FROM customer_travel_party/.test(t)) return elimina(store.nucleo, params.id);
+    if (/DELETE FROM customer_travel_party/.test(t)) return elimina(store.nucleo, params.id, ids);
     if (/pms_occupant_id AS c/.test(t)) {
       const s = new Set();
       store.nucleo.forEach((n) => {
@@ -429,8 +442,16 @@ function aggiorna(arr, params, campi) {
   campi.forEach((k) => { if (params[k] !== undefined) r[k] = params[k]; });
   return [{ id: r.id }];
 }
-function elimina(arr, id) {
-  const i = arr.findIndex((x) => x.id === id);
+// `membri`: se la DELETE porta un filtro sul gruppo (WHERE ... AND pms_customer_id
+// IN (…)), qui va rispettato. Ignorarlo farebbe cancellare in sviluppo righe che il
+// database vero rifiuterebbe: il mock direbbe che funziona una cosa che non funziona.
+// Il codice ospite di una riga: le tabelle finte non sono uniformi, alcune tengono
+// il nome del parametro (pmsCustomerId), altre quello della colonna.
+const codiceDi = (r) => (r && (r.pms_customer_id !== undefined ? r.pms_customer_id : r.pmsCustomerId));
+
+function elimina(arr, id, membri) {
+  const i = arr.findIndex((x) => x.id === id
+    && (!Array.isArray(membri) || !membri.length || membri.includes(codiceDi(x))));
   if (i < 0) return [];
   arr.splice(i, 1);
   return [{ id }];

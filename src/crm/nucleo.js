@@ -79,6 +79,6 @@ async function markNucleoInit(db, pmsCustomerId) {
 }
 
 const { deleteById } = require('./helpers');
-const deleteMembro = (db, id) => deleteById(db, 'customer_travel_party', id);
+const deleteMembro = (db, id, membri) => deleteById(db, 'customer_travel_party', id, membri);
 
 module.exports = { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, getRelazioniByIds, nucleoInizializzato, markNucleoInit, RELAZIONI };

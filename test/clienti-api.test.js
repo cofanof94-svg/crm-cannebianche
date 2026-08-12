@@ -341,13 +341,13 @@ test('complaints: crea/elenca/risolvi (PATCH stato)/404/elimina', async () => {
   const l = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l.body.complaints[0].testo, 'reclamo camera');
   assert.strictEqual(l.body.complaints[0].stato, 'aperto');
-  const risolvi = await ag.patch(`/api/complaints/${id}`).send({ stato: 'risolto', followUp: 'Cambio camera effettuato' });
+  const risolvi = await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ stato: 'risolto', followUp: 'Cambio camera effettuato' });
   assert.strictEqual(risolvi.status, 200);
   const l2 = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l2.body.complaints[0].stato, 'risolto');
-  const patch404 = await ag.patch('/api/complaints/9999').send({ stato: 'risolto', followUp: 'x' });
+  const patch404 = await ag.patch('/api/clienti/47186/complaints/9999').send({ stato: 'risolto', followUp: 'x' });
   assert.strictEqual(patch404.status, 404);
-  const del = await ag.delete(`/api/complaints/${id}`);
+  const del = await ag.delete(`/api/clienti/47186/complaints/${id}`);
   assert.strictEqual(del.status, 200);
 });
 
@@ -357,7 +357,7 @@ test('complaint: risolvere senza follow-up → 400 e il complaint resta aperto',
   const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'doccia fredda', reparto: 'Rooms', categoria: 'Manutenzione' });
   const id = c.body.complaint.id;
   for (const corpo of [{ stato: 'risolto' }, { stato: 'risolto', followUp: '   ' }]) {
-    const res = await ag.patch(`/api/complaints/${id}`).send(corpo);
+    const res = await ag.patch(`/api/clienti/47186/complaints/${id}`).send(corpo);
     assert.strictEqual(res.status, 400);
     assert.match(res.body.error, /Follow-up/);
   }
@@ -370,12 +370,12 @@ test('complaint: il follow-up si salva risolvendo, si rilegge e sopravvive alla 
   const ag = await agente(app);
   const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'rumore', periodo: 'ago 2025', reparto: 'Rooms', categoria: 'Rumore' });
   const id = c.body.complaint.id;
-  await ag.patch(`/api/complaints/${id}`).send({ stato: 'risolto', followUp: 'Omaggio SPA offerto' });
+  await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ stato: 'risolto', followUp: 'Omaggio SPA offerto' });
   const l = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l.body.complaints[0].follow_up, 'Omaggio SPA offerto');
   assert.strictEqual(l.body.complaints[0].periodo, 'ago 2025'); // il resto non si perde
   // Riaperto: resta scritto cosa era già stato fatto.
-  assert.strictEqual((await ag.patch(`/api/complaints/${id}`).send({ stato: 'aperto' })).status, 200);
+  assert.strictEqual((await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ stato: 'aperto' })).status, 200);
   const l2 = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l2.body.complaints[0].stato, 'aperto');
   assert.strictEqual(l2.body.complaints[0].follow_up, 'Omaggio SPA offerto');
@@ -386,12 +386,12 @@ test('complaint: il follow-up si corregge da solo, e troppo lungo → 400', asyn
   const ag = await agente(app);
   const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'x', reparto: 'F&B', categoria: 'Altro' });
   const id = c.body.complaint.id;
-  await ag.patch(`/api/complaints/${id}`).send({ stato: 'risolto', followUp: 'Cambio camra' });
-  assert.strictEqual((await ag.patch(`/api/complaints/${id}`).send({ followUp: 'Cambio camera' })).status, 200);
+  await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ stato: 'risolto', followUp: 'Cambio camra' });
+  assert.strictEqual((await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ followUp: 'Cambio camera' })).status, 200);
   const l = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l.body.complaints[0].follow_up, 'Cambio camera');
   assert.strictEqual(l.body.complaints[0].stato, 'risolto'); // correggere non riapre
-  const lungo = await ag.patch(`/api/complaints/${id}`).send({ followUp: 'x'.repeat(501) });
+  const lungo = await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ followUp: 'x'.repeat(501) });
   assert.strictEqual(lungo.status, 400);
 });
 
@@ -402,7 +402,7 @@ test('complaint: periodo salvato in creazione e modificabile', async () => {
   assert.strictEqual(c.status, 201);
   const l = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l.body.complaints[0].periodo, 'ago 2025');
-  const patch = await ag.patch(`/api/complaints/${c.body.complaint.id}`).send({ periodo: 'set 2025' });
+  const patch = await ag.patch(`/api/clienti/47186/complaints/${c.body.complaint.id}`).send({ periodo: 'set 2025' });
   assert.strictEqual(patch.status, 200);
   const l2 = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l2.body.complaints[0].periodo, 'set 2025');
@@ -431,13 +431,13 @@ test('complaint: classificazione salvata, rileggibile e correggibile', async () 
   assert.strictEqual(l.body.complaints[0].reparto, 'Rooms');
   assert.strictEqual(l.body.complaints[0].categoria, 'Manutenzione');
   // Riclassificazione (serve ai reclami vecchi, che nascono senza)
-  const patch = await ag.patch(`/api/complaints/${c.body.complaint.id}`).send({ reparto: 'F&B', categoria: 'Servizio' });
+  const patch = await ag.patch(`/api/clienti/47186/complaints/${c.body.complaint.id}`).send({ reparto: 'F&B', categoria: 'Servizio' });
   assert.strictEqual(patch.status, 200);
   const l2 = await ag.get('/api/clienti/47186/complaints');
   assert.strictEqual(l2.body.complaints[0].reparto, 'F&B');
   assert.strictEqual(l2.body.complaints[0].categoria, 'Servizio');
   assert.strictEqual(l2.body.complaints[0].testo, 'doccia fredda'); // il resto non si tocca
-  const invalido = await ag.patch(`/api/complaints/${c.body.complaint.id}`).send({ reparto: 'Portineria' });
+  const invalido = await ag.patch(`/api/clienti/47186/complaints/${c.body.complaint.id}`).send({ reparto: 'Portineria' });
   assert.strictEqual(invalido.status, 400);
 });
 
@@ -445,7 +445,7 @@ test('complaint: stato non valido → 400', async () => {
   const app = await makeApp();
   const ag = await agente(app);
   const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'x', reparto: 'F&B', categoria: 'Altro' });
-  const res = await ag.patch(`/api/complaints/${c.body.complaint.id}`).send({ stato: 'boh' });
+  const res = await ag.patch(`/api/clienti/47186/complaints/${c.body.complaint.id}`).send({ stato: 'boh' });
   assert.strictEqual(res.status, 400);
 });
 
@@ -457,9 +457,9 @@ test('intolleranze: crea, elenca, elimina', async () => {
   const id = c.body.intolleranza.id;
   const l = await ag.get('/api/clienti/47186/intolleranze');
   assert.strictEqual(l.body.intolleranze[0].testo, 'Celiachia');
-  const del = await ag.delete(`/api/intolleranze/${id}`);
+  const del = await ag.delete(`/api/clienti/47186/intolleranze/${id}`);
   assert.strictEqual(del.status, 200);
-  const del404 = await ag.delete('/api/intolleranze/9999');
+  const del404 = await ag.delete('/api/clienti/47186/intolleranze/9999');
   assert.strictEqual(del404.status, 404);
 });
 
@@ -517,7 +517,7 @@ test('preferenze: crea/elenca/elimina + validazione liste chiuse', async () => {
   assert.strictEqual(c.status, 201);
   const l = await ag.get('/api/clienti/47186/preferenze');
   assert.strictEqual(l.body.preferenze[0].testo, 'Amarone');
-  const del = await ag.delete(`/api/preferenze/${c.body.preferenza.id}`);
+  const del = await ag.delete(`/api/clienti/47186/preferenze/${c.body.preferenza.id}`);
   assert.strictEqual(del.status, 200);
 });
 
@@ -528,11 +528,11 @@ test('preferenze: ambito default nucleo, PATCH lo cambia, validazione ambito', a
   assert.strictEqual(c.status, 201);
   let l = await ag.get('/api/clienti/47186/preferenze');
   assert.strictEqual(l.body.preferenze[0].ambito, 'nucleo'); // default
-  const upd = await ag.patch(`/api/preferenze/${c.body.preferenza.id}`).send({ ambito: 'personale' });
+  const upd = await ag.patch(`/api/clienti/47186/preferenze/${c.body.preferenza.id}`).send({ ambito: 'personale' });
   assert.strictEqual(upd.status, 200);
   l = await ag.get('/api/clienti/47186/preferenze');
   assert.strictEqual(l.body.preferenze[0].ambito, 'personale');
-  const bad = await ag.patch(`/api/preferenze/${c.body.preferenza.id}`).send({ ambito: 'globale' });
+  const bad = await ag.patch(`/api/clienti/47186/preferenze/${c.body.preferenza.id}`).send({ ambito: 'globale' });
   assert.strictEqual(bad.status, 400); // ambito non valido
 });
 
@@ -561,7 +561,7 @@ test('nucleo: crea/elenca/elimina + validazioni', async () => {
   const l = await ag.get('/api/clienti/47186/nucleo');
   assert.strictEqual(l.body.nucleo[0].nome, 'Maria');
   assert.strictEqual(l.body.nucleo[0].tipo_relazione, 'Coniuge');
-  const del = await ag.delete(`/api/nucleo/${c.body.membro.id}`);
+  const del = await ag.delete(`/api/clienti/47186/nucleo/${c.body.membro.id}`);
   assert.strictEqual(del.status, 200);
 });
 
@@ -581,11 +581,11 @@ test('nucleo: PATCH modifica la relazione (e 404 su id inesistente)', async () =
   const app = await makeApp();
   const ag = await agente(app);
   const c = await ag.post('/api/clienti/47186/nucleo').send({ tipoRelazione: 'Altro', nome: 'Luca' });
-  const upd = await ag.patch(`/api/nucleo/${c.body.membro.id}`).send({ tipoRelazione: 'Figlio-a', nota: 'celiaco' });
+  const upd = await ag.patch(`/api/clienti/47186/nucleo/${c.body.membro.id}`).send({ tipoRelazione: 'Figlio-a', nota: 'celiaco' });
   assert.strictEqual(upd.status, 200);
   const l = await ag.get('/api/clienti/47186/nucleo');
   const m = l.body.nucleo.find((x) => x.id === c.body.membro.id);
   assert.strictEqual(m.tipo_relazione, 'Figlio-a');
-  const bad = await ag.patch('/api/nucleo/999').send({ tipoRelazione: 'Coniuge' });
+  const bad = await ag.patch('/api/clienti/47186/nucleo/999').send({ tipoRelazione: 'Coniuge' });
   assert.strictEqual(bad.status, 404);
 });

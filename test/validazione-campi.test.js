@@ -111,9 +111,9 @@ test('i limiti valgono anche in modifica, non solo in inserimento', async () => 
   const idMembro = membro.body.membro.id;
 
   const casi = [
-    ['preferenza', 400, () => ag.patch(`/api/preferenze/${idPref}`).send({ testo: lungo(401) })],
-    ['nome nucleo', 80, () => ag.patch(`/api/nucleo/${idMembro}`).send({ nome: lungo(81) })],
-    ['nota nucleo', 400, () => ag.patch(`/api/nucleo/${idMembro}`).send({ nota: lungo(401) })],
+    ['preferenza', 400, () => ag.patch(`/api/clienti/${CLI}/preferenze/${idPref}`).send({ testo: lungo(401) })],
+    ['nome nucleo', 80, () => ag.patch(`/api/clienti/${CLI}/nucleo/${idMembro}`).send({ nome: lungo(81) })],
+    ['nota nucleo', 400, () => ag.patch(`/api/clienti/${CLI}/nucleo/${idMembro}`).send({ nota: lungo(401) })],
   ];
   for (const [nome, max, chiamata] of casi) {
     const res = await chiamata();
@@ -121,10 +121,37 @@ test('i limiti valgono anche in modifica, non solo in inserimento', async () => 
     assert.match(res.body.error, new RegExp(`massimo ${max} caratteri`), nome);
   }
   // E i valori che stringa non sono restano fuori anche qui.
-  assert.strictEqual((await ag.patch(`/api/preferenze/${idPref}`).send({ testo: { a: 1 } })).status, 400);
-  assert.strictEqual((await ag.patch(`/api/nucleo/${idMembro}`).send({ nome: ['x'] })).status, 400);
+  assert.strictEqual((await ag.patch(`/api/clienti/${CLI}/preferenze/${idPref}`).send({ testo: { a: 1 } })).status, 400);
+  assert.strictEqual((await ag.patch(`/api/clienti/${CLI}/nucleo/${idMembro}`).send({ nome: ['x'] })).status, 400);
   // Una modifica legittima passa ancora.
-  assert.strictEqual((await ag.patch(`/api/preferenze/${idPref}`).send({ testo: 'Barolo' })).status, 200);
+  assert.strictEqual((await ag.patch(`/api/clienti/${CLI}/preferenze/${idPref}`).send({ testo: 'Barolo' })).status, 200);
+});
+
+test('non si tocca la riga di un altro ospite, nemmeno conoscendone il numero', async () => {
+  // D15: preferenze, allergie, reclami e nucleo si cancellavano per numero, senza
+  // controllare di chi fossero. Dall'interfaccia non si poteva sbagliare, ma un id
+  // sbagliato mandato per errore toccava la scheda di un altro.
+  const ag = await entra();
+  const ALTRO = 1002;
+  const mia = await ag.post(`/api/clienti/${CLI}/intolleranze`).send({ testo: 'Glutine' });
+  assert.strictEqual(mia.status, 201);
+  const id = mia.body.intolleranza.id;
+
+  // Stesso numero di riga, ma chiesto dalla scheda di un altro ospite: non esiste.
+  assert.strictEqual((await ag.delete(`/api/clienti/${ALTRO}/intolleranze/${id}`)).status, 404);
+  // E infatti è ancora lì.
+  const dopo = await ag.get(`/api/clienti/${CLI}/intolleranze`);
+  assert.ok(dopo.body.intolleranze.some((i) => i.id === id), 'la riga è stata cancellata da un\'altra scheda');
+
+  // Dalla sua scheda invece si cancella.
+  assert.strictEqual((await ag.delete(`/api/clienti/${CLI}/intolleranze/${id}`)).status, 200);
+
+  // Stessa regola per le correzioni.
+  const pref = await ag.post(`/api/clienti/${CLI}/preferenze`).send({ testo: 'Amarone', reparto: 'F&B', categoria: 'F&B' });
+  const idPref = pref.body.preferenza.id;
+  assert.strictEqual((await ag.patch(`/api/clienti/${ALTRO}/preferenze/${idPref}`).send({ testo: 'Barolo' })).status, 404);
+  const rilettura = await ag.get(`/api/clienti/${CLI}/preferenze`);
+  assert.strictEqual(rilettura.body.preferenze.find((p) => p.id === idPref).testo, 'Amarone');
 });
 
 test('la stessa difesa sugli identificativi vale su tutte le rotte', async () => {
@@ -139,7 +166,7 @@ test('la stessa difesa sugli identificativi vale su tutte le rotte', async () =>
   for (const id of cattivi) {
     assert.strictEqual((await ag.get(`/api/clienti/${id}`)).status, 400, `GET cliente ${id}`);
     assert.strictEqual((await ag.get(`/api/clienti/${id}/preferenze`)).status, 400, `preferenze ${id}`);
-    assert.strictEqual((await ag.patch(`/api/complaints/${id}`).send({ testo: 'x' })).status, 400, `complaint ${id}`);
+    assert.strictEqual((await ag.patch(`/api/clienti/${CLI}/complaints/${id}`).send({ testo: 'x' })).status, 400, `complaint ${id}`);
     assert.strictEqual((await ag.get(`/api/admin/users`).query({})).status, 200); // sanity
     assert.strictEqual((await ag.delete(`/api/admin/users/${id}`)).status, 400, `utente ${id}`);
   }

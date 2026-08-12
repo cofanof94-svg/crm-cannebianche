@@ -54,6 +54,6 @@ async function updatePreferenza(db, id, { ambito, testo, reparto, categoria }) {
 }
 
 const { deleteById } = require('./helpers');
-const deletePreferenza = (db, id) => deleteById(db, 'customer_preferences', id);
+const deletePreferenza = (db, id, membri) => deleteById(db, 'customer_preferences', id, membri);
 
 module.exports = { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI };

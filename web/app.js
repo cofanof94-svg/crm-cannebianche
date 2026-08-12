@@ -1615,13 +1615,13 @@ $('#pref-form').addEventListener('submit', async (e) => {
 
 $('#cli-preferenze').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-pref]');
-  if (del) { await api(`/api/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); return; }
+  if (del) { await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); return; }
   const opt = e.target.closest('[data-set-ambito]');
   if (opt) {
     const li = opt.closest('[data-pref]');
     // Clic sulla voce già attiva: non è un cambio, non si chiama il server.
     if (!li || opt.classList.contains('scope-on')) return;
-    await api(`/api/preferenze/${li.dataset.pref}`, { method: 'PATCH', body: JSON.stringify({ ambito: opt.dataset.setAmbito }) });
+    await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze/${li.dataset.pref}`, { method: 'PATCH', body: JSON.stringify({ ambito: opt.dataset.setAmbito }) });
     caricaPreferenze(clienteCorrente);
   }
 });
@@ -1773,7 +1773,7 @@ $('#cli-nucleo').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-nucleo]');
   if (del) {
     if (nucleoEditId === Number(del.dataset.delNucleo)) nucleoEditId = null;
-    await api(`/api/nucleo/${del.dataset.delNucleo}`, { method: 'DELETE' });
+    await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/nucleo/${del.dataset.delNucleo}`, { method: 'DELETE' });
     caricaNucleo(clienteCorrente); return;
   }
   const save = e.target.closest('[data-save-nucleo]');
@@ -1782,7 +1782,7 @@ $('#cli-nucleo').addEventListener('click', async (e) => {
     const payload = {};
     li.querySelectorAll('[data-field]').forEach((el) => { payload[el.dataset.field] = el.value.trim(); });
     save.disabled = true; save.textContent = 'Salvataggio…';
-    const { status } = await api(`/api/nucleo/${save.dataset.saveNucleo}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/nucleo/${save.dataset.saveNucleo}`, { method: 'PATCH', body: JSON.stringify(payload) });
     if (status === 200) { nucleoEditId = null; caricaNucleo(clienteCorrente); } // ricarica dal server = conferma
     else { save.disabled = false; save.textContent = 'Errore'; }
   }
@@ -2146,7 +2146,7 @@ $('#intol-form').addEventListener('submit', async (e) => {
 $('#cli-intolleranze').addEventListener('click', async (e) => {
   const del = e.target.closest('[data-del-intol]');
   if (del) {
-    await api(`/api/intolleranze/${del.dataset.delIntol}`, { method: 'DELETE' });
+    await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/intolleranze/${del.dataset.delIntol}`, { method: 'DELETE' });
     caricaIntolleranze(clienteCorrente);
   }
 });
@@ -2234,7 +2234,7 @@ $('#classe-form').addEventListener('submit', async (e) => {
   if (!reparto || !categoria || !classeId) return;
   const btn = $('#classe-conferma');
   btn.disabled = true; btn.textContent = 'Salvataggio…';
-  const { status, body } = await api(`/api/complaints/${classeId}`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${classeId}`, {
     method: 'PATCH', body: JSON.stringify({ reparto, categoria }),
   });
   btn.disabled = false; btn.textContent = 'Salva';
@@ -2255,14 +2255,14 @@ $('#cli-complaints').addEventListener('click', async (e) => {
     return;
   }
   if (del) {
-    await api(`/api/complaints/${del.dataset.delCompl}`, { method: 'DELETE' });
+    await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${del.dataset.delCompl}`, { method: 'DELETE' });
     caricaComplaints(clienteCorrente);
   } else if (toggle) {
     const li = toggle.closest('[data-compl]');
     // Risolvere passa dalla maschera del follow-up; riaprire no: lì non c'è
     // niente da raccontare, e il follow-up già scritto resta dov'è.
     if (toggle.dataset.stato === 'risolto') {
-      await api(`/api/complaints/${toggle.dataset.toggleCompl}`, { method: 'PATCH', body: JSON.stringify({ stato: 'aperto' }) });
+      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${toggle.dataset.toggleCompl}`, { method: 'PATCH', body: JSON.stringify({ stato: 'aperto' }) });
       caricaComplaints(clienteCorrente);
       return;
     }
@@ -2281,7 +2281,7 @@ $('#cli-complaints').addEventListener('click', async (e) => {
       if (nuovoFu == null) return;
       if (nuovoFu.trim()) patch.followUp = nuovoFu.trim();
     }
-    await api(`/api/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify(patch) });
+    await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify(patch) });
     caricaComplaints(clienteCorrente);
   }
 });
@@ -2316,7 +2316,7 @@ $('#followup-form').addEventListener('submit', async (e) => {
   if (!testo || !followUpId) return;
   const btn = $('#followup-conferma');
   btn.disabled = true; btn.textContent = 'Salvataggio…';
-  const { status, body } = await api(`/api/complaints/${followUpId}`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${followUpId}`, {
     method: 'PATCH', body: JSON.stringify({ stato: 'risolto', followUp: testo }),
   });
   btn.textContent = 'Conferma e risolvi';

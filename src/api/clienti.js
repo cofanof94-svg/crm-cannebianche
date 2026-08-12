@@ -14,6 +14,7 @@ const { aggregaCumulativi } = require('../stats');
 const { getAiClient, guastoAi } = require('../ai/client');
 const { puo, PERMESSI } = require('../auth/permessi');
 const { intParam } = require('./param');
+const { appartieneA } = require('../crm/helpers');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
 const briefingAi = require('../ai/briefing');
 const { getGruppo, mergeInto, unmerge, listMappature, separaGruppiDuplicati } = require('../crm/merge');
@@ -77,11 +78,19 @@ function createClientiRouter(pmsDb, crmDb) {
   const router = express.Router();
   router.use(requireAuth);
 
-  // Factory per le rotte DELETE /<risorsa>/:id (tutte identiche tranne fn e messaggio).
-  const delRoute = (path, fn, notFound) => router.delete(path, async (req, res) => {
+  // Factory per le rotte DELETE (tutte identiche tranne fn e messaggio).
+  //
+  // Il percorso porta anche il codice dell'ospite: la cancellazione avviene solo se
+  // la riga appartiene al suo gruppo. Prima bastava il numero della riga, e un id
+  // sbagliato — mandato per errore dall'interfaccia — cancellava il dato di un altro
+  // ospite senza che nessuno se ne accorgesse. Se la riga non è sua, è un 404: dal
+  // punto di vista di quella scheda, quella riga non esiste.
+  const delRoute = (risorsa, fn, notFound) => router.delete(`/clienti/:codCli/${risorsa}/:id`, async (req, res) => {
+    const codCli = intParam(req.params.codCli);
     const id = intParam(req.params.id);
-    if (id === null) return res.status(400).json({ error: 'ID non valido' });
-    if (!(await fn(crmDb, id))) return res.status(404).json({ error: notFound });
+    if (codCli === null || id === null) return res.status(400).json({ error: 'ID non valido' });
+    const { membri } = await getGruppo(crmDb, codCli);
+    if (!(await fn(crmDb, id, membri))) return res.status(404).json({ error: notFound });
     res.json({ ok: true });
   });
 
@@ -307,9 +316,13 @@ function createClientiRouter(pmsDb, crmDb) {
     res.status(201).json({ complaint });
   });
 
-  router.patch('/complaints/:id', async (req, res) => {
+  router.patch('/clienti/:codCli/complaints/:id', async (req, res) => {
+    const codCli = intParam(req.params.codCli);
     const id = intParam(req.params.id);
-    if (id === null) return res.status(400).json({ error: 'ID non valido' });
+    if (codCli === null || id === null) return res.status(400).json({ error: 'ID non valido' });
+    // Si corregge solo ciò che è dell'ospite che si sta guardando (vedi delRoute).
+    const { membri } = await getGruppo(crmDb, codCli);
+    if (!(await appartieneA(crmDb, 'customer_complaints', id, membri))) return res.status(404).json({ error: 'Complaint non trovato' });
     const body = req.body || {};
     // Stessi controlli dell'inserimento anche qui. Il follow-up aveva già il suo
     // tetto (FOLLOWUP_MAX, più sotto): resta quello, per non spostare un limite
@@ -350,7 +363,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.json({ ok: true });
   });
 
-  delRoute('/complaints/:id', deleteComplaint, 'Complaint non trovato');
+  delRoute('complaints', deleteComplaint, 'Complaint non trovato');
 
   // --- Intolleranze / allergie (dato di sicurezza) ---
   router.get('/clienti/:codCli/intolleranze', async (req, res) => {
@@ -371,7 +384,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.status(201).json({ intolleranza });
   });
 
-  delRoute('/intolleranze/:id', deleteIntolleranza, 'Intolleranza non trovata');
+  delRoute('intolleranze', deleteIntolleranza, 'Intolleranza non trovata');
 
   // --- Profilo / Lingua preferita (1:1) ---
   router.get('/clienti/:codCli/profilo', async (req, res) => {
@@ -475,9 +488,12 @@ function createClientiRouter(pmsDb, crmDb) {
   });
 
   // Cambia l'ambito (o testo/reparto/categoria) di una preferenza.
-  router.patch('/preferenze/:id', async (req, res) => {
+  router.patch('/clienti/:codCli/preferenze/:id', async (req, res) => {
+    const codCli = intParam(req.params.codCli);
     const id = intParam(req.params.id);
-    if (id === null) return res.status(400).json({ error: 'ID non valido' });
+    if (codCli === null || id === null) return res.status(400).json({ error: 'ID non valido' });
+    const { membri } = await getGruppo(crmDb, codCli);
+    if (!(await appartieneA(crmDb, 'customer_preferences', id, membri))) return res.status(404).json({ error: 'Preferenza non trovata' });
     const b = req.body || {};
     const fields = {};
     if (b.ambito !== undefined) {
@@ -499,7 +515,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.json({ ok: true });
   });
 
-  delRoute('/preferenze/:id', deletePreferenza, 'Preferenza non trovata');
+  delRoute('preferenze', deletePreferenza, 'Preferenza non trovata');
 
   // --- Nucleo di viaggio / accompagnatori ---
   // Auto-popolamento iniziale (one-shot): alla prima apertura precompila il nucleo
@@ -550,9 +566,12 @@ function createClientiRouter(pmsDb, crmDb) {
   });
 
   // Modifica un membro del nucleo (relazione/nome/cognome/nota) — tutto editabile.
-  router.patch('/nucleo/:id', async (req, res) => {
+  router.patch('/clienti/:codCli/nucleo/:id', async (req, res) => {
+    const codCli = intParam(req.params.codCli);
     const id = intParam(req.params.id);
-    if (id === null) return res.status(400).json({ error: 'ID non valido' });
+    if (codCli === null || id === null) return res.status(400).json({ error: 'ID non valido' });
+    const { membri } = await getGruppo(crmDb, codCli);
+    if (!(await appartieneA(crmDb, 'customer_travel_party', id, membri))) return res.status(404).json({ error: 'Membro non trovato' });
     const b = req.body || {};
     const fields = {};
     if (b.tipoRelazione !== undefined) {
@@ -577,7 +596,7 @@ function createClientiRouter(pmsDb, crmDb) {
     res.json({ ok: true });
   });
 
-  delRoute('/nucleo/:id', deleteMembro, 'Membro non trovato');
+  delRoute('nucleo', deleteMembro, 'Membro non trovato');
 
   return router;
 }

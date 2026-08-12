@@ -20,6 +20,22 @@ const ROLES = NOMI_RUOLI;
 // compreso uno username fatto di soli spazi o un numero. Con un account così poi
 // non si fa più login, e per toglierlo bisogna mettere le mani nel database.
 const USERNAME_MAX = 50;
+
+// Lunghezza minima della password. Non è una politica di sicurezza completa —
+// niente complessità, niente scadenza, niente blocco dopo tentativi falliti — ed è
+// una scelta, non una dimenticanza: l'applicazione gira sulla rete interna
+// dell'hotel e il blocco tentativi chiuderebbe fuori chi dimentica la password,
+// visto che non c'è recupero via email. Il minimo che non può fare danni.
+//
+// Il cookie di sessione NON è marcato "solo su connessione cifrata" apposta: in
+// hotel si va in HTTP semplice, e marcarlo impedirebbe di accedere del tutto.
+// Da rivedere il giorno che l'applicazione uscirà dalla rete dell'hotel.
+const PASSWORD_MIN = 8;
+function passwordValida(v) {
+  if (typeof v !== 'string' || !v) return { errore: 'Password mancante' };
+  if (v.length < PASSWORD_MIN) return { errore: `Password troppo corta: almeno ${PASSWORD_MIN} caratteri` };
+  return { valore: v };
+}
 function nomeUtenteValido(v) {
   if (typeof v !== 'string') return { errore: 'Username non valido' };
   const t = v.trim();
@@ -53,7 +69,8 @@ function createAdminRouter(db) {
     const u = nomeUtenteValido((req.body || {}).username);
     if (u.errore) return res.status(400).json({ error: u.errore });
     const username = u.valore;
-    if (typeof password !== 'string' || !password) return res.status(400).json({ error: 'Password mancante' });
+    const pw = passwordValida(password);
+    if (pw.errore) return res.status(400).json({ error: pw.errore });
     if (!ROLES.includes(role)) return res.status(400).json({ error: 'Ruolo non valido' });
     const passwordHash = await hashPassword(password);
     try {
@@ -104,7 +121,13 @@ function createAdminRouter(db) {
     if (nome !== undefined) campi.nome = nome;
     if (cognome !== undefined) campi.cognome = cognome;
     if (email !== undefined) campi.email = email;
-    if (password) campi.password_hash = await hashPassword(password);
+    // Anche il cambio password passa dal controllo: altrimenti il minimo varrebbe
+    // solo alla creazione, e basterebbe una modifica per aggirarlo.
+    if (password !== undefined && password !== '') {
+      const pw = passwordValida(password);
+      if (pw.errore) return res.status(400).json({ error: pw.errore });
+      campi.password_hash = await hashPassword(password);
+    }
     try {
       await updateUser(db, id, campi);
       res.json({ ok: true });

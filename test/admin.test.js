@@ -84,7 +84,7 @@ test('admin può listare gli utenti', async () => {
 test('admin crea un utente con ruolo valido', async () => {
   const { app } = await makeApp();
   const agent = await loginAgent(app);
-  const res = await agent.post('/api/admin/users').send({ username: 'nuovo', password: 'pw', role: 'reception' });
+  const res = await agent.post('/api/admin/users').send({ username: 'nuovo', password: 'passwordlunga', role: 'reception' });
   assert.strictEqual(res.status, 201);
   assert.strictEqual(res.body.user.role, 'reception');
 });
@@ -92,7 +92,7 @@ test('admin crea un utente con ruolo valido', async () => {
 test('ruolo non valido → 400', async () => {
   const { app } = await makeApp();
   const agent = await loginAgent(app);
-  const res = await agent.post('/api/admin/users').send({ username: 'x', password: 'pw', role: 'root' });
+  const res = await agent.post('/api/admin/users').send({ username: 'x', password: 'passwordlunga', role: 'root' });
   assert.strictEqual(res.status, 400);
 });
 
@@ -107,7 +107,7 @@ test('reception loggato → GET /api/admin/users → 403', async () => {
 test('username duplicato → POST /api/admin/users → 409', async () => {
   const { app } = await makeApp({ duplicateUsernames: ['dup'] });
   const agent = await loginAgent(app);
-  const res = await agent.post('/api/admin/users').send({ username: 'dup', password: 'pw', role: 'reception' });
+  const res = await agent.post('/api/admin/users').send({ username: 'dup', password: 'passwordlunga', role: 'reception' });
   assert.strictEqual(res.status, 409);
 });
 
@@ -145,7 +145,7 @@ test('route che lancia → 500 JSON', async () => {
 test('creazione con nome/cognome/email → 201', async () => {
   const { app } = await makeApp();
   const agent = await loginAgent(app);
-  const res = await agent.post('/api/admin/users').send({ username: 'nuovo', password: 'pw', role: 'reception', nome: 'Anna', cognome: 'Bianchi', email: 'a@b.it' });
+  const res = await agent.post('/api/admin/users').send({ username: 'nuovo', password: 'passwordlunga', role: 'reception', nome: 'Anna', cognome: 'Bianchi', email: 'a@b.it' });
   assert.strictEqual(res.status, 201);
 });
 
@@ -155,8 +155,29 @@ test('modifica nome/email/password → 200', async () => {
   const recep = { id: 2, username: 'recep', password_hash: await hashPassword('pw'), role: 'reception', attivo: 1 };
   const { app } = await makeApp({ extraUsers: [recep] });
   const agent = await loginAgent(app);
-  const res = await agent.patch('/api/admin/users/2').send({ nome: 'X', email: 'x@y.it', password: 'nuova' });
+  const res = await agent.patch('/api/admin/users/2').send({ nome: 'X', email: 'x@y.it', password: 'nuovapassword' });
   assert.strictEqual(res.status, 200);
+});
+
+test('password: lunghezza minima, in creazione e in modifica', async () => {
+  // D9: bastava un carattere. Non è una politica completa — niente complessità,
+  // niente blocco tentativi, e il cookie resta non cifrato perché in hotel si va
+  // in HTTP — ma è il minimo che non può fare danni.
+  const recep = { id: 2, username: 'recep', password_hash: await hashPassword('pw'), role: 'reception', attivo: 1 };
+  const { app } = await makeApp({ extraUsers: [recep] });
+  const agent = await loginAgent(app);
+  for (const password of ['', 'x', 'corta12', 12345678, null]) {
+    const res = await agent.post('/api/admin/users').send({ username: 'tizio', password, role: 'readonly' });
+    assert.strictEqual(res.status, 400, `password ${JSON.stringify(password)} accettata`);
+  }
+  // Il minimo vale anche cambiandola: altrimenti si aggirerebbe con una modifica.
+  const corta = await agent.patch('/api/admin/users/2').send({ password: 'corta' });
+  assert.strictEqual(corta.status, 400);
+  assert.match(corta.body.error, /almeno 8 caratteri/);
+  // Otto caratteri esatti passano: il confine non è spostato di uno.
+  assert.strictEqual((await agent.patch('/api/admin/users/2').send({ password: 'ottochar' })).status, 200);
+  // E una PATCH senza password continua a funzionare.
+  assert.strictEqual((await agent.patch('/api/admin/users/2').send({ nome: 'Anna' })).status, 200);
 });
 
 test('modifica o eliminazione di un utente inesistente → 404, non un finto ok', async () => {
@@ -173,11 +194,11 @@ test('username: niente spazi, niente vuoti, niente valori che stringa non sono',
   const agent = await loginAgent(app);
   const cattivi = ['   ', '', 'con spazio', 'a'.repeat(51), 12345, null, { a: 1 }];
   for (const username of cattivi) {
-    const res = await agent.post('/api/admin/users').send({ username, password: 'pw', role: 'readonly' });
+    const res = await agent.post('/api/admin/users').send({ username, password: 'passwordlunga', role: 'readonly' });
     assert.strictEqual(res.status, 400, `username ${JSON.stringify(username)} accettato`);
   }
   // Gli spazi ai lati si tolgono, non fanno fallire.
-  const ok = await agent.post('/api/admin/users').send({ username: '  mario.rossi  ', password: 'pw', role: 'readonly' });
+  const ok = await agent.post('/api/admin/users').send({ username: '  mario.rossi  ', password: 'passwordlunga', role: 'readonly' });
   assert.strictEqual(ok.status, 201);
   assert.strictEqual(ok.body.user.username, 'mario.rossi');
 });

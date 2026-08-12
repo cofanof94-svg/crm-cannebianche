@@ -51,9 +51,9 @@ const SCRITTURE = [
   ['post', '/api/clienti/47186/merge'],
   ['put', '/api/clienti/47186/note-personali'],
   ['put', '/api/clienti/47186/profilo'],
-  ['patch', '/api/preferenze/1'],
-  ['patch', '/api/complaints/1'],
-  ['patch', '/api/nucleo/1'],
+  ['patch', '/api/clienti/47186/preferenze/1'],
+  ['patch', '/api/clienti/47186/complaints/1'],
+  ['patch', '/api/clienti/47186/nucleo/1'],
   ['delete', '/api/merge/1'],
 ];
 

@@ -28,7 +28,7 @@ test('mock: creare, modificare ed eliminare un utente cambia davvero la lista', 
   const iniziali = await nomiUtenti(ag);
   assert.ok(iniziali.includes('admin'));
 
-  const creato = await ag.post('/api/admin/users').send({ username: 'prova', password: 'pw', role: 'reception' });
+  const creato = await ag.post('/api/admin/users').send({ username: 'prova', password: 'passwordlunga', role: 'reception' });
   assert.strictEqual(creato.status, 201);
   assert.ok((await nomiUtenti(ag)).includes('prova'), 'utente creato ma non in elenco');
 

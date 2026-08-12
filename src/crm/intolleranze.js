@@ -26,6 +26,6 @@ async function createIntolleranza(db, { pmsCustomerId, autoreUserId, testo }) {
 }
 
 const { deleteById } = require('./helpers');
-const deleteIntolleranza = (db, id) => deleteById(db, 'customer_intolerances', id);
+const deleteIntolleranza = (db, id, membri) => deleteById(db, 'customer_intolerances', id, membri);
 
 module.exports = { listIntolleranze, createIntolleranza, deleteIntolleranza };
