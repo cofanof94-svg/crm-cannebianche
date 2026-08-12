@@ -928,3 +928,6 @@ body.sola-lettura :is(
 .campo-nota { display: block; margin-top: 4px; font-size: 11.5px; color: var(--muted); line-height: 1.35; min-height: 1.35em; }
 /* Non è un ruolo, è un guasto di allineamento fra server e file: si distingue. */
 .ruolo-badge-guasto { background: #f7edda; border-color: #c9a24e; color: #7c5f28; }
+/* Confronto delle anagrafiche di una scheda fusa: è un'azione di lettura, quindi
+   sta con le chip ma non si traveste da comando principale. */
+.merge-vedi { align-self: center; }

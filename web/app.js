@@ -1801,8 +1801,13 @@ async function caricaSpa(codCli) {
 let clienteNSogg = 0;      // n. soggiorni del cliente corrente (per scegliere il principale)
 let duplicatiCorrenti = []; // candidati mostrati nel box
 
+// Codici del gruppo attualmente a video: servono al confronto in sola vista, che
+// si apre dal banner e non ha altro modo di sapere chi sta guardando.
+let mergeCorrente = [];
+
 function renderMergeBanner(codCli, merge) {
   const el = $('#cli-merge-banner');
+  mergeCorrente = (merge && merge.membri) || [];
   if (!merge || !merge.membri || merge.membri.length < 2) { el.hidden = true; el.innerHTML = ''; return; }
   const rows = (merge.anagrafiche || []).map((x) => {
     const isPrinc = x.codCli === merge.canonicalId;
@@ -1814,7 +1819,12 @@ function renderMergeBanner(codCli, merge) {
     return `<span class="merge-chip">${nome} <span class="cell-muted">#${x.codCli}${isPrinc ? ' · principale' : ''}</span>${scollega}</span>`;
   }).join(' ');
   el.hidden = false;
-  el.innerHTML = `<span class="merge-ico">⛓</span><div><b>Scheda fusa</b> — dati aggregati su ${merge.membri.length} anagrafiche.<div class="merge-chips">${rows}</div></div>`;
+  // I dati delle singole anagrafiche, dopo la fusione, non si vedono più da
+  // nessuna parte: la scheda mostra l'insieme. Serve un modo per riaprirli, se non
+  // altro per accorgersi che due codici hanno mail o codice fiscale diversi.
+  // È una lettura, quindi resta disponibile anche a chi non può modificare.
+  const confronta = '<button type="button" class="btn btn-sm merge-vedi" data-vedi-anagrafiche title="Vedi i dati delle singole anagrafiche, uno accanto all\'altro">Confronta anagrafiche</button>';
+  el.innerHTML = `<span class="merge-ico">⛓</span><div><b>Scheda fusa</b> — dati aggregati su ${merge.membri.length} anagrafiche.<div class="merge-chips">${rows}${confronta}</div></div>`;
 }
 
 async function caricaDuplicati(codCli) {
@@ -1863,7 +1873,14 @@ const CAMPI_MERGE = [
 ];
 const LABEL_CAMPO = { codiceFiscale: 'codice fiscale', email: 'email', telefono: 'telefono', cellulare: 'cellulare', citta: 'città', dtNascita: 'data di nascita' };
 
-async function apriConfronto(ids) {
+// Sola vista: il confronto aperto da una scheda GIÀ fusa. Non c'è niente da
+// confermare — serve a vedere i dati delle singole anagrafiche, che la fusione
+// aggrega e quindi nasconde. È l'unico modo per accorgersi che due codici hanno
+// email o codice fiscale diversi dopo che sono stati uniti.
+let mergeSolaLettura = false;
+
+async function apriConfronto(ids, opts = {}) {
+  mergeSolaLettura = !!opts.soloVista;
   const first = ids[0];
   // La modale si apre subito con lo spinner: il confronto interroga il PMS su
   // più anagrafiche e senza questo il clic sembrerebbe non aver fatto nulla.
@@ -1884,9 +1901,15 @@ function renderMerge() {
   const cell = (v, fmt) => { const x = fmt ? fmt(v) : v; return (x == null || x === '') ? '<span class="dash">—</span>' : esc(String(x)); };
   // Il codice in intestazione apre l'anagrafica in una NUOVA scheda: si può
   // controllare un profilo senza perdere il confronto in corso.
-  const head = d.anagrafiche.map((a) => `<th class="${a.codCli === princ ? 'merge-princ-col' : ''}">
-      <label class="merge-princ"><input type="radio" name="princ" value="${a.codCli}" ${a.codCli === princ ? 'checked' : ''}/> ${linkCliente(a.codCli, `#${a.codCli}`, { nuovaScheda: true, titolo: `Apri l'anagrafica #${a.codCli} in una nuova scheda` })}</label>
-      ${a.codCli === princ ? '<span class="merge-badge">principale</span>' : ''}</th>`).join('');
+  const head = d.anagrafiche.map((a) => {
+    const codice = linkCliente(a.codCli, `#${a.codCli}`, { nuovaScheda: true, titolo: `Apri l'anagrafica #${a.codCli} in una nuova scheda` });
+    // In sola vista il principale è già deciso: niente radio da scegliere.
+    const scelta = mergeSolaLettura
+      ? `<span class="merge-princ">${codice}</span>`
+      : `<label class="merge-princ"><input type="radio" name="princ" value="${a.codCli}" ${a.codCli === princ ? 'checked' : ''}/> ${codice}</label>`;
+    return `<th class="${a.codCli === princ ? 'merge-princ-col' : ''}">${scelta}
+      ${a.codCli === princ ? '<span class="merge-badge">principale</span>' : ''}</th>`;
+  }).join('');
   const rows = CAMPI_MERGE.map(([k, label, fmt]) => {
     const conf = conflSet.has(k);
     const tds = d.anagrafiche.map((a) => {
@@ -1898,16 +1921,26 @@ function renderMerge() {
     }).join('');
     return `<tr><td class="merge-lbl">${esc(label)}${conf ? ' <span class="merge-warn" title="Dati diversi tra le anagrafiche">⚠</span>' : ''}</td>${tds}</tr>`;
   }).join('');
-  const avviso = conflSet.size
-    ? `<div class="merge-avviso">⚠ Dati in conflitto (${[...conflSet].map((c) => LABEL_CAMPO[c] || c).join(', ')}): assicurati che sia la stessa persona e scegli il principale prima di confermare.</div>`
-    : '';
+  const elenco = [...conflSet].map((c) => LABEL_CAMPO[c] || c).join(', ');
+  const avviso = !conflSet.size ? ''
+    : mergeSolaLettura
+      // Su un gruppo già fuso il conflitto non blocca niente: è un'informazione, e
+      // la via d'uscita non è "non confermare" ma scollegare dal banner.
+      ? `<div class="merge-avviso">⚠ Queste anagrafiche hanno dati diversi (${esc(elenco)}). Se non fossero la stessa persona, si scollegano dal banner della scheda.</div>`
+      : `<div class="merge-avviso">⚠ Dati in conflitto (${esc(elenco)}): assicurati che sia la stessa persona e scegli il principale prima di confermare.</div>`;
   const codaInfo = mergeCoda ? `<span class="merge-coda">Gruppo ${mergeCoda.idx + 1} di ${mergeCoda.gruppi.length}</span>` : '';
-  const azioni = mergeCoda
-    ? '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla tutto</button><button type="button" class="btn" id="merge-salta">Salta</button><button type="button" class="btn btn-primary" id="merge-conferma">Conferma unione</button>'
-    : '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla</button><button type="button" class="btn btn-primary" id="merge-conferma">Conferma unione</button>';
+  const azioni = mergeSolaLettura
+    ? '<button type="button" class="btn btn-primary" id="merge-annulla">Chiudi</button>'
+    : mergeCoda
+      ? '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla tutto</button><button type="button" class="btn" id="merge-salta">Salta</button><button type="button" class="btn btn-primary" id="merge-conferma">Conferma unione</button>'
+      : '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla</button><button type="button" class="btn btn-primary" id="merge-conferma">Conferma unione</button>';
+  const titolo = mergeSolaLettura ? 'Anagrafiche di questa scheda' : 'Confronta e unisci anagrafiche';
+  const sottotitolo = mergeSolaLettura
+    ? 'Sono le anagrafiche unite in questa scheda. Quello che vedi nella scheda è il loro <b>insieme</b>: qui invece i dati di ciascuna, uno accanto all\'altro.'
+    : 'Scegli l\'anagrafica <b>principale</b>; le altre verranno collegate. Verranno aggregati soggiorni, consumi F&amp;B/SPA, preferenze, intolleranze, reclami e note. Operazione <b>reversibile</b>.';
   $('#merge-dialog-body').innerHTML = `<div class="merge-body">
-    <div class="merge-head"><span class="modal-title">Confronta e unisci anagrafiche</span>${codaInfo}</div>
-    <p class="merge-sub">Scegli l'anagrafica <b>principale</b>; le altre verranno collegate. Verranno aggregati soggiorni, consumi F&amp;B/SPA, preferenze, intolleranze, reclami e note. Operazione <b>reversibile</b>.</p>
+    <div class="merge-head"><span class="modal-title">${esc(titolo)}</span>${codaInfo}</div>
+    <p class="merge-sub">${sottotitolo}</p>
     ${avviso}
     <div class="merge-tab-wrap"><table class="merge-tab"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
     <div class="modal-actions">${azioni}</div>
@@ -1951,6 +1984,10 @@ $('#merge-dialog-body').addEventListener('click', (e) => {
 });
 
 $('#cli-merge-banner').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-vedi-anagrafiche]')) {
+    if (mergeCorrente && mergeCorrente.length > 1) apriConfronto(mergeCorrente, { soloVista: true });
+    return;
+  }
   const btn = e.target.closest('[data-unmerge]');
   if (!btn || !clienteCorrente) return;
   await api(`/api/merge/${encodeURIComponent(btn.dataset.unmerge)}`, { method: 'DELETE' });
