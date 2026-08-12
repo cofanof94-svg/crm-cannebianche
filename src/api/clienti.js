@@ -27,6 +27,36 @@ function calcolaStatistiche(soggiorni) {
 // Ritorna l'intero da un parametro di rotta, o null se non valido.
 const intParam = (v) => { const n = Number(v); return Number.isInteger(n) ? n : null; };
 
+// Lunghezze massime dei campi di testo, prese dalle colonne del CRM. Senza questi
+// controlli il testo troppo lungo arrivava fino all'INSERT, SQL Server lo rifiutava
+// e l'API rispondeva 500: un errore del server per un dato dell'utente, per giunta
+// visibile solo nei log. Meglio dirlo subito e con precisione.
+// Le colonne NVARCHAR(MAX) (nota personale, testo del reclamo) non hanno limite qui.
+const LIMITI = {
+  intolleranza: 200,   // customer_intolerances.testo
+  preferenza: 400,     // customer_preferences.testo
+  nomePersona: 80,     // customer_travel_party.nome / .cognome
+  notaNucleo: 400,     // customer_travel_party.nota
+  lingua: 40,          // customer_profile.lingua
+  periodo: 60,         // customer_complaints.periodo
+};
+
+// Testo di un campo: stringa ripulita, oppure un errore se sfora.
+// Rifiuta anche i valori che stringa non sono: un oggetto diventava
+// "[object Object]" e finiva a database così com'è.
+function campoTesto(valore, { max, nome, obbligatorio = true }) {
+  if (valore === undefined || valore === null) {
+    return obbligatorio ? { errore: `${nome} mancante` } : { valore: '' };
+  }
+  if (typeof valore !== 'string' && typeof valore !== 'number') {
+    return { errore: `${nome} non valido` };
+  }
+  const t = String(valore).trim();
+  if (!t && obbligatorio) return { errore: `${nome} mancante` };
+  if (t.length > max) return { errore: `${nome}: massimo ${max} caratteri (ne hai scritti ${t.length})` };
+  return { valore: t };
+}
+
 function createClientiRouter(pmsDb, crmDb) {
   const router = express.Router();
   router.use(requireAuth);
@@ -230,12 +260,16 @@ function createClientiRouter(pmsDb, crmDb) {
   router.post('/clienti/:codCli/complaints', async (req, res) => {
     const codCli = Number(req.params.codCli);
     const b = req.body || {};
-    const testo = (b.testo ? String(b.testo) : '').trim();
-    const periodo = (b.periodo != null ? String(b.periodo).trim() : '') || null;
     const reparto = (b.reparto != null ? String(b.reparto).trim() : '');
     const categoria = (b.categoria != null ? String(b.categoria).trim() : '');
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    if (!testo) return res.status(400).json({ error: 'Testo mancante' });
+    // Il testo del reclamo sta in NVARCHAR(MAX): nessun tetto, ma deve essere testo.
+    const t = campoTesto(b.testo, { max: Number.MAX_SAFE_INTEGER, nome: 'Testo' });
+    if (t.errore) return res.status(400).json({ error: t.errore });
+    const testo = t.valore;
+    const p = campoTesto(b.periodo, { max: LIMITI.periodo, nome: 'Periodo', obbligatorio: false });
+    if (p.errore) return res.status(400).json({ error: p.errore });
+    const periodo = p.valore || null;
     // Obbligatori sui NUOVI reclami: è la classificazione che permette di girare
     // il problema al reparto giusto. I vecchi restano senza, e va bene così.
     if (!REPARTI.includes(reparto)) return res.status(400).json({ error: 'Reparto non valido' });
@@ -291,9 +325,10 @@ function createClientiRouter(pmsDb, crmDb) {
 
   router.post('/clienti/:codCli/intolleranze', async (req, res) => {
     const codCli = Number(req.params.codCli);
-    const testo = (req.body && req.body.testo ? String(req.body.testo) : '').trim();
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    if (!testo) return res.status(400).json({ error: 'Testo mancante' });
+    const t = campoTesto(req.body && req.body.testo, { max: LIMITI.intolleranza, nome: 'Testo' });
+    if (t.errore) return res.status(400).json({ error: t.errore });
+    const testo = t.valore;
     const intolleranza = await createIntolleranza(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo });
     res.status(201).json({ intolleranza });
   });
@@ -311,7 +346,9 @@ function createClientiRouter(pmsDb, crmDb) {
   router.put('/clienti/:codCli/profilo', async (req, res) => {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    const lingua = (req.body && req.body.lingua != null ? String(req.body.lingua) : '').trim() || null;
+    const l = campoTesto(req.body && req.body.lingua, { max: LIMITI.lingua, nome: 'Lingua', obbligatorio: false });
+    if (l.errore) return res.status(400).json({ error: l.errore });
+    const lingua = l.valore || null;
     // Svuotare = cancellare per tutta la persona, non solo per il codice aperto:
     // su una scheda fusa la lingua di un'altra anagrafica del gruppo riaffiorerebbe
     // subito e il campo sembrerebbe non cancellabile.
@@ -379,10 +416,11 @@ function createClientiRouter(pmsDb, crmDb) {
     const b = req.body || {};
     const reparto = b.reparto != null ? String(b.reparto).trim() : '';
     const categoria = b.categoria != null ? String(b.categoria).trim() : '';
-    const testo = b.testo != null ? String(b.testo).trim() : '';
     const ambito = b.ambito != null ? String(b.ambito).trim() : 'nucleo';
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
-    if (!testo) return res.status(400).json({ error: 'Testo mancante' });
+    const t = campoTesto(b.testo, { max: LIMITI.preferenza, nome: 'Testo' });
+    if (t.errore) return res.status(400).json({ error: t.errore });
+    const testo = t.valore;
     if (!REPARTI.includes(reparto)) return res.status(400).json({ error: 'Reparto non valido' });
     if (!CATEGORIE.includes(categoria)) return res.status(400).json({ error: 'Categoria non valida' });
     if (!AMBITI.includes(ambito)) return res.status(400).json({ error: 'Ambito non valido' });
@@ -435,11 +473,16 @@ function createClientiRouter(pmsDb, crmDb) {
     const codCli = Number(req.params.codCli);
     const b = req.body || {};
     const tipoRelazione = b.tipoRelazione != null ? String(b.tipoRelazione).trim() : '';
-    const nome = b.nome != null ? String(b.nome).trim() : '';
-    const cognome = b.cognome != null ? String(b.cognome).trim() : '';
-    const nota = b.nota != null ? String(b.nota).trim() : '';
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     if (!RELAZIONI.includes(tipoRelazione)) return res.status(400).json({ error: 'Relazione non valida' });
+    const campi = {
+      nome: campoTesto(b.nome, { max: LIMITI.nomePersona, nome: 'Nome', obbligatorio: false }),
+      cognome: campoTesto(b.cognome, { max: LIMITI.nomePersona, nome: 'Cognome', obbligatorio: false }),
+      nota: campoTesto(b.nota, { max: LIMITI.notaNucleo, nome: 'Nota', obbligatorio: false }),
+    };
+    const guasto = Object.values(campi).find((c) => c.errore);
+    if (guasto) return res.status(400).json({ error: guasto.errore });
+    const { nome, cognome, nota } = { nome: campi.nome.valore, cognome: campi.cognome.valore, nota: campi.nota.valore };
     if (!nome && !cognome) return res.status(400).json({ error: 'Nome o cognome richiesto' });
     const membro = await createMembro(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, tipoRelazione, nome: nome || null, cognome: cognome || null, nota: nota || null });
     res.status(201).json({ membro });

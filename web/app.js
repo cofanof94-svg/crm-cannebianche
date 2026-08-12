@@ -349,6 +349,17 @@ function motivoAiNonDisponibile(body) {
   return m || 'AI non configurata: manca la chiave ANTHROPIC_API_KEY o l\'SDK.';
 }
 
+// Un salvataggio che fallisce deve dirlo. Questi form non avevano ramo `else`: se
+// la chiamata non andava a buon fine non succedeva NIENTE — campo pieno, nessun
+// messaggio, nessuna riga nuova. Sulle intolleranze significa credere di aver
+// registrato un'allergia che non c'è, ed è il motivo per cui questa funzione esiste.
+// Il testo resta nel campo apposta: si riprova senza riscrivere tutto.
+function erroreSalvataggio(status, body, cosa) {
+  if (status === 403) return; // il perché lo ha già detto api()
+  const dett = body && body.error ? ` ${String(body.error)}` : '';
+  avviso(`Non è stato possibile salvare ${cosa}.${dett} Il testo è rimasto nel campo: puoi riprovare.`);
+}
+
 function briefMsg(t) { return `<div class="brief-card"><div class="ai-msg">${esc(t)}</div></div>`; }
 
 // Da dove viene il dato: un ruolo letto su Treccani e uno letto su LinkedIn non
@@ -1363,12 +1374,14 @@ async function salvaLingua(lingua) {
   if (!clienteCorrente) return;
   const btn = $('#lingua-form') && $('#lingua-form').querySelector('button[type=submit]');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
-  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/profilo`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/profilo`, {
     method: 'PUT', body: JSON.stringify({ lingua }),
   });
   // Ricarica dal server = conferma: si torna in vista col valore che c'è davvero.
-  if (status === 200) { await caricaLingua(clienteCorrente); }
-  else if (btn) { btn.disabled = false; btn.textContent = 'Salva'; }
+  if (status === 200) { await caricaLingua(clienteCorrente); return; }
+  // Il pulsante che torna cliccabile, da solo, non spiega niente.
+  if (btn) { btn.disabled = false; btn.textContent = 'Salva'; }
+  erroreSalvataggio(status, body, 'la lingua preferita');
 }
 
 // Il form viene ricostruito a ogni render: gli ascoltatori stanno sul contenitore.
@@ -1437,11 +1450,12 @@ async function salvaNotePers(testo) {
   if (!clienteCorrente) return;
   const btn = $('#btn-notepers-salva');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
-  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/note-personali`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/note-personali`, {
     method: 'PUT', body: JSON.stringify({ testo, mode: 'set' }),
   });
-  if (status === 200) { await caricaLingua(clienteCorrente); } // ricarica dal server = conferma (torna in vista)
-  else if (btn) { btn.disabled = false; btn.textContent = 'Salva'; }
+  if (status === 200) { await caricaLingua(clienteCorrente); return; } // ricarica dal server = conferma
+  if (btn) { btn.disabled = false; btn.textContent = 'Salva'; }
+  erroreSalvataggio(status, body, 'la nota personale');
 }
 
 async function generaNotePers() {
@@ -1551,10 +1565,11 @@ $('#pref-form').addEventListener('submit', async (e) => {
   if (!clienteCorrente) return;
   const reparto = f.reparto.value, categoria = f.categoria.value, testo = f.testo.value.trim();
   if (!reparto || !categoria || !testo) return;
-  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, {
     method: 'POST', body: JSON.stringify({ reparto, categoria, testo }),
   });
   if (status === 201) { f.reset(); caricaPreferenze(clienteCorrente); }
+  else erroreSalvataggio(status, body, 'la preferenza');
 });
 
 $('#cli-preferenze').addEventListener('click', async (e) => {
@@ -1702,10 +1717,11 @@ $('#nucleo-form').addEventListener('submit', async (e) => {
   const tipoRelazione = f.tipoRelazione.value;
   const nome = f.nome.value.trim(), cognome = f.cognome.value.trim(), nota = f.nota.value.trim();
   if (!tipoRelazione || (!nome && !cognome)) return;
-  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/nucleo`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/nucleo`, {
     method: 'POST', body: JSON.stringify({ tipoRelazione, nome, cognome, nota }),
   });
   if (status === 201) { f.reset(); caricaNucleo(clienteCorrente); }
+  else erroreSalvataggio(status, body, 'il componente del nucleo');
 });
 
 $('#cli-nucleo').addEventListener('click', async (e) => {
@@ -2042,10 +2058,11 @@ $('#intol-form').addEventListener('submit', async (e) => {
   const f = e.target;
   const testo = f.testo.value.trim();
   if (!testo || !clienteCorrente) return;
-  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/intolleranze`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/intolleranze`, {
     method: 'POST', body: JSON.stringify({ testo }),
   });
   if (status === 201) { f.reset(); caricaIntolleranze(clienteCorrente); }
+  else erroreSalvataggio(status, body, 'l\'allergia');
 });
 
 $('#cli-intolleranze').addEventListener('click', async (e) => {
@@ -2105,7 +2122,7 @@ $('#compl-form').addEventListener('submit', async (e) => {
   const periodo = f.periodo.value.trim();
   const reparto = f.reparto.value, categoria = f.categoria.value;
   if (!testo || !reparto || !categoria || !clienteCorrente) return;
-  const { status } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints`, {
+  const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints`, {
     method: 'POST', body: JSON.stringify({ testo, periodo, reparto, categoria }),
   });
   if (status === 201) {
@@ -2114,7 +2131,7 @@ $('#compl-form').addEventListener('submit', async (e) => {
     popolaSelect(f.reparto, REPARTI, 'Reparto');
     popolaSelect(f.categoria, CATEGORIE_COMPLAINT, 'Categoria');
     caricaComplaints(clienteCorrente);
-  }
+  } else erroreSalvataggio(status, body, 'il reclamo');
 });
 
 // --- Classificazione di un complaint (reparto + categoria) ---
