@@ -150,10 +150,36 @@ test('creazione con nome/cognome/email → 201', async () => {
 });
 
 test('modifica nome/email/password → 200', async () => {
-  const { app } = await makeApp();
+  // L'utente da modificare deve esistere: una PATCH su un id inventato ora è 404,
+  // perché rispondere "ok" a chi ha sbagliato riga nasconde l'errore.
+  const recep = { id: 2, username: 'recep', password_hash: await hashPassword('pw'), role: 'reception', attivo: 1 };
+  const { app } = await makeApp({ extraUsers: [recep] });
   const agent = await loginAgent(app);
   const res = await agent.patch('/api/admin/users/2').send({ nome: 'X', email: 'x@y.it', password: 'nuova' });
   assert.strictEqual(res.status, 200);
+});
+
+test('modifica o eliminazione di un utente inesistente → 404, non un finto ok', async () => {
+  const { app } = await makeApp();
+  const agent = await loginAgent(app);
+  assert.strictEqual((await agent.patch('/api/admin/users/99999').send({ nome: 'Fantasma' })).status, 404);
+  assert.strictEqual((await agent.delete('/api/admin/users/99999')).status, 404);
+});
+
+test('username: niente spazi, niente vuoti, niente valori che stringa non sono', async () => {
+  // Sul DB vero la colonna è NVARCHAR(50) NOT NULL UNIQUE: uno username di soli
+  // spazi o numerico ci entrava, e con quell'account non si faceva più login.
+  const { app } = await makeApp();
+  const agent = await loginAgent(app);
+  const cattivi = ['   ', '', 'con spazio', 'a'.repeat(51), 12345, null, { a: 1 }];
+  for (const username of cattivi) {
+    const res = await agent.post('/api/admin/users').send({ username, password: 'pw', role: 'readonly' });
+    assert.strictEqual(res.status, 400, `username ${JSON.stringify(username)} accettato`);
+  }
+  // Gli spazi ai lati si tolgono, non fanno fallire.
+  const ok = await agent.post('/api/admin/users').send({ username: '  mario.rossi  ', password: 'pw', role: 'readonly' });
+  assert.strictEqual(ok.status, 201);
+  assert.strictEqual(ok.body.user.username, 'mario.rossi');
 });
 
 test('DELETE utente non-admin → 200', async () => {

@@ -15,6 +15,19 @@ const { NOMI_RUOLI, RUOLI } = require('../auth/permessi');
 // controllo dei permessi non conosce.
 const ROLES = NOMI_RUOLI;
 
+// Sul DB vero la colonna è NVARCHAR(50) NOT NULL UNIQUE: ci entrava di tutto,
+// compreso uno username fatto di soli spazi o un numero. Con un account così poi
+// non si fa più login, e per toglierlo bisogna mettere le mani nel database.
+const USERNAME_MAX = 50;
+function nomeUtenteValido(v) {
+  if (typeof v !== 'string') return { errore: 'Username non valido' };
+  const t = v.trim();
+  if (!t) return { errore: 'Username mancante' };
+  if (t.length > USERNAME_MAX) return { errore: `Username: massimo ${USERNAME_MAX} caratteri` };
+  if (/\s/.test(t)) return { errore: 'Username senza spazi' };
+  return { valore: t };
+}
+
 function createAdminRouter(db) {
   const router = express.Router();
   // L'accesso è già filtrato dalla guardia su /api (serve 'gestisci-utenti'):
@@ -35,10 +48,12 @@ function createAdminRouter(db) {
   });
 
   router.post('/users', async (req, res) => {
-    const { username, password, role, nome = null, cognome = null, email = null } = req.body || {};
-    if (!username || !password || !ROLES.includes(role)) {
-      return res.status(400).json({ error: 'Dati non validi' });
-    }
+    const { password, role, nome = null, cognome = null, email = null } = req.body || {};
+    const u = nomeUtenteValido((req.body || {}).username);
+    if (u.errore) return res.status(400).json({ error: u.errore });
+    const username = u.valore;
+    if (typeof password !== 'string' || !password) return res.status(400).json({ error: 'Password mancante' });
+    if (!ROLES.includes(role)) return res.status(400).json({ error: 'Ruolo non valido' });
     const passwordHash = await hashPassword(password);
     try {
       const user = await createUser(db, { username, passwordHash, role, nome, cognome, email });
@@ -54,7 +69,16 @@ function createAdminRouter(db) {
   router.patch('/users/:id', async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
+    // Rispondere "ok" su un utente che non esiste nasconde un errore: chi ha
+    // sbagliato id crede di aver modificato qualcosa.
+    if (!(await getUserById(db, id))) return res.status(404).json({ error: 'Utente non trovato' });
     const { username, role, attivo, nome, cognome, email, password } = req.body || {};
+    let nuovoUsername;
+    if (username !== undefined) {
+      const u = nomeUtenteValido(username);
+      if (u.errore) return res.status(400).json({ error: u.errore });
+      nuovoUsername = u.valore;
+    }
     const cambiaAttivo = attivo !== undefined;
     const nuovoAttivo = !!attivo;
     const disattiva = cambiaAttivo && !nuovoAttivo;
@@ -73,7 +97,7 @@ function createAdminRouter(db) {
       }
     }
     const campi = {};
-    if (username !== undefined) campi.username = username;
+    if (nuovoUsername !== undefined) campi.username = nuovoUsername;
     if (role !== undefined) campi.role = role;
     if (cambiaAttivo) campi.attivo = nuovoAttivo ? 1 : 0;
     if (nome !== undefined) campi.nome = nome;
@@ -96,7 +120,10 @@ function createAdminRouter(db) {
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
     if (id === req.session.user.id) return res.status(400).json({ error: 'Non puoi eliminare il tuo account' });
     const target = await getUserById(db, id);
-    if (target && target.role === 'admin' && target.attivo) {
+    // "Utente eliminato" su un id che non esiste è una bugia comoda: chi ha
+    // sbagliato riga se ne accorge solo molto dopo.
+    if (!target) return res.status(404).json({ error: 'Utente non trovato' });
+    if (target.role === 'admin' && target.attivo) {
       const n = await countActiveAdmins(db);
       if (n <= 1) return res.status(400).json({ error: 'Deve restare almeno un admin attivo' });
     }

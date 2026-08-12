@@ -283,8 +283,18 @@ const crmDb = {
     }
     if (/FROM users WHERE username/.test(t)) return store.users.filter((u) => u.username === params.username);
     if (/FROM users WHERE id/.test(t)) return store.users.filter((u) => u.id === params.id);
-    if (/FROM users ORDER BY username/.test(t)) return store.users.slice().sort((a, b) => a.username.localeCompare(b.username));
-    if (/COUNT\(1\) AS n FROM users/.test(t)) return [{ n: store.users.filter((u) => u.role === 'admin' && u.attivo).length }];
+    // La query vera non seleziona password_hash: qui si toglie, altrimenti il
+    // finto DB restituisce l'oggetto intero e l'elenco utenti mostra gli hash.
+    if (/FROM users ORDER BY username/.test(t)) {
+      return store.users.slice()
+        .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+        .map(({ password_hash: _, ...u }) => u);
+    }
+    // La query vera è `COUNT(*) AS n`: il finto riconosceva solo `COUNT(1)`, non
+    // combaciava, tornava [] e `rows[0].n` esplodeva. Risultato: in sviluppo non si
+    // poteva declassare, disattivare o eliminare nessun admin (500), e la
+    // salvaguardia "deve restare almeno un admin attivo" non era provabile.
+    if (/COUNT\((?:1|\*)\) AS n FROM users/.test(t)) return [{ n: store.users.filter((u) => u.role === 'admin' && u.attivo).length }];
 
     // --- customer_merge ---
     if (/customer_merge/.test(t)) {

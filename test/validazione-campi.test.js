@@ -73,6 +73,31 @@ test('quello che era valido prima resta valido', async () => {
   assert.match(vuoto.body.error, /mancante/i);
 });
 
+test('fusione: niente codici finti, niente gruppi fantasma', async () => {
+  // Number(true) è 1, Number('') e Number([]) sono 0: passavano tutti per interi
+  // validi. Il gruppo si riempiva di codici che non esistono, che sporcano ogni
+  // query per gruppo e dall'interfaccia non si tolgono — il pulsante per
+  // scollegare c'è solo per le anagrafiche che si vedono.
+  const ag = await entra();
+  for (const memberId of [true, '', [], {}, 1.5, '1e3', '0x10', null, '  ']) {
+    const res = await ag.post(`/api/clienti/${CLI}/merge`).send({ memberId, canonicalId: CLI });
+    assert.strictEqual(res.status, 400, `memberId ${JSON.stringify(memberId)} accettato`);
+  }
+  // Numero valido ma anagrafica inesistente: 404, non una fusione con un fantasma.
+  const inesistente = await ag.post(`/api/clienti/${CLI}/merge`).send({ memberId: 555555, canonicalId: CLI });
+  assert.strictEqual(inesistente.status, 404);
+  assert.match(inesistente.body.error, /555555/);
+
+  // Il gruppo è rimasto quello che era: nessun codice fantasma si è attaccato.
+  // Su una scheda non fusa `merge` è null, ed è il caso giusto qui.
+  const scheda = await ag.get(`/api/clienti/${CLI}`);
+  const membri = scheda.body.merge ? scheda.body.merge.membri : [CLI];
+  assert.deepStrictEqual(membri, [CLI]);
+
+  // E la fusione vera continua a funzionare.
+  assert.strictEqual((await ag.post(`/api/clienti/${CLI}/merge`).send({ memberId: 1201, canonicalId: CLI })).status, 201);
+});
+
 test('JSON malformato: 400, non un 500 che sembra un guasto nostro', async () => {
   const ag = await entra();
   const res = await ag.post(`/api/clienti/${CLI}/complaints`)

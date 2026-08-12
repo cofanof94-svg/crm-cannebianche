@@ -24,8 +24,22 @@ function calcolaStatistiche(soggiorni) {
   return aggregaCumulativi(soggiorni.filter((x) => !STATI_NON_VALIDI.includes(x.stato)));
 }
 
-// Ritorna l'intero da un parametro di rotta, o null se non valido.
-const intParam = (v) => { const n = Number(v); return Number.isInteger(n) ? n : null; };
+// Ritorna l'intero da un parametro di rotta o dal corpo, o null se non valido.
+//
+// Non basta `Number.isInteger(Number(v))`: Number(true) è 1, Number('') e
+// Number([]) sono 0, e tutti passavano per interi validi. Dal corpo di una
+// richiesta arrivava di tutto, e una fusione con `memberId: true` creava un gruppo
+// col codice 1 — impossibile da scollegare, perché quell'anagrafica non esiste e
+// nell'interfaccia non compare. Qui si accetta solo ciò che è davvero un numero
+// intero scritto in cifre.
+const intParam = (v) => {
+  if (typeof v === 'number') return Number.isSafeInteger(v) ? v : null;
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  if (!/^-?\d+$/.test(t)) return null; // niente '1e3', '0x10', '1.0', ''
+  const n = Number(t);
+  return Number.isSafeInteger(n) ? n : null;
+};
 
 // Lunghezze massime dei campi di testo, prese dalle colonne del CRM. Senza questi
 // controlli il testo troppo lungo arrivava fino all'INSERT, SQL Server lo rifiutava
@@ -149,6 +163,14 @@ function createClientiRouter(pmsDb, crmDb) {
     const memberId = intParam(b.memberId);
     const canonicalId = intParam(b.canonicalId);
     if (memberId === null || canonicalId === null) return res.status(400).json({ error: 'memberId/canonicalId non validi' });
+    // Che siano numeri non basta: devono essere anagrafiche che esistono davvero.
+    // Un codice inventato entrava nel gruppo, sporcava tutte le query per gruppo
+    // (preferenze, allergie, reclami, soggiorni) e dall'interfaccia non si toglieva,
+    // perché il pulsante per scollegare c'è solo per le anagrafiche che si vedono.
+    const [chiMuove, chiResta] = await Promise.all([getCliente(pmsDb, memberId), getCliente(pmsDb, canonicalId)]);
+    if (!chiMuove || !chiResta) {
+      return res.status(404).json({ error: `Anagrafica non trovata: ${!chiMuove ? memberId : canonicalId}` });
+    }
     const r = await mergeInto(crmDb, { memberId, canonicalId, autoreUserId: req.session.user.id });
     if (!r.ok) return res.status(400).json({ error: 'Fusione non valida (auto-fusione)' });
     res.status(201).json({ ok: true, canonicalId: r.canonicalId });
