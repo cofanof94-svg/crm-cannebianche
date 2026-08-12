@@ -56,6 +56,10 @@ Da guardare al primo avvio: se una è sbagliata, l'errore si vede subito.
 - [ ] `listNotePersonali` — `src/crm/profilo.js` (SELECT su `customer_profile`)
 - [ ] `getStoricoByIds` — `src/pms/clienti.js` (COUNT DISTINCT su StorAlberg/StorPrenota)
 - [ ] `getAnagreConfronto` — `src/pms/duplicati.js`
+- [ ] **`cancellaNotePersonali` e `cancellaLingua`** — `src/crm/profilo.js` (12/08, due
+      UPDATE su `customer_profile`). Si provano premendo **Elimina** sulla nota
+      personale e sulla lingua di un ospite qualsiasi: se la query è sbagliata
+      l'errore si vede subito
 
 ⚠️ Attenzione particolare a `getStoricoByIds`: il rischio non è l'errore SQL ma il
 **doppio conteggio** fra prenotazioni correnti e concluse. Verificare su un ospite di
@@ -96,6 +100,16 @@ Dettagli e regole: [2026-08-11-allergie-da-note-pms.md](2026-08-11-allergie-da-n
 ### Note personali nelle card
 - [ ] Le note scritte in reception restano leggibili tagliate a ~90 caratteri?
       Se la prima frase è sempre una premessa lunga, conviene cambiare la regola
+
+### Limiti di lunghezza dei campi (nuovi del 12/08)
+I tetti sono presi dalle colonne del CRM, ma finora provati solo contro il database
+finto. Se un limite fosse più stretto della realtà, si bloccherebbe chi scrive.
+
+- [ ] Incollare una **preferenza lunga** (oltre 400 caratteri) e verificare che il
+      messaggio dica quanto ci sta, invece di non far succedere niente
+- [ ] Idem per un'**allergia** (200) e per una **nota del nucleo** (400)
+- [ ] Se qualche reparto scrive davvero più lungo di così, il tetto va alzato **nella
+      colonna e nel codice insieme** (`LIMITI` in `src/api/clienti.js`)
 
 ### Importi
 - [ ] Riconfermare con la software house del PMS (vedi la nota PENDING sugli importi)
