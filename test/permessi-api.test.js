@@ -146,6 +146,30 @@ test('nessuna scorciatoia: le maiuscole nell\'URL non scavalcano la guardia', as
   assert.strictEqual((await ag.get('/api/ANALYTICS')).status, 403);
 });
 
+test('chi consulta non lascia righe: nessuna scrittura durante una lettura', async () => {
+  // Trovato dall'analisi funzionale. La guardia dei permessi ragiona sul metodo
+  // HTTP e considera una GET una lettura — giustamente. Ma GET /clienti/:id/nucleo,
+  // la prima volta, PRECOMPILA il nucleo con i co-occupanti: un utente di sola
+  // consultazione, solo aprendo una scheda, si ritrovava righe scritte a suo nome.
+  // Qui si usa il server finto, che ha davvero i dati per la precompilazione.
+  const { creaApp, store } = require('../scripts/dev-mock');
+  store.nucleo.length = 0;
+  store.nucleoInit.clear();
+  const app = await creaApp();
+
+  const lettore = request.agent(app);
+  assert.strictEqual((await lettore.post('/api/auth/login').send({ username: 'lettore', password: 'admin' })).status, 200);
+  const vista = await lettore.get('/api/clienti/1001/nucleo');
+  assert.strictEqual(vista.status, 200, 'la consultazione deve restare permessa');
+  assert.strictEqual(store.nucleo.length, 0, 'un utente in sola lettura ha scritto nel database');
+
+  // Chi può scrivere invece la precompilazione la fa, come previsto.
+  const banco = request.agent(app);
+  assert.strictEqual((await banco.post('/api/auth/login').send({ username: 'reception', password: 'admin' })).status, 200);
+  assert.strictEqual((await banco.get('/api/clienti/1001/nucleo')).status, 200);
+  assert.ok(store.nucleo.length > 0, 'la precompilazione non è avvenuta per chi può scrivere');
+});
+
 test('senza sessione tutto è 401, anche le rotte che non esistono', async () => {
   const app = await appConUtenti();
   assert.strictEqual((await request(app).get('/api/clienti/47186')).status, 401);

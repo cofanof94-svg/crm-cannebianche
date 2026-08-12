@@ -98,6 +98,35 @@ test('fusione: niente codici finti, niente gruppi fantasma', async () => {
   assert.strictEqual((await ag.post(`/api/clienti/${CLI}/merge`).send({ memberId: 1201, canonicalId: CLI })).status, 201);
 });
 
+test('i limiti valgono anche in modifica, non solo in inserimento', async () => {
+  // Trovato dall'analisi funzionale: i controlli erano stati messi solo sulle POST.
+  // Correggere una riga esistente non è meno rischioso che crearla — il database
+  // rifiuta il testo troppo lungo allo stesso modo.
+  const ag = await entra();
+  const pref = await ag.post(`/api/clienti/${CLI}/preferenze`).send({ testo: 'Amarone', reparto: 'F&B', categoria: 'F&B' });
+  assert.strictEqual(pref.status, 201);
+  const idPref = pref.body.preferenza.id;
+  const membro = await ag.post(`/api/clienti/${CLI}/nucleo`).send({ tipoRelazione: 'Coniuge', nome: 'Anna' });
+  assert.strictEqual(membro.status, 201);
+  const idMembro = membro.body.membro.id;
+
+  const casi = [
+    ['preferenza', 400, () => ag.patch(`/api/preferenze/${idPref}`).send({ testo: lungo(401) })],
+    ['nome nucleo', 80, () => ag.patch(`/api/nucleo/${idMembro}`).send({ nome: lungo(81) })],
+    ['nota nucleo', 400, () => ag.patch(`/api/nucleo/${idMembro}`).send({ nota: lungo(401) })],
+  ];
+  for (const [nome, max, chiamata] of casi) {
+    const res = await chiamata();
+    assert.strictEqual(res.status, 400, `${nome}: modifica troppo lunga accettata`);
+    assert.match(res.body.error, new RegExp(`massimo ${max} caratteri`), nome);
+  }
+  // E i valori che stringa non sono restano fuori anche qui.
+  assert.strictEqual((await ag.patch(`/api/preferenze/${idPref}`).send({ testo: { a: 1 } })).status, 400);
+  assert.strictEqual((await ag.patch(`/api/nucleo/${idMembro}`).send({ nome: ['x'] })).status, 400);
+  // Una modifica legittima passa ancora.
+  assert.strictEqual((await ag.patch(`/api/preferenze/${idPref}`).send({ testo: 'Barolo' })).status, 200);
+});
+
 test('JSON malformato: 400, non un 500 che sembra un guasto nostro', async () => {
   const ag = await entra();
   const res = await ag.post(`/api/clienti/${CLI}/complaints`)

@@ -12,6 +12,7 @@ const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nu
 const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
 const { aggregaCumulativi } = require('../stats');
 const { getAiClient, guastoAi } = require('../ai/client');
+const { puo, PERMESSI } = require('../auth/permessi');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
 const briefingAi = require('../ai/briefing');
 const { getGruppo, mergeInto, unmerge, listMappature, separaGruppiDuplicati } = require('../crm/merge');
@@ -304,6 +305,14 @@ function createClientiRouter(pmsDb, crmDb) {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
     const body = req.body || {};
+    // Stessi controlli dell'inserimento anche qui. Il follow-up aveva già il suo
+    // tetto (FOLLOWUP_MAX, più sotto): resta quello, per non spostare un limite
+    // che è già in uso.
+    for (const [campo, max, etichetta] of [['testo', Number.MAX_SAFE_INTEGER, 'Testo'], ['periodo', LIMITI.periodo, 'Periodo']]) {
+      if (body[campo] == null) continue;
+      const c = campoTesto(body[campo], { max, nome: etichetta, obbligatorio: false });
+      if (c.errore) return res.status(400).json({ error: c.errore });
+    }
     const testo = body.testo != null ? String(body.testo).trim() : null;
     const stato = body.stato != null ? String(body.stato).trim() : null;
     const periodo = body.periodo != null ? String(body.periodo).trim() : null;
@@ -461,7 +470,13 @@ function createClientiRouter(pmsDb, crmDb) {
       if (!AMBITI.includes(a)) return res.status(400).json({ error: 'Ambito non valido' });
       fields.ambito = a;
     }
-    if (b.testo !== undefined) { const t = String(b.testo).trim(); if (!t) return res.status(400).json({ error: 'Testo mancante' }); fields.testo = t; }
+    // Stessi controlli dell'inserimento: correggere una riga non è meno rischioso
+    // che crearla, e un testo troppo lungo sarebbe rifiutato dal database uguale.
+    if (b.testo !== undefined) {
+      const t = campoTesto(b.testo, { max: LIMITI.preferenza, nome: 'Testo' });
+      if (t.errore) return res.status(400).json({ error: t.errore });
+      fields.testo = t.valore;
+    }
     if (b.reparto !== undefined) { if (!REPARTI.includes(String(b.reparto).trim())) return res.status(400).json({ error: 'Reparto non valido' }); fields.reparto = String(b.reparto).trim(); }
     if (b.categoria !== undefined) { if (!CATEGORIE.includes(String(b.categoria).trim())) return res.status(400).json({ error: 'Categoria non valida' }); fields.categoria = String(b.categoria).trim(); }
     if (!Object.keys(fields).length) return res.status(400).json({ error: 'Niente da aggiornare' });
@@ -487,7 +502,15 @@ function createClientiRouter(pmsDb, crmDb) {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     const { canonicalId, membri } = await getGruppo(crmDb, codCli);
-    await autoPopulaNucleo(canonicalId, membri, req.session.user.id);
+    // Questa GET, la prima volta, SCRIVE: precompila il nucleo con i co-occupanti.
+    // Chi ha solo il permesso di consultare non deve lasciare righe a suo nome
+    // aprendo una scheda. La guardia dei permessi qui non basta, perché ragiona sul
+    // metodo HTTP e una GET la considera — giustamente — una lettura: è questa rotta
+    // a comportarsi in modo diverso da come si presenta.
+    // Il nucleo resta vuoto finché non lo apre qualcuno che può scrivere.
+    if (puo(req.session.user, PERMESSI.SCRIVI)) {
+      await autoPopulaNucleo(canonicalId, membri, req.session.user.id);
+    }
     res.json({ nucleo: await listNucleo(crmDb, membri) });
   });
 
@@ -521,9 +544,18 @@ function createClientiRouter(pmsDb, crmDb) {
       if (!RELAZIONI.includes(rel)) return res.status(400).json({ error: 'Relazione non valida' });
       fields.tipoRelazione = rel;
     }
-    if (b.nome !== undefined) fields.nome = String(b.nome).trim() || null;
-    if (b.cognome !== undefined) fields.cognome = String(b.cognome).trim() || null;
-    if (b.nota !== undefined) fields.nota = String(b.nota).trim() || null;
+    // Come per l'inserimento: stessi tetti, stesso rifiuto dei valori non testuali.
+    const daControllare = [
+      ['nome', LIMITI.nomePersona, 'Nome'],
+      ['cognome', LIMITI.nomePersona, 'Cognome'],
+      ['nota', LIMITI.notaNucleo, 'Nota'],
+    ];
+    for (const [campo, max, etichetta] of daControllare) {
+      if (b[campo] === undefined) continue;
+      const c = campoTesto(b[campo], { max, nome: etichetta, obbligatorio: false });
+      if (c.errore) return res.status(400).json({ error: c.errore });
+      fields[campo] = c.valore || null;
+    }
     if (!Object.keys(fields).length) return res.status(400).json({ error: 'Niente da aggiornare' });
     if (!(await updateMembro(crmDb, id, fields))) return res.status(404).json({ error: 'Membro non trovato' });
     res.json({ ok: true });
