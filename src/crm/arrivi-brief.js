@@ -20,9 +20,13 @@ const { listIntolleranze } = require('./intolleranze');
 const { listNotePersonali } = require('./profilo');
 const { proponiDaNote } = require('./allergie-note');
 
+// Tolti `anniversari` e `suggerimentiAi` (12/08): valevano zero da sempre e nessuna
+// schermata li mostrava. Un contatore fermo a zero, il giorno che finisce in una
+// pagina, non dice "non lo sappiamo" ma "oggi non festeggia nessuno".
+// L'anniversario di matrimonio richiede un dato che il PMS non ha: si rifarà quando
+// ci sarà un campo da compilare, insieme alla sua pastiglia.
 function briefingVuoto(nArrivi) {
-  // anniversari e suggerimentiAi: nessuna fonte dati affidabile per ora → 0 (TODO).
-  return { arrivi: nArrivi || 0, vip: 0, compleanni: 0, reclami: 0, alert: 0, anniversari: 0, suggerimentiAi: 0 };
+  return { arrivi: nArrivi || 0, vip: 0, compleanni: 0, reclami: 0, alert: 0 };
 }
 
 // Codici ospite di tutti gli arrivi: referente (codCliente) + occupanti (ospiti[].codCli).
@@ -124,14 +128,27 @@ function costruisciSnapshot(a, ctx) {
     if (prefTop.length >= 3) break;
   }
 
-  // Intolleranze/allergie (sicurezza): dedup per testo.
+  // Intolleranze/allergie (sicurezza): ognuna porta il NOME di chi la ha.
+  //
+  // La nota di una prenotazione riguarda più persone, e chi accetta una proposta
+  // sceglie con cura a chi attribuirla proprio perché mettere un'allergia sulla
+  // persona sbagliata sposta l'attenzione della cucina sul commensale sbagliato.
+  // Rimostrarle poi aggregate, senza nome, buttava via quel lavoro proprio dove
+  // serviva: in card e sul foglio che va in cucina. (Decisione del 12/08, D2.)
+  //
+  // Il dedup ora è per coppia persona+testo: due occupanti celiaci sono due righe,
+  // non una — perché sono due piatti da preparare.
   const intoll = [];
   const vistiInt = new Set();
   for (const i of raccogli(ctx.intolBy, ids)) {
-    const key = (i.testo || '').trim().toLowerCase();
-    if (!key || vistiInt.has(key)) continue;
+    const testo = (i.testo || '').trim();
+    if (!testo) continue;
+    const di = ctx.anagra.get(i.pms_customer_id);
+    const chi = (di && di.nominativo) ? String(di.nominativo).trim() : null;
+    const key = `${i.pms_customer_id}|${testo.toLowerCase()}`;
+    if (vistiInt.has(key)) continue;
     vistiInt.add(key);
-    intoll.push((i.testo || '').trim());
+    intoll.push({ testo, chi });
   }
 
   // Reclami sul gruppo. Oltre al conteggio si porta il TESTO di quelli aperti:

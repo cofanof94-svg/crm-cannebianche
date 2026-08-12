@@ -127,6 +127,26 @@ test('i limiti valgono anche in modifica, non solo in inserimento', async () => 
   assert.strictEqual((await ag.patch(`/api/preferenze/${idPref}`).send({ testo: 'Barolo' })).status, 200);
 });
 
+test('la stessa difesa sugli identificativi vale su tutte le rotte', async () => {
+  // D7: il controllo stretto era nato dopo l'incidente delle fusioni fantasma, ma
+  // era rimasto solo nelle rotte dove era nato. Una difesa applicata a metà è una
+  // difesa che qualcuno crede di avere.
+  const ag = await entra();
+  // Uno spazio non è in elenco apposta: "/api/clienti/ " viene normalizzato in
+  // "/api/clienti/" e finisce sulla rotta di ricerca. È instradamento, non
+  // validazione, e ha già la sua difesa nel frontend.
+  const cattivi = ['1e3', '0x10', '1.5', 'abc', '1,0'];
+  for (const id of cattivi) {
+    assert.strictEqual((await ag.get(`/api/clienti/${id}`)).status, 400, `GET cliente ${id}`);
+    assert.strictEqual((await ag.get(`/api/clienti/${id}/preferenze`)).status, 400, `preferenze ${id}`);
+    assert.strictEqual((await ag.patch(`/api/complaints/${id}`).send({ testo: 'x' })).status, 400, `complaint ${id}`);
+    assert.strictEqual((await ag.get(`/api/admin/users`).query({})).status, 200); // sanity
+    assert.strictEqual((await ag.delete(`/api/admin/users/${id}`)).status, 400, `utente ${id}`);
+  }
+  // Un id valido continua a funzionare.
+  assert.notStrictEqual((await ag.get(`/api/clienti/${CLI}`)).status, 400);
+});
+
 test('JSON malformato: 400, non un 500 che sembra un guasto nostro', async () => {
   const ag = await entra();
   const res = await ag.post(`/api/clienti/${CLI}/complaints`)

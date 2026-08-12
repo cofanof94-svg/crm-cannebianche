@@ -5,23 +5,29 @@ const { createApp } = require('../src/app');
 const { calcolaStatistiche } = require('../src/api/clienti');
 const { hashPassword } = require('../src/auth/password');
 
-test('calcolaStatistiche esclude le prenotazioni Eliminata dai conteggi', () => {
+test('calcolaStatistiche conta solo i soggiorni avvenuti', () => {
+  // Decisione del 12/08 (D5): fuori le eliminate, i no-show e le prenotazioni che
+  // devono ancora cominciare. Quelle future hanno importi a zero perché non c'è
+  // ancora nulla di maturato: contarle gonfiava il numero dei soggiorni e abbassava
+  // tutte le medie. Restano dentro "In casa" e "Partito", dove i soldi sono veri.
   const s = calcolaStatistiche([
     { stato: 'Concluso', dtarrivo: '2026-04-17', arrangiamento: 855, extra: 40 },
     { stato: 'Eliminata', dtarrivo: '2026-01-01', arrangiamento: 0, extra: 0 },
     { stato: 'No-show', dtarrivo: '2025-05-05', arrangiamento: 0, extra: 0 },
-    { stato: 'Confermato', dtarrivo: '2026-07-07', arrangiamento: 2300, extra: 0 },
+    { stato: 'Confermato', dtarrivo: '2026-07-07', arrangiamento: 0, extra: 0 },   // arriva oggi, non ha ancora speso
+    { stato: 'Pianificata', dtarrivo: '2027-06-01', arrangiamento: 0, extra: 0 },  // estate prossima
+    { stato: 'Partito', dtarrivo: '2026-05-02', arrangiamento: 600, extra: 100 },  // appena uscito: conta
   ]);
-  assert.strictEqual(s.nSoggiorni, 2);              // eliminata e no-show non contano
-  assert.strictEqual(s.totaleSpeso, 3195);
+  assert.strictEqual(s.nSoggiorni, 2);
+  assert.strictEqual(s.totaleSpeso, 1595);          // 895 + 700
   assert.strictEqual(s.primaVisita, '2026-04-17');  // non 2026-01-01 dell'eliminata
-  assert.strictEqual(s.ultimaVisita, '2026-07-07');
+  assert.strictEqual(s.ultimaVisita, '2026-05-02'); // non la prenotazione futura
 });
 
 test('calcolaStatistiche: cumulativi LTV, notti, medie e ultima Source', () => {
   const s = calcolaStatistiche([
     { stato: 'Concluso', dtarrivo: '2026-04-17', notti: 2, arrangiamento: 800, extra: 200, source: 'OTA', mercato: 'LEISURE INDIVIDUALI' },
-    { stato: 'Confermato', dtarrivo: '2026-07-07', notti: 8, arrangiamento: 2000, extra: 0, source: 'DIRETTI', mercato: 'MEETING' },
+    { stato: 'Partito', dtarrivo: '2026-07-07', notti: 8, arrangiamento: 2000, extra: 0, source: 'DIRETTI', mercato: 'MEETING' },
     { stato: 'Eliminata', dtarrivo: '2026-08-01', notti: 5, arrangiamento: 0, extra: 0, source: 'OTA', mercato: 'SPA' }, // esclusa
   ]);
   assert.strictEqual(s.nSoggiorni, 2);
@@ -101,8 +107,11 @@ async function makeApp(opts = {}) {
       if (/codgrpmerCAT LIKE 'SPA/.test(text)) return [{ nome: 'SERENITY', grp: 'SPA', volte: 12, qta: 12, eur: 1200 }];
       if (/AS nShared/.test(text)) return opts.coOcc || []; // co-occupanti nucleo (auto-popolamento)
       // soggiorni (arrangiamento/extra da camereJson)
+      // Due soggiorni avvenuti più una prenotazione futura: quest'ultima ha importi
+      // a zero, come nella realtà, e dal 12/08 non conta nelle statistiche (D5).
       return [{ codpratica: 1, dtarrivo: '2026-04-17', dtpartenza: '2026-04-19', notti: 2, camere: '109', stato: 'Concluso', source: 'OTA', mercato: 'LEISURE INDIVIDUALI', arrangiamento: 855, extra: 0 },
-              { codpratica: 2, dtarrivo: '2026-07-07', dtpartenza: '2026-07-19', notti: 12, camere: '102', stato: 'Confermato', source: 'DIRETTI', mercato: 'MEETING', arrangiamento: 2300, extra: 0 }];
+              { codpratica: 2, dtarrivo: '2026-07-07', dtpartenza: '2026-07-19', notti: 12, camere: '102', stato: 'Partito', source: 'DIRETTI', mercato: 'MEETING', arrangiamento: 2300, extra: 0 },
+              { codpratica: 3, dtarrivo: '2027-06-01', dtpartenza: '2027-06-08', notti: 7, camere: '', stato: 'Pianificata', source: 'DIRETTI', mercato: 'LEISURE INDIVIDUALI', arrangiamento: 0, extra: 0 }];
     },
   };
   return createApp({ crmDb, pmsDb, sessionSecret: 'test' });
@@ -142,6 +151,10 @@ test('GET /api/clienti/:codCli → anagrafica+statistiche+soggiorni', async () =
   assert.strictEqual(res.body.statistiche.ultimoMercato, 'MEETING');
   assert.strictEqual(res.body.statistiche.primaVisita, '2026-04-17');
   assert.strictEqual(res.body.statistiche.ultimaVisita, '2026-07-07');
+  // La prenotazione futura resta VISIBILE nello storico: non conta nei numeri, ma
+  // sapere che l'ospite torna a giugno serve a chi lo accoglie.
+  assert.strictEqual(res.body.soggiorni.length, 3);
+  assert.ok(res.body.soggiorni.some((s) => s.stato === 'Pianificata'));
 });
 
 test('GET /api/clienti/:codCli/gusti → consumi F&B aggregati', async () => {
@@ -228,10 +241,16 @@ test('merge: dato CRM di un duplicato appare nel gruppo; unmerge lo scollega', a
   const scheda = await ag.get('/api/clienti/47186');
   assert.ok(scheda.body.merge);
   assert.deepStrictEqual([...scheda.body.merge.membri].sort((a, b) => a - b), [47186, 55491]);
-  // annullo la fusione → il dato non è più nel gruppo di 47186
+  // Decisione del 12/08 (D13): le scritture vanno sul PRINCIPALE, non sul codice
+  // che si sta guardando. Quindi scollegare il duplicato non porta via niente:
+  // l'allergia era stata scritta su 47186 fin dall'inizio, anche se in quel momento
+  // si stava guardando la scheda di 55491.
   const del = await ag.delete('/api/merge/55491');
   assert.strictEqual(del.status, 200);
   res = await ag.get('/api/clienti/47186/intolleranze');
+  assert.strictEqual(res.body.intolleranze.length, 1, 'lo scollegamento non deve portare via il dato');
+  // E sul duplicato scollegato non resta niente: non ci è mai stato scritto nulla.
+  res = await ag.get('/api/clienti/55491/intolleranze');
   assert.strictEqual(res.body.intolleranze.length, 0);
 });
 

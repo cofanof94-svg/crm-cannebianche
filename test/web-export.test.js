@@ -66,7 +66,11 @@ const arrivo = {
   ospiti: [{ nominativo: 'PAGLIUSO ROSEMARIE' }, { nominativo: 'PAGLIUSO NATALIA' }],
   snapshot: {
     vip: { descrizione: 'BOLLICINE + FRUTTA FRESCA' },
-    intolleranze: ['Arachidi', 'Lattosio'],
+    // Ogni allergia con il nome di chi la ha (decisione del 12/08, D2).
+    intolleranze: [
+      { testo: 'Arachidi', chi: 'PAGLIUSO ROBERT RALPH' },
+      { testo: 'Lattosio', chi: 'PAGLIUSO ROSEMARIE' },
+    ],
     preferenzeTop: [{ testo: 'Coca-Cola Zero' }, { testo: 'Cuscino rigido' }],
     reclami: { aperti: 1, totali: 2, apertiDettaglio: [{ testo: 'Ritardo nella pulizia camera', reparto: 'Rooms', categoria: 'Pulizia' }] },
     compleanno: { data: '2026-08-12', nome: 'PAGLIUSO NATALIA' },
@@ -77,7 +81,8 @@ const arrivo = {
 
 test('rigaExport: allergie e preferenze restano in campi DIVERSI', () => {
   const r = E.rigaExport(arrivo);
-  assert.strictEqual(r.allergie, 'Arachidi, Lattosio');
+  // Una per riga: sul foglio che va in cucina un elenco su una riga sola non si legge.
+  assert.strictEqual(r.allergie, 'Arachidi — PAGLIUSO ROBERT RALPH\nLattosio — PAGLIUSO ROSEMARIE');
   assert.strictEqual(r.preferenze, 'Coca-Cola Zero · Cuscino rigido');
   assert.doesNotMatch(r.preferenze, /Arachidi/); // mai mescolate
   assert.doesNotMatch(r.allergie, /Coca/);
@@ -171,7 +176,9 @@ test('toCsv: intestazioni, separatore ; e BOM per Excel', () => {
   // Con il ';' come separatore la virgola è un carattere qualunque: niente
   // virgolette inutili attorno a "Arachidi, Lattosio". E niente a capo: quelli
   // stanno solo sul foglio.
-  assert.strictEqual(linee[1], '109, 218;PAGLIUSO ROBERT RALPH;Arachidi, Lattosio;Coca-Cola Zero · Cuscino rigido');
+  // Le allergie ora contengono un a capo: il campo viene quotato, e l'a capo
+  // interno non spezza la riga del CSV, che si chiude con \r\n.
+  assert.strictEqual(linee[1], '109, 218;PAGLIUSO ROBERT RALPH;"Arachidi — PAGLIUSO ROBERT RALPH\nLattosio — PAGLIUSO ROSEMARIE";Coca-Cola Zero · Cuscino rigido');
 });
 
 test('CSV: un valore che inizia per = non diventa una formula in Excel', () => {
@@ -203,7 +210,7 @@ test('tabellaStampa: la riga con allergie è marcata e il valore evidenziato', (
   const righe = E.costruisciExport([arrivo, { ...arrivo, camere: '300', snapshot: { intolleranze: [] } }]);
   const html = E.tabellaStampa(righe, ['camera', 'allergie']);
   assert.match(html, /<tr class="st-riga-allergia">/);
-  assert.match(html, /<td class="st-allergie"><b>⚠ Arachidi, Lattosio<\/b><\/td>/);
+  assert.match(html, /<td class="st-allergie"><b>⚠ Arachidi — PAGLIUSO ROBERT RALPH\nLattosio — PAGLIUSO ROSEMARIE<\/b><\/td>/);
   assert.strictEqual((html.match(/st-riga-allergia/g) || []).length, 1); // solo chi ne ha
 });
 

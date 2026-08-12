@@ -516,13 +516,24 @@ function badgeVip(v) {
 // d'occhio. Fonte unica: le intolleranze dell'anagrafica, già nello snapshot —
 // qui non si aggiunge né si copia nulla. Campo vuoto → nessun alert (non un
 // alert vuoto). classe: 'arr-flag' negli Arrivi, 'flag' In casa.
+// Ogni allergia porta il nome di chi la ha: la prenotazione è di più persone, e
+// "Glutine" da solo non dice a chi va preparato il piatto senza. Se il nome manca
+// (dato vecchio, anagrafica sparita) si mostra comunque l'allergia: meglio un
+// allarme senza nome che nessun allarme.
+function vocaAllergia(v) {
+  const testo = typeof v === 'string' ? v : (v && v.testo) || '';
+  const chi = typeof v === 'string' ? '' : (v && v.chi) || '';
+  return { testo: String(testo).trim(), chi: String(chi).trim() };
+}
+
 function flagAllergie(s, classe) {
-  const voci = ((s && s.intolleranze) || []).filter((x) => String(x || '').trim());
+  const voci = ((s && s.intolleranze) || []).map(vocaAllergia).filter((v) => v.testo);
   if (!voci.length) return '';
+  const testo = voci.map((v) => (v.chi ? `${v.testo} — ${v.chi}` : v.testo)).join('; ');
   // Il titolo tiene la distinzione precisa (allergia ≠ intolleranza) senza
   // allungare l'etichetta: in card serve la parola che fa alzare la guardia.
   return `<span class="${esc(classe)} flag-safety" title="Allergie / intolleranze — dato di sicurezza">`
-    + `<span class="flag-lbl">⚠ Allergie:</span>${esc(voci.join(', '))}</span>`;
+    + `<span class="flag-lbl">⚠ Allergie:</span>${esc(testo)}</span>`;
 }
 
 // --- Possibili allergie lette nelle note PMS ---
@@ -577,10 +588,19 @@ function aggiungiAllergiaNelleCard(codCli, termine) {
     for (const x of lista || []) {
       const s = x.snapshot;
       if (!s) continue;
-      const coinvolto = x.codCliente === codCli || (x.ospiti || []).some((o) => o.codCli === codCli);
-      if (!coinvolto) continue;
+      const referente = x.codCliente === codCli;
+      const occupante = (x.ospiti || []).find((o) => o.codCli === codCli);
+      if (!referente && !occupante) continue;
+      // Il nome va messo subito, come lo metterebbe il server al prossimo
+      // caricamento: senza, l'allergia appena aggiunta sarebbe l'unica anonima.
+      const chi = referente ? x.nominativo : (occupante && occupante.nominativo) || '';
       s.intolleranze = s.intolleranze || [];
-      if (!s.intolleranze.some((t) => String(t).trim().toLowerCase() === chiave)) s.intolleranze.push(termine);
+      const gia = s.intolleranze.some((v) => {
+        const t = typeof v === 'string' ? v : (v && v.testo) || '';
+        const c = typeof v === 'string' ? '' : (v && v.chi) || '';
+        return String(t).trim().toLowerCase() === chiave && String(c).trim() === String(chi).trim();
+      });
+      if (!gia) s.intolleranze.push({ testo: termine, chi: chi || null });
     }
   }
   ricalcolaAlert();
@@ -775,7 +795,10 @@ let filtroInCasa = 'all';
 // Chip filtranti: pochi e operativi. Gli "usciti" (check-out fatto) restano in
 // fondo alla lista, ma hanno un chip per isolarli quando servono.
 const INCASA_CHIPS = [
-  { key: 'all', label: 'In casa', field: 'presenti', pred: () => true },
+  // "Oggi in hotel" e non "In casa": questo elenco comprende anche chi parte oggi,
+  // quindi dà un numero più alto del riquadro "Restano stanotte" della Home, che
+  // conta le camere occupate la notte. Sono due domande diverse, e i nomi lo dicono.
+  { key: 'all', label: 'Oggi in hotel', field: 'presenti', pred: () => true },
   // "Partono oggi" = ancora in camera con partenza odierna + chi ha già fatto il
   // check-out. È il filtro che apre la Home cliccando su "Partenze oggi".
   { key: 'partenze', label: 'Partono oggi', field: 'partonoOggi', pred: (c) => c.statoPartenza === 'partenza' || c.statoPartenza === 'checkout' },

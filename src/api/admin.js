@@ -9,6 +9,7 @@ const {
 } = require('../crm/users');
 const { hashPassword } = require('../auth/password');
 const { NOMI_RUOLI, RUOLI } = require('../auth/permessi');
+const { intParam } = require('./param');
 
 // I ruoli assegnabili sono quelli definiti in auth/permessi.js: qui non se ne
 // inventano altri, altrimenti si potrebbe creare un utente con un ruolo che il
@@ -67,8 +68,8 @@ function createAdminRouter(db) {
   });
 
   router.patch('/users/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
+    const id = intParam(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'ID non valido' });
     // Rispondere "ok" su un utente che non esiste nasconde un errore: chi ha
     // sbagliato id crede di aver modificato qualcosa.
     if (!(await getUserById(db, id))) return res.status(404).json({ error: 'Utente non trovato' });
@@ -116,8 +117,8 @@ function createAdminRouter(db) {
   });
 
   router.delete('/users/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
+    const id = intParam(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'ID non valido' });
     if (id === req.session.user.id) return res.status(400).json({ error: 'Non puoi eliminare il tuo account' });
     const target = await getUserById(db, id);
     // "Utente eliminato" su un id che non esiste è una bugia comoda: chi ha

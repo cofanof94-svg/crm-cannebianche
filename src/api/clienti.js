@@ -13,34 +13,30 @@ const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
 const { aggregaCumulativi } = require('../stats');
 const { getAiClient, guastoAi } = require('../ai/client');
 const { puo, PERMESSI } = require('../auth/permessi');
+const { intParam } = require('./param');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
 const briefingAi = require('../ai/briefing');
 const { getGruppo, mergeInto, unmerge, listMappature, separaGruppiDuplicati } = require('../crm/merge');
 const { getDuplicatiCandidati, getTuttiGruppiDuplicati, getAnagreConfronto, calcolaConflitti } = require('../pms/duplicati');
 
-// Eliminate e No-show restano nello storico ma non sono soggiorni reali:
-// escluse dai conteggi. L'aggregazione vera è nel modulo condiviso src/stats.js.
-const STATI_NON_VALIDI = ['Eliminata', 'No-show'];
+// Cosa NON è un soggiorno, ai fini delle statistiche.
+//
+// Eliminate e No-show restano nello storico ma non sono avvenute.
+// Pianificata e Confermato sono prenotazioni che devono ancora cominciare: hanno
+// importi a zero perché non c'è ancora nulla di maturato, quindi contarle gonfiava
+// il numero dei soggiorni e abbassava tutte le medie. Un ospite con 10 soggiorni e
+// 2 prenotazioni per l'estate prossima risultava con 12.
+//
+// Restano dentro "In casa" e "Partito": quel soggiorno sta avvenendo o è appena
+// finito, e i soldi sono veri. Così il conto coincide con il badge "Nª volta"
+// delle card, che mostra i soggiorni archiviati PIÙ quello in corso.
+const STATI_NON_AVVENUTI = ['Eliminata', 'No-show', 'Pianificata', 'Confermato'];
 function calcolaStatistiche(soggiorni) {
-  return aggregaCumulativi(soggiorni.filter((x) => !STATI_NON_VALIDI.includes(x.stato)));
+  return aggregaCumulativi(soggiorni.filter((x) => !STATI_NON_AVVENUTI.includes(x.stato)));
 }
 
-// Ritorna l'intero da un parametro di rotta o dal corpo, o null se non valido.
-//
-// Non basta `Number.isInteger(Number(v))`: Number(true) è 1, Number('') e
-// Number([]) sono 0, e tutti passavano per interi validi. Dal corpo di una
-// richiesta arrivava di tutto, e una fusione con `memberId: true` creava un gruppo
-// col codice 1 — impossibile da scollegare, perché quell'anagrafica non esiste e
-// nell'interfaccia non compare. Qui si accetta solo ciò che è davvero un numero
-// intero scritto in cifre.
-const intParam = (v) => {
-  if (typeof v === 'number') return Number.isSafeInteger(v) ? v : null;
-  if (typeof v !== 'string') return null;
-  const t = v.trim();
-  if (!/^-?\d+$/.test(t)) return null; // niente '1e3', '0x10', '1.0', ''
-  const n = Number(t);
-  return Number.isSafeInteger(n) ? n : null;
-};
+// intParam: vedi src/api/param.js. È condiviso con il router degli utenti perché
+// la stessa difesa deve valere per tutte le rotte, non solo per quelle dove è nata.
 
 // Lunghezze massime dei campi di testo, prese dalle colonne del CRM. Senza questi
 // controlli il testo troppo lungo arrivava fino all'INSERT, SQL Server lo rifiutava
@@ -54,6 +50,11 @@ const LIMITI = {
   notaNucleo: 400,     // customer_travel_party.nota
   lingua: 40,          // customer_profile.lingua
   periodo: 60,         // customer_complaints.periodo
+  // La colonna è NVARCHAR(MAX), il tetto è di buon senso: oltre, la nota non è più
+  // leggibile da nessuno e pesa su ogni caricamento degli Arrivi, dove viene
+  // caricata per ogni ospite del giorno. Serve soprattutto contro la crescita
+  // silenziosa del "Salva nel profilo" del briefing, che accoda.
+  notaPersonale: 4000,
 };
 
 // Testo di un campo: stringa ripulita, oppure un errore se sfora.
@@ -92,8 +93,8 @@ function createClientiRouter(pmsDb, crmDb) {
   });
 
   router.get('/clienti/:codCli', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const anagrafica = await getCliente(pmsDb, codCli);
     if (!anagrafica) return res.status(404).json({ error: 'Cliente non trovato' });
     const { canonicalId, membri } = await getGruppo(crmDb, codCli);
@@ -120,16 +121,16 @@ function createClientiRouter(pmsDb, crmDb) {
 
   // Gusti F&B (Fase 3 A): endpoint separato, query più pesante → caricata a parte.
   router.get('/clienti/:codCli/gusti', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
     res.json({ gusti: await getGustiFB(pmsDb, membri) });
   });
 
   // Trattamenti SPA (Fase 3): consumi benessere dagli extra, aggregati per nome.
   router.get('/clienti/:codCli/spa', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
     res.json({ spa: await getTrattamentiSpa(pmsDb, membri) });
   });
@@ -137,8 +138,8 @@ function createClientiRouter(pmsDb, crmDb) {
   // --- Fusione anagrafiche duplicate (virtual merge, lato CRM) ---
   // Candidati duplicati per la scheda, esclusi i codici già nel gruppo.
   router.get('/clienti/:codCli/duplicati', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
     const candidati = await getDuplicatiCandidati(pmsDb, codCli);
     res.json({ candidati: candidati.filter((c) => !membri.includes(c.codCli)) });
@@ -147,8 +148,8 @@ function createClientiRouter(pmsDb, crmDb) {
   // Confronto anagrafiche per il merge guidato: dati a colonne, conflitti evidenziati,
   // principale suggerito (più prenotazioni). Sola lettura, non fonde nulla.
   router.get('/clienti/:codCli/confronto', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const richiesti = String(req.query.ids || '').split(',').map(intParam).filter((n) => n !== null);
     const ids = [...new Set([codCli, ...richiesti])];
     const anagrafiche = await getAnagreConfronto(pmsDb, ids);
@@ -204,8 +205,8 @@ function createClientiRouter(pmsDb, crmDb) {
   // proporre preferenze/intolleranze. NON salva: l'operatore conferma a mano dai
   // pulsanti esistenti. 503 se l'AI non è configurata (SDK/chiave assenti).
   router.post('/clienti/:codCli/suggerimenti', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const ai = getAiClient();
     if (!ai) return res.status(503).json({ error: 'AI non configurata (manca @anthropic-ai/sdk o ANTHROPIC_API_KEY)' });
     // Proposte già mostrate in questa sessione (dal client), da non riproporre.
@@ -246,8 +247,8 @@ function createClientiRouter(pmsDb, crmDb) {
   // su fonti web PUBBLICHE se l'ospite è un personaggio pubblico e ne sintetizza un
   // briefing citando le fonti. NON persiste nulla. 503 se l'AI non è configurata.
   router.post('/clienti/:codCli/briefing', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const ai = getAiClient();
     if (!ai) return res.status(503).json({ error: 'AI non configurata (manca @anthropic-ai/sdk o ANTHROPIC_API_KEY)' });
     const cliente = await getCliente(pmsDb, codCli);
@@ -274,18 +275,18 @@ function createClientiRouter(pmsDb, crmDb) {
 
   // --- Complaints (reclami) ---
   router.get('/clienti/:codCli/complaints', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
     res.json({ complaints: await listComplaints(crmDb, membri) });
   });
 
   router.post('/clienti/:codCli/complaints', async (req, res) => {
-    const codCli = Number(req.params.codCli);
+    const codCli = intParam(req.params.codCli);
     const b = req.body || {};
     const reparto = (b.reparto != null ? String(b.reparto).trim() : '');
     const categoria = (b.categoria != null ? String(b.categoria).trim() : '');
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     // Il testo del reclamo sta in NVARCHAR(MAX): nessun tetto, ma deve essere testo.
     const t = campoTesto(b.testo, { max: Number.MAX_SAFE_INTEGER, nome: 'Testo' });
     if (t.errore) return res.status(400).json({ error: t.errore });
@@ -297,13 +298,18 @@ function createClientiRouter(pmsDb, crmDb) {
     // il problema al reparto giusto. I vecchi restano senza, e va bene così.
     if (!REPARTI.includes(reparto)) return res.status(400).json({ error: 'Reparto non valido' });
     if (!CATEGORIE_COMPLAINT.includes(categoria)) return res.status(400).json({ error: 'Categoria non valida' });
-    const complaint = await createComplaint(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo, periodo, reparto, categoria });
+    // Si scrive sul PRINCIPALE del gruppo di fusione, non sul codice che si sta
+    // guardando. Le letture prendono già tutto il gruppo, quindi finché i codici
+    // restano uniti non cambia nulla; cambia dopo uno "Scollega", che altrimenti
+    // porterebbe via il dato lasciando l'ospite con due schede a metà.
+    const { canonicalId } = await getGruppo(crmDb, codCli);
+    const complaint = await createComplaint(crmDb, { pmsCustomerId: canonicalId, autoreUserId: req.session.user.id, testo, periodo, reparto, categoria });
     res.status(201).json({ complaint });
   });
 
   router.patch('/complaints/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
+    const id = intParam(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'ID non valido' });
     const body = req.body || {};
     // Stessi controlli dell'inserimento anche qui. Il follow-up aveva già il suo
     // tetto (FOLLOWUP_MAX, più sotto): resta quello, per non spostare un limite
@@ -348,19 +354,20 @@ function createClientiRouter(pmsDb, crmDb) {
 
   // --- Intolleranze / allergie (dato di sicurezza) ---
   router.get('/clienti/:codCli/intolleranze', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
     res.json({ intolleranze: await listIntolleranze(crmDb, membri) });
   });
 
   router.post('/clienti/:codCli/intolleranze', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const t = campoTesto(req.body && req.body.testo, { max: LIMITI.intolleranza, nome: 'Testo' });
     if (t.errore) return res.status(400).json({ error: t.errore });
     const testo = t.valore;
-    const intolleranza = await createIntolleranza(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, testo });
+    const { canonicalId } = await getGruppo(crmDb, codCli); // scrittura sul principale, vedi complaints
+    const intolleranza = await createIntolleranza(crmDb, { pmsCustomerId: canonicalId, autoreUserId: req.session.user.id, testo });
     res.status(201).json({ intolleranza });
   });
 
@@ -368,27 +375,27 @@ function createClientiRouter(pmsDb, crmDb) {
 
   // --- Profilo / Lingua preferita (1:1) ---
   router.get('/clienti/:codCli/profilo', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
     res.json({ profilo: await getProfilo(crmDb, membri) });
   });
 
   router.put('/clienti/:codCli/profilo', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const l = campoTesto(req.body && req.body.lingua, { max: LIMITI.lingua, nome: 'Lingua', obbligatorio: false });
     if (l.errore) return res.status(400).json({ error: l.errore });
     const lingua = l.valore || null;
     // Svuotare = cancellare per tutta la persona, non solo per il codice aperto:
     // su una scheda fusa la lingua di un'altra anagrafica del gruppo riaffiorerebbe
     // subito e il campo sembrerebbe non cancellabile.
+    const { canonicalId, membri } = await getGruppo(crmDb, codCli);
     if (lingua === null) {
-      const { membri } = await getGruppo(crmDb, codCli);
       await cancellaLingua(crmDb, membri);
-      return res.json({ profilo: { pmsCustomerId: codCli, lingua: null } });
+      return res.json({ profilo: { pmsCustomerId: canonicalId, lingua: null } });
     }
-    const profilo = await upsertLingua(crmDb, { pmsCustomerId: codCli, lingua, autoreUserId: req.session.user.id });
+    const profilo = await upsertLingua(crmDb, { pmsCustomerId: canonicalId, lingua, autoreUserId: req.session.user.id });
     res.json({ profilo });
   });
 
@@ -396,8 +403,8 @@ function createClientiRouter(pmsDb, crmDb) {
   // del gruppo (usato dal "Salva nel profilo" del briefing AI, non distruttivo);
   // 'set' (default) sovrascrive col testo passato (la textarea della scheda).
   router.put('/clienti/:codCli/note-personali', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const testo = (req.body && req.body.testo != null ? String(req.body.testo) : '').trim();
     const mode = req.body && req.body.mode === 'append' ? 'append' : 'set';
     // Testo vuoto = cancellazione, e vale per tutta la persona: vedi
@@ -407,13 +414,20 @@ function createClientiRouter(pmsDb, crmDb) {
       await cancellaNotePersonali(crmDb, membri);
       return res.json({ notePersonali: null, nota: null });
     }
+    const { canonicalId, membri } = await getGruppo(crmDb, codCli);
     let finale = testo;
     if (mode === 'append') {
-      const { membri } = await getGruppo(crmDb, codCli);
       const attuale = (await getProfilo(crmDb, membri) || {}).note_personali;
       finale = attuale && attuale.trim() ? `${attuale.trim()}\n\n${testo}` : testo;
     }
-    const out = await upsertNotePersonali(crmDb, { pmsCustomerId: codCli, notePersonali: finale, autoreUserId: req.session.user.id });
+    // Il tetto si controlla sul risultato, non su quello che arriva: è l'accodamento
+    // del briefing AI a far crescere la nota, non una singola scrittura.
+    if (finale.length > LIMITI.notaPersonale) {
+      return res.status(400).json({
+        error: `Nota personale: massimo ${LIMITI.notaPersonale} caratteri (ne risulterebbero ${finale.length}). Accorcia il testo esistente prima di aggiungerne altro.`,
+      });
+    }
+    const out = await upsertNotePersonali(crmDb, { pmsCustomerId: canonicalId, notePersonali: finale, autoreUserId: req.session.user.id });
     // `nota` è la stessa versione sintetica che finisce nelle card Arrivi/In casa:
     // la calcola il server, così chi ha appena salvato la vede comparire subito
     // nella card senza ricaricare — e senza una seconda regola di taglio nel browser.
@@ -422,8 +436,8 @@ function createClientiRouter(pmsDb, crmDb) {
 
   // --- Preferenze (reparto + categoria + testo, liste chiuse) ---
   router.get('/clienti/:codCli/preferenze', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
     const preferenze = await listPreferenze(crmDb, membri);
     // Preferenze 'nucleo' degli ALTRI membri del nucleo familiare → in sola lettura.
@@ -443,19 +457,20 @@ function createClientiRouter(pmsDb, crmDb) {
   });
 
   router.post('/clienti/:codCli/preferenze', async (req, res) => {
-    const codCli = Number(req.params.codCli);
+    const codCli = intParam(req.params.codCli);
     const b = req.body || {};
     const reparto = b.reparto != null ? String(b.reparto).trim() : '';
     const categoria = b.categoria != null ? String(b.categoria).trim() : '';
     const ambito = b.ambito != null ? String(b.ambito).trim() : 'nucleo';
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const t = campoTesto(b.testo, { max: LIMITI.preferenza, nome: 'Testo' });
     if (t.errore) return res.status(400).json({ error: t.errore });
     const testo = t.valore;
     if (!REPARTI.includes(reparto)) return res.status(400).json({ error: 'Reparto non valido' });
     if (!CATEGORIE.includes(categoria)) return res.status(400).json({ error: 'Categoria non valida' });
     if (!AMBITI.includes(ambito)) return res.status(400).json({ error: 'Ambito non valido' });
-    const preferenza = await createPreferenza(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, reparto, categoria, testo, ambito });
+    const { canonicalId } = await getGruppo(crmDb, codCli); // scrittura sul principale, vedi complaints
+    const preferenza = await createPreferenza(crmDb, { pmsCustomerId: canonicalId, autoreUserId: req.session.user.id, reparto, categoria, testo, ambito });
     res.status(201).json({ preferenza });
   });
 
@@ -499,8 +514,8 @@ function createClientiRouter(pmsDb, crmDb) {
   }
 
   router.get('/clienti/:codCli/nucleo', async (req, res) => {
-    const codCli = Number(req.params.codCli);
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    const codCli = intParam(req.params.codCli);
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { canonicalId, membri } = await getGruppo(crmDb, codCli);
     // Questa GET, la prima volta, SCRIVE: precompila il nucleo con i co-occupanti.
     // Chi ha solo il permesso di consultare non deve lasciare righe a suo nome
@@ -515,10 +530,10 @@ function createClientiRouter(pmsDb, crmDb) {
   });
 
   router.post('/clienti/:codCli/nucleo', async (req, res) => {
-    const codCli = Number(req.params.codCli);
+    const codCli = intParam(req.params.codCli);
     const b = req.body || {};
     const tipoRelazione = b.tipoRelazione != null ? String(b.tipoRelazione).trim() : '';
-    if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
+    if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     if (!RELAZIONI.includes(tipoRelazione)) return res.status(400).json({ error: 'Relazione non valida' });
     const campi = {
       nome: campoTesto(b.nome, { max: LIMITI.nomePersona, nome: 'Nome', obbligatorio: false }),
@@ -529,7 +544,8 @@ function createClientiRouter(pmsDb, crmDb) {
     if (guasto) return res.status(400).json({ error: guasto.errore });
     const { nome, cognome, nota } = { nome: campi.nome.valore, cognome: campi.cognome.valore, nota: campi.nota.valore };
     if (!nome && !cognome) return res.status(400).json({ error: 'Nome o cognome richiesto' });
-    const membro = await createMembro(crmDb, { pmsCustomerId: codCli, autoreUserId: req.session.user.id, tipoRelazione, nome: nome || null, cognome: cognome || null, nota: nota || null });
+    const { canonicalId } = await getGruppo(crmDb, codCli); // scrittura sul principale, vedi complaints
+    const membro = await createMembro(crmDb, { pmsCustomerId: canonicalId, autoreUserId: req.session.user.id, tipoRelazione, nome: nome || null, cognome: cognome || null, nota: nota || null });
     res.status(201).json({ membro });
   });
 

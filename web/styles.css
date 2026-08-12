@@ -882,7 +882,9 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
 .st-note { color: #444; font-size: 8.5pt; }
 /* Le allergie devono saltare all'occhio anche in bianco e nero: rosso + neretto
    + un bordo sulla riga, così restano leggibili su una fotocopia. */
-.st-allergie { color: #a4231a; }
+/* pre-line: ogni allergia sta su una riga sua, col nome di chi la ha. Sul foglio
+   che va in cucina un elenco su una riga sola non si legge. */
+.st-allergie { color: #a4231a; white-space: pre-line; }
 .st-riga-allergia td { border-left: 0; background: #fdf2f0; }
 .st-riga-allergia td:first-child { border-left: 3px solid #a4231a; }
 .st-piede { margin-top: 12px; padding-top: 6px; border-top: 1px solid #999; font-size: 8pt; color: #444; }

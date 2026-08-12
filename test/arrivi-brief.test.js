@@ -86,7 +86,14 @@ function ctxDiProva() {
       { stato: 'aperto', testo: 'Doccia fredda al terzo piano', reparto: 'Rooms', categoria: 'Manutenzione' },
       { stato: 'risolto', testo: 'Rumore in corridoio', reparto: 'Rooms', categoria: 'Rumore' },
     ]]]),
-    intolBy: new Map([[100, [{ testo: 'Lattosio' }]], [200, [{ testo: 'lattosio' }]]]), // dup case
+    // Due persone diverse, entrambe intolleranti al lattosio: sono due righe, non
+    // un doppione — sono due piatti da preparare. Il dedup toglie solo la stessa
+    // allergia ripetuta sulla stessa persona (qui il 100, che è fuso col 101).
+    intolBy: new Map([
+      [100, [{ pms_customer_id: 100, testo: 'Lattosio' }]],
+      [101, [{ pms_customer_id: 100, testo: 'lattosio' }]],
+      [200, [{ pms_customer_id: 200, testo: 'Lattosio' }]],
+    ]),
     relBy: new Map([['100|200', 'Coniuge']]),
     // La nota sta sul 101, anagrafica FUSA col referente 100 = stessa persona.
     // Il 200 è un occupante: la sua nota non deve finire sulla card del referente.
@@ -104,7 +111,13 @@ test('costruisciSnapshot: VIP, indesiderato, preferenze nucleo dedup, intolleran
   assert.strictEqual(s.indesiderato, true);           // un occupante è indesiderato
   assert.strictEqual(s.preferenzeTop.length, 1);
   assert.strictEqual(s.preferenzeTop[0].testo, 'Caffè leccese');
-  assert.deepStrictEqual(s.intolleranze, ['Lattosio']);
+  // Ogni allergia con il nome di chi la ha (decisione del 12/08, D2): la nota è
+  // della prenotazione, il piatto si prepara per una persona. La stessa allergia
+  // ripetuta sulla stessa persona resta una sola voce.
+  assert.deepStrictEqual(s.intolleranze, [
+    { testo: 'Lattosio', chi: 'ROSSI MARIO' },
+    { testo: 'Lattosio', chi: 'ROSSI ANNA' },
+  ]);
   assert.strictEqual(s.reclami.aperti, 1);
   assert.strictEqual(s.reclami.totali, 2);
   // il dettaglio degli aperti viaggia con lo snapshot: card ed export devono poter

@@ -125,7 +125,14 @@ function rigaExport(x, opts = {}) {
     partenza: fmtData(x.dtpartenza),
     notti: x.notti,
     vip: s.vip ? (s.vip.descrizione || 'VIP') : '',
-    allergie: (s.intolleranze || []).join(', '),
+    // Con il nome di chi le ha: è il foglio che va in cucina, e "Glutine" da solo
+    // non dice a quale commensale va preparato il piatto senza (decisione D2).
+    // Una per riga, così restano leggibili anche quando sono più d'una.
+    allergie: (s.intolleranze || [])
+      .map((v) => (typeof v === 'string' ? { testo: v, chi: '' } : (v || {})))
+      .filter((v) => String(v.testo || '').trim())
+      .map((v) => (v.chi ? `${String(v.testo).trim()} — ${String(v.chi).trim()}` : String(v.testo).trim()))
+      .join('\n'),
     attenzioni: attenzioniDi(x),
     preferenze: (s.preferenzeTop || []).map((p) => p.testo).join(' · '),
     notaOspite: s.notaPersonale ? s.notaPersonale.sintesi : '',

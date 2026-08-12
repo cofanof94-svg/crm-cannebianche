@@ -114,20 +114,33 @@ test('linkCliente: nome ed eventuale titolo sono sempre con escape', () => {
 });
 
 // --- Allergie nelle card: il valore da solo non basta, serve la parola ---
-const flagAllergie = caricaFunzione('flagAllergie', estraiConst('esc'));
+const flagAllergie = caricaFunzione('flagAllergie', estraiConst('esc'), estrai('vocaAllergia'));
 
-test('flagAllergie: etichetta esplicita davanti al valore', () => {
-  const h = flagAllergie({ intolleranze: ['Noci'] }, 'arr-flag');
+test('flagAllergie: ogni allergia porta il nome di chi la ha', () => {
+  // Decisione del 12/08 (D2): la prenotazione è di più persone, e "Glutine" da solo
+  // non dice a chi va preparato il piatto senza.
+  const h = flagAllergie({ intolleranze: [{ testo: 'Noci', chi: 'TOSTI CARLO' }] }, 'arr-flag');
   assert.match(h, /Allergie:/);
-  assert.match(h, /Noci/);
+  assert.match(h, /Noci — TOSTI CARLO/);
   assert.match(h, /flag-safety/); // resta l'evidenza di sicurezza già in uso
   assert.match(h, /class="arr-flag flag-safety"/);
 });
 
-test('flagAllergie: più voci separate da virgola, classe della pagina', () => {
-  const h = flagAllergie({ intolleranze: ['Noci', 'arachidi'] }, 'flag');
-  assert.match(h, />⚠ Allergie:<\/span>Noci, arachidi</);
+test('flagAllergie: più persone, più voci, separate in modo leggibile', () => {
+  const h = flagAllergie({ intolleranze: [
+    { testo: 'Noci', chi: 'TOSTI CARLO' },
+    { testo: 'arachidi', chi: 'BEBIE SIENNA' },
+  ] }, 'flag');
+  assert.match(h, />⚠ Allergie:<\/span>Noci — TOSTI CARLO; arachidi — BEBIE SIENNA</);
   assert.match(h, /class="flag flag-safety"/);
+});
+
+test('flagAllergie: senza nome si mostra comunque l\'allergia', () => {
+  // Meglio un allarme senza nome che nessun allarme: capita con dati vecchi o
+  // se l'anagrafica dell'occupante non è più raggiungibile.
+  assert.match(flagAllergie({ intolleranze: [{ testo: 'Glutine', chi: null }] }, 'flag'), />⚠ Allergie:<\/span>Glutine</);
+  // E il formato vecchio (solo testo) continua a funzionare.
+  assert.match(flagAllergie({ intolleranze: ['Glutine'] }, 'flag'), />⚠ Allergie:<\/span>Glutine</);
 });
 
 test('flagAllergie: campo vuoto → nessun alert (niente pastiglia vuota)', () => {
@@ -135,11 +148,13 @@ test('flagAllergie: campo vuoto → nessun alert (niente pastiglia vuota)', () =
   assert.strictEqual(flagAllergie({}, 'flag'), '');
   assert.strictEqual(flagAllergie({ intolleranze: [] }, 'flag'), '');
   assert.strictEqual(flagAllergie({ intolleranze: ['', '   '] }, 'flag'), ''); // solo spazi = vuoto
+  assert.strictEqual(flagAllergie({ intolleranze: [{ testo: '  ', chi: 'X' }] }, 'flag'), '');
 });
 
-test('flagAllergie: il testo arriva dall\'anagrafica, quindi va con escape', () => {
-  const h = flagAllergie({ intolleranze: ['<img src=x onerror=alert(1)>'] }, 'flag');
+test('flagAllergie: testo e nome arrivano dall\'anagrafica, quindi vanno con escape', () => {
+  const h = flagAllergie({ intolleranze: [{ testo: '<img src=x onerror=alert(1)>', chi: '<b>chi</b>' }] }, 'flag');
   assert.doesNotMatch(h, /<img/);
+  assert.doesNotMatch(h, /<b>chi/);
   assert.match(h, /&lt;img/);
 });
 
