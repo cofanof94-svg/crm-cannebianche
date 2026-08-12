@@ -322,6 +322,16 @@ const crmDb = {
       p.updated_at = new Date().toISOString();
       return [];
     }
+    // Cancellazione su tutto il gruppo di fusione (prima della lettura: vedi la
+    // nota sull'ordine nel blocco users).
+    if (/UPDATE customer_profile SET note_personali = NULL/.test(t)) {
+      store.profili.forEach((p) => { if (ids.includes(p.pms_customer_id)) { p.note_personali = null; p.updated_at = new Date().toISOString(); } });
+      return [];
+    }
+    if (/UPDATE customer_profile SET lingua = NULL/.test(t)) {
+      store.profili.forEach((p) => { if (ids.includes(p.pms_customer_id)) { p.lingua = null; p.updated_at = new Date().toISOString(); } });
+      return [];
+    }
     if (/FROM customer_profile/.test(t)) return store.profili.filter((p) => ids.includes(p.pms_customer_id)).map(conAutore);
 
     // --- customer_preferences ---

@@ -8,7 +8,7 @@ toccato. Gli endpoint AI non sono stati chiamati (credito esaurito).
 **Tutto quanto segue è stato riprodotto**, non dedotto. Dove un problema riguarda
 solo il mock e non il database vero, è scritto.
 
-Stato: **1 corretto**, 11 aperti. Da decidere insieme cosa sistemare e in che ordine.
+Stato: **2 corretti**, 10 aperti. Da decidere insieme cosa sistemare e in che ordine.
 
 ---
 
@@ -36,7 +36,13 @@ fra chi instrada e chi decide.
 
 Sono i tre da guardare per primi: non è che una funzione manca, è che **mente**.
 
-### 1. Su una scheda fusa la nota personale non si può cancellare
+### 1. ✅ CORRETTO — Su una scheda fusa la nota personale non si può cancellare
+
+> Chiuso il 12/08/2026. **Decisione di Mik: la nota è della persona**, quindi Elimina
+> cancella su tutto il gruppo di fusione. Conseguenza accettata: dopo uno "Scollega"
+> quell'anagrafica non ritrova la sua vecchia nota. La modifica non è stata toccata,
+> funzionava già. Quattro test in `test/profilo-fusa.test.js`.
+> Segue la descrizione originale del difetto.
 
 `getProfilo` restituisce il primo valore non nullo **del gruppo di fusione**, ma la
 PUT scrive sempre sulla riga del codice visualizzato. "Elimina" svuota la propria

@@ -71,4 +71,33 @@ async function upsertNotePersonali(db, { pmsCustomerId, notePersonali, autoreUse
   return { pmsCustomerId, notePersonali };
 }
 
-module.exports = { getProfilo, listNotePersonali, upsertLingua, upsertNotePersonali };
+// --- Cancellazione su tutto il gruppo di fusione -----------------------------
+//
+// La lettura prende il primo valore non nullo FRA TUTTE le anagrafiche fuse, la
+// scrittura invece tocca una riga sola. Va bene per la modifica (la riga toccata
+// diventa la più recente e vince), ma non per la cancellazione: svuotando la
+// propria riga riaffiorava la nota di un altro codice del gruppo, e il testo
+// tornava a video. Cliccare Elimina una seconda volta non serviva a niente.
+//
+// Decisione presa con Mik il 12/08/2026: la nota è della PERSONA, non
+// dell'anagrafica. Elimina cancella su tutto il gruppo. Conseguenza accettata:
+// dopo uno "Scollega" quell'anagrafica non ritrova la sua vecchia nota, perché è
+// stata cancellata davvero.
+async function cancellaNotePersonali(db, ids) {
+  await db.query(
+    `UPDATE customer_profile SET note_personali = NULL, updated_at = SYSUTCDATETIME()
+     WHERE pms_customer_id IN ${inClause(ids)} AND note_personali IS NOT NULL`
+  );
+}
+
+async function cancellaLingua(db, ids) {
+  await db.query(
+    `UPDATE customer_profile SET lingua = NULL, updated_at = SYSUTCDATETIME()
+     WHERE pms_customer_id IN ${inClause(ids)} AND lingua IS NOT NULL`
+  );
+}
+
+module.exports = {
+  getProfilo, listNotePersonali, upsertLingua, upsertNotePersonali,
+  cancellaNotePersonali, cancellaLingua,
+};

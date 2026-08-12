@@ -5,7 +5,7 @@ const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, setComplaintFollowUp, setComplaintClasse, deleteComplaint, FOLLOWUP_MAX, CATEGORIE_COMPLAINT } = require('../crm/complaint');
 const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('../crm/intolleranze');
-const { getProfilo, upsertLingua, upsertNotePersonali } = require('../crm/profilo');
+const { getProfilo, upsertLingua, upsertNotePersonali, cancellaLingua, cancellaNotePersonali } = require('../crm/profilo');
 const { sintetizzaNota } = require('../crm/arrivi-brief');
 const { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../crm/preferenze');
 const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
@@ -312,6 +312,14 @@ function createClientiRouter(pmsDb, crmDb) {
     const codCli = Number(req.params.codCli);
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     const lingua = (req.body && req.body.lingua != null ? String(req.body.lingua) : '').trim() || null;
+    // Svuotare = cancellare per tutta la persona, non solo per il codice aperto:
+    // su una scheda fusa la lingua di un'altra anagrafica del gruppo riaffiorerebbe
+    // subito e il campo sembrerebbe non cancellabile.
+    if (lingua === null) {
+      const { membri } = await getGruppo(crmDb, codCli);
+      await cancellaLingua(crmDb, membri);
+      return res.json({ profilo: { pmsCustomerId: codCli, lingua: null } });
+    }
     const profilo = await upsertLingua(crmDb, { pmsCustomerId: codCli, lingua, autoreUserId: req.session.user.id });
     res.json({ profilo });
   });
@@ -324,8 +332,15 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!Number.isInteger(codCli)) return res.status(400).json({ error: 'ID non valido' });
     const testo = (req.body && req.body.testo != null ? String(req.body.testo) : '').trim();
     const mode = req.body && req.body.mode === 'append' ? 'append' : 'set';
-    let finale = testo || null;
-    if (mode === 'append' && testo) {
+    // Testo vuoto = cancellazione, e vale per tutta la persona: vedi
+    // cancellaNotePersonali in src/crm/profilo.js.
+    if (!testo) {
+      const { membri } = await getGruppo(crmDb, codCli);
+      await cancellaNotePersonali(crmDb, membri);
+      return res.json({ notePersonali: null, nota: null });
+    }
+    let finale = testo;
+    if (mode === 'append') {
       const { membri } = await getGruppo(crmDb, codCli);
       const attuale = (await getProfilo(crmDb, membri) || {}).note_personali;
       finale = attuale && attuale.trim() ? `${attuale.trim()}\n\n${testo}` : testo;
