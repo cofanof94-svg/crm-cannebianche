@@ -245,13 +245,37 @@ async function getAnagraByIds(pmsDb, ids) {
 // Le eliminate non contano. Una sola query set-based → Map codice → {n, ultima}.
 // COUNT(DISTINCT codpratica): lo stesso codice può comparire sia come intestatario
 // sia come occupante della stessa pratica (e su più righe StorAlberg) → un soggiorno solo.
+// "Nª volta" e "ultima visita" delle card. L'archivio delle prenotazioni NON
+// contiene solo soggiorni: su 41.337 pratiche archiviate, 12.492 sono giornate
+// (SPA, piscina, cene per esterni), 2.951 non hanno nemmeno le date e 79 sono
+// voucher regalo, registrati come prenotazioni lunghe un anno perché quella è
+// la loro validità. Contandole tutte, 9.996 ospiti risultavano più affezionati
+// di quanto siano e 5.363 comparivano come "di ritorno" senza aver mai dormito
+// qui (misurato il 13/08/2026).
+//
+// Quindi si separano due domande diverse:
+// - `n`      = soggiorni con pernottamento conclusi → è il badge "Nª volta";
+// - `visite` = giornate concluse → si mostra a parte, perché un cliente che
+//              torna sei volte per la SPA è un dato commerciale, non rumore.
+//
+// Il tetto delle 200 notti taglia i voucher senza toccare i soggiorni lunghi:
+// qui la stagione dura meno di così, e i voucher stanno tutti sui 365 giorni.
+const NOTTI_MAX_SOGGIORNO = 200;
+
 const sqlStoricoByIds = (inl) => `
-SELECT c.codCli, COUNT(DISTINCT c.codpratica) AS n, CONVERT(varchar(10), MAX(c.dtpartenza), 23) AS ultima
+SELECT c.codCli,
+  COUNT(DISTINCT CASE WHEN c.notti BETWEEN 1 AND ${NOTTI_MAX_SOGGIORNO} THEN c.codpratica END) AS n,
+  CONVERT(varchar(10), MAX(CASE WHEN c.notti BETWEEN 1 AND ${NOTTI_MAX_SOGGIORNO} THEN c.dtpartenza END), 23) AS ultima,
+  COUNT(DISTINCT CASE WHEN c.notti = 0 THEN c.codpratica END) AS visite
 FROM (
-  SELECT sp.codclinterm AS codCli, sp.codpratica, sp.dtpartenza FROM StorPrenota sp
+  SELECT sp.codclinterm AS codCli, sp.codpratica, sp.dtpartenza,
+         DATEDIFF(day, sp.dtarrivo, sp.dtpartenza) AS notti
+    FROM StorPrenota sp
    WHERE sp.DataEliminazione IS NULL AND sp.codclinterm IN ${inl}
   UNION ALL
-  SELECT al.codcli, sp.codpratica, sp.dtpartenza FROM StorPrenota sp
+  SELECT al.codcli, sp.codpratica, sp.dtpartenza,
+         DATEDIFF(day, sp.dtarrivo, sp.dtpartenza)
+    FROM StorPrenota sp
    JOIN StorAlberg al ON al.codpratica = sp.codpratica
    WHERE sp.DataEliminazione IS NULL AND al.codcli IN ${inl}
 ) c
@@ -264,7 +288,10 @@ async function getStoricoByIds(pmsDb, ids) {
   const rows = await pmsDb.query(sqlStoricoByIds(inClause(arr)), {});
   for (const r of rows) {
     const n = Number(r.n) || 0;
-    if (n > 0) map.set(r.codCli, { n, ultima: r.ultima || null });
+    const visite = Number(r.visite) || 0;
+    // Anche chi non ha mai dormito qui entra nella mappa se è già venuto in
+    // giornata: è proprio il caso che prima si perdeva.
+    if (n > 0 || visite > 0) map.set(r.codCli, { n, ultima: r.ultima || null, visite });
   }
   return map;
 }

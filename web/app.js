@@ -970,10 +970,22 @@ function renderAvanzamento(c, data) {
 // "Ospite di ritorno". `storico.n` sono i soggiorni GIÀ CONCLUSI: quello in corso
 // è quindi l'(n+1)-esimo. Chi non è mai stato qui non ha badge.
 function badgeStorico(s) {
-  if (!s || !s.n) return '';
-  const ultima = s.ultima ? ` · ultima ${fmtData(s.ultima)}` : '';
-  const tip = `${s.n} ${s.n === 1 ? 'soggiorno concluso' : 'soggiorni conclusi'} in hotel`;
-  return `<span class="ic-ritorno" title="${tip}">${s.n + 1}ª volta${ultima}</span>`;
+  if (!s) return '';
+  const out = [];
+  if (s.n) {
+    const ultima = s.ultima ? ` · ultima ${fmtData(s.ultima)}` : '';
+    const tip = `${s.n} ${s.n === 1 ? 'soggiorno concluso' : 'soggiorni conclusi'} in hotel`;
+    out.push(`<span class="ic-ritorno" title="${tip}">${s.n + 1}ª volta${ultima}</span>`);
+  }
+  // Le giornate (SPA, piscina, cene) stanno in un badge a parte e non si
+  // sommano ai soggiorni: chi ha dormito qui una volta e poi è tornato sei
+  // volte per la SPA è al secondo soggiorno, non all'ottavo. Ma il fatto che
+  // lo vediamo spesso è un'informazione che serve, non da nascondere.
+  if (s.visite) {
+    const tip = `${s.visite} ${s.visite === 1 ? 'visita' : 'visite'} in giornata (SPA, piscina, ristorante)`;
+    out.push(`<span class="ic-visite" title="${tip}">${s.visite} in giornata</span>`);
+  }
+  return out.join('');
 }
 
 // Occupanti in camera, in riga compatta con l'eventuale relazione col referente.

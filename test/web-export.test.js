@@ -257,3 +257,14 @@ test('colonna soggiorno: senza notti niente seconda riga', () => {
   assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valore(senzaNotti), '10/08/2026 → 14/08/2026');
   assert.strictEqual(E.COLONNE_EXPORT.soggiorno.valoreSotto(senzaNotti), '');
 });
+
+test('foglio reparti: le giornate non si sommano ai soggiorni', () => {
+  // Un cliente della SPA che ha dormito qui una volta e' al secondo soggiorno,
+  // non all'ottavo: le due cose vanno dette separate anche sul foglio.
+  assert.strictEqual(E.testoVisite({ n: 1, ultima: '2025-08-10', visite: 6 }),
+    '2ª volta · ultima 08/2025 · 6 visite in giornata');
+  assert.strictEqual(E.testoVisite({ n: 0, visite: 3 }), '3 visite in giornata');
+  assert.strictEqual(E.testoVisite({ n: 0, visite: 1 }), '1 visita in giornata');
+  assert.strictEqual(E.testoVisite(null), 'Prima volta in hotel');
+  assert.strictEqual(E.testoVisite({ n: 2, ultima: '2024-06-30' }), '3ª volta · ultima 06/2024');
+});

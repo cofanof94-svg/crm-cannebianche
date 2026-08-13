@@ -175,9 +175,14 @@ const pmsDb = {
       const out = new Map();
       for (const s of F.STORICO) {
         if (!ids.includes(s.codCli)) continue;
-        const cur = out.get(s.codCli) || { codCli: s.codCli, n: 0, ultima: null };
-        cur.n += 1;
-        if (!cur.ultima || s.dtpartenza > cur.ultima) cur.ultima = s.dtpartenza;
+        const cur = out.get(s.codCli) || { codCli: s.codCli, n: 0, ultima: null, visite: 0 };
+        // Le giornate concluse (SPA, piscina, cene) contano a parte: non sono
+        // soggiorni e non devono gonfiare il badge "Nª volta".
+        if (s.dtarrivo === s.dtpartenza) cur.visite += 1;
+        else {
+          cur.n += 1;
+          if (!cur.ultima || s.dtpartenza > cur.ultima) cur.ultima = s.dtpartenza;
+        }
         out.set(s.codCli, cur);
       }
       return [...out.values()];

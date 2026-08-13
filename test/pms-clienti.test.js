@@ -112,3 +112,48 @@ test('getSoggiorniCliente: mappa lo stato Eliminata senza alterarlo', async () =
   assert.strictEqual(s.arrangiamento, 0);
   assert.strictEqual(s.extra, 0);
 });
+
+// --- "Nª volta": cosa conta come soggiorno --------------------------------
+// L'archivio delle prenotazioni non contiene solo soggiorni. Sui dati veri
+// dell'hotel (13/08/2026): 41.337 pratiche archiviate, di cui 12.492 giornate
+// (SPA, piscina, cene per esterni), 2.951 senza date e 79 voucher regalo,
+// registrati come prenotazioni lunghe un anno perche' quella e' la validita'.
+// Contandole tutte, 9.996 ospiti risultavano piu' affezionati di quanto siano e
+// 5.363 comparivano come "di ritorno" senza aver mai dormito qui.
+const { getStoricoByIds } = require('../src/pms/clienti');
+
+test('il badge conta i soggiorni, le giornate vanno in un conteggio a parte', async () => {
+  const pms = fakePms([{ codCli: 70703, n: 1, ultima: '2025-08-10', visite: 6 }]);
+  const map = await getStoricoByIds(pms, [70703]);
+  assert.deepStrictEqual(map.get(70703), { n: 1, ultima: '2025-08-10', visite: 6 });
+
+  const sql = pms.calls[0].text;
+  // Solo le pratiche fra 1 e 200 notti sono soggiorni: sotto c'e' la giornata,
+  // sopra il voucher annuale. Le pratiche senza date restano fuori da entrambi,
+  // perche' DATEDIFF su una data nulla non rientra in nessun intervallo.
+  assert.match(sql, /THEN c\.codpratica END\) AS n/i);
+  assert.match(sql, /c\.notti BETWEEN 1 AND 200/i);
+  assert.match(sql, /c\.notti = 0 THEN c\.codpratica END\) AS visite/i);
+});
+
+test("l'ultima visita e' quella di un soggiorno, non di un voucher", async () => {
+  // I voucher hanno una partenza fino a un anno nel futuro: senza il filtro,
+  // MAX(dtpartenza) restituirebbe una data che deve ancora arrivare.
+  const pms = fakePms([]);
+  await getStoricoByIds(pms, [1]);
+  assert.match(pms.calls[0].text, /MAX\(CASE WHEN c\.notti BETWEEN 1 AND 200 THEN c\.dtpartenza END\)/i);
+});
+
+test('chi e\' venuto solo in giornata non si perde piu\'', async () => {
+  // Prima entravano nella mappa solo quelli con n > 0: un cliente abituale
+  // della SPA che non ha mai dormito qui risultava sconosciuto.
+  const pms = fakePms([{ codCli: 900, n: 0, ultima: null, visite: 3 }]);
+  const map = await getStoricoByIds(pms, [900]);
+  assert.deepStrictEqual(map.get(900), { n: 0, ultima: null, visite: 3 });
+});
+
+test('chi non ha ne\' soggiorni ne\' giornate resta fuori dalla mappa', async () => {
+  const pms = fakePms([{ codCli: 901, n: 0, ultima: null, visite: 0 }]);
+  const map = await getStoricoByIds(pms, [901]);
+  assert.strictEqual(map.has(901), false);
+});

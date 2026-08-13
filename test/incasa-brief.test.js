@@ -69,7 +69,8 @@ function pmsMock() {
         { CodCli: 100, Cognome: 'ROSSI', Nome: 'MARIO', dtNascita: null, CodVip: 'V1', DesVip: 'BOLLICINE' },
         { CodCli: 200, Cognome: 'VERDI', Nome: 'ANNA', dtNascita: null, CodVip: null, DesVip: null },
       ];
-      if (/FROM StorPrenota sp/.test(text)) return [{ codCli: 100, n: 4, ultima: '2024-08-09' }];
+      // `visite` = giornate concluse (SPA, piscina): contate a parte dai soggiorni.
+      if (/FROM StorPrenota sp/.test(text)) return [{ codCli: 100, n: 4, ultima: '2024-08-09', visite: 2 }];
       return [];
     },
   };
@@ -84,7 +85,7 @@ test('arricchisciInCasa: snapshot + storico + avanzamento, ordinato per camera',
   const enr = await arricchisciInCasa(pmsMock(), crmMock(), clienti, '2026-08-07');
   assert.deepStrictEqual(enr.clienti.map((c) => c.camere), ['104', '221']); // ordinati per camera
   const primo = enr.clienti[0];
-  assert.deepStrictEqual(primo.storico, { n: 4, ultima: '2024-08-09' });
+  assert.deepStrictEqual(primo.storico, { n: 4, ultima: '2024-08-09', visite: 2 });
   assert.strictEqual(primo.avanzamento.notte, 3);
   assert.strictEqual(primo.snapshot.vip.descrizione, 'BOLLICINE');
   assert.strictEqual(enr.clienti[1].storico, null); // 200 non ha storico

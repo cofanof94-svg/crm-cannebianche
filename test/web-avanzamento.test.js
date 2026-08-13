@@ -154,3 +154,36 @@ test("l'ospite del giorno senza pax dichiarati non inventa un numero", () => {
   const html = renderAvanzamento({ statoPartenza: 'dayuse', dtpartenza: OGGI }, OGGI);
   assert.strictEqual(html, '<span>In hotel per la giornata</span>');
 });
+
+// --- Badge "Nª volta" --------------------------------------------------------
+// Il conteggio dei soggiorni e quello delle giornate sono due cose diverse e
+// devono restare due badge diversi: sui dati veri dell'hotel, sommandoli,
+// 5.363 ospiti risultavano di ritorno senza aver mai dormito qui.
+const badgeStorico = new Function(`
+  ${estrai('fmtData')}
+  ${estrai('badgeStorico')}
+  return badgeStorico;`)();
+
+test('badge: chi ha dormito qui una volta e poi e\' tornato per la SPA e\' alla 2ª volta', () => {
+  const html = badgeStorico({ n: 1, ultima: '2025-08-10', visite: 6 });
+  assert.match(html, /2ª volta/);
+  assert.doesNotMatch(html, /8ª volta|7ª volta/);
+  assert.match(html, /6 in giornata/);
+});
+
+test('badge: chi e\' venuto solo in giornata non risulta un ospite di ritorno', () => {
+  const html = badgeStorico({ n: 0, ultima: null, visite: 3 });
+  assert.doesNotMatch(html, /volta/);
+  assert.match(html, /3 in giornata/);
+});
+
+test('badge: senza giornate resta il solo conteggio dei soggiorni', () => {
+  const html = badgeStorico({ n: 4, ultima: '2024-08-09', visite: 0 });
+  assert.match(html, /5ª volta · ultima 09\/08\/2024/);
+  assert.doesNotMatch(html, /giornata/);
+});
+
+test('badge: chi non e\' mai stato qui non ha badge', () => {
+  assert.strictEqual(badgeStorico({ n: 0, visite: 0 }), '');
+  assert.strictEqual(badgeStorico(null), '');
+});

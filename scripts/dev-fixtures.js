@@ -233,6 +233,13 @@ const STORICO = [
   { codpratica: 60052, codCli: 1009, dtarrivo: '2024-07-14', dtpartenza: '2024-07-21', camere: '118', arrangiamento: 3050, extra: 520 },
   { codpratica: 60053, codCli: 1009, dtarrivo: '2023-07-15', dtpartenza: '2023-07-22', camere: '120', arrangiamento: 2900, extra: 480 },
   { codpratica: 60061, codCli: 1013, dtarrivo: '2024-09-02', dtpartenza: '2024-09-09', camere: '224', arrangiamento: 3600, extra: 720 },
+  // 1013 è anche una cliente della SPA: tre giornate concluse, che NON devono
+  // finire nel badge "Nª volta". In card deve leggersi "2ª volta" (un solo
+  // soggiorno) accanto a "3 in giornata". Sui dati veri dell'hotel questo
+  // errore riguardava 9.996 ospiti (misurato il 13/08/2026).
+  { codpratica: 60062, codCli: 1013, dtarrivo: '2025-06-14', dtpartenza: '2025-06-14', camere: '', arrangiamento: 0, extra: 150 },
+  { codpratica: 60063, codCli: 1013, dtarrivo: '2025-09-27', dtpartenza: '2025-09-27', camere: '', arrangiamento: 0, extra: 180 },
+  { codpratica: 60064, codCli: 1013, dtarrivo: '2026-05-30', dtpartenza: '2026-05-30', camere: '', arrangiamento: 0, extra: 130 },
 ];
 
 // Consumi F&B e SPA per la scheda ospite.
