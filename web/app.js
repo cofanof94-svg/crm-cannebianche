@@ -900,22 +900,61 @@ function renderInCasa() {
   msg.hidden = true; cards.hidden = false;
 }
 
-// Avanzamento del soggiorno: pallini + testo parlante ("Notte 3 di 7").
-function renderAvanzamento(c) {
+// Oltre questa soglia la fila di pallini sfonderebbe la card: si passa alla
+// barra. Diciassette perché il soggiorno lungo qui è di due settimane: la
+// barra deve restare l'eccezione, non il modo normale di leggere la card.
+const MAX_PALLINI = 17;
+
+// Il disegno dell'avanzamento. `notte` comprende la notte IN CORSO, che stasera
+// non è ancora stata dormita: viene quindi disegnata come anello e non come
+// pallino pieno. Senza questa distinzione l'ultima notte di chi resta e il
+// soggiorno chiuso di chi parte oggi risultavano identici (tutti i pallini
+// pieni), pur essendo due situazioni opposte per la reception.
+function progressoSoggiorno(av, concluso) {
+  const fine = concluso ? ' ic-prog-fine' : '';
+  if (av.notti > MAX_PALLINI) {
+    // Soggiorni lunghi: stessa informazione, ingombro costante.
+    const fatte = concluso ? av.notte : av.notte - 1;
+    const quota = (n) => `${Math.round((n / av.notti) * 100)}%`;
+    return `<span class="ic-bar${fine}" title="Notte ${av.notte} di ${av.notti}">`
+      + `<i class="ic-bar-fatte" style="width:${quota(fatte)}"></i>`
+      + `<i class="ic-bar-corso" style="width:${concluso ? '0%' : quota(1)}"></i></span>`;
+  }
+  const dots = Array.from({ length: av.notti }, (_, i) => {
+    if (i < av.notte - 1) return '<i class="ic-dot on"></i>';
+    if (i > av.notte - 1) return '<i class="ic-dot"></i>';
+    return concluso ? '<i class="ic-dot on"></i>' : '<i class="ic-dot corso"></i>';
+  }).join('');
+  return `<span class="ic-prog${fine}">${dots}</span>`;
+}
+
+// "Domani" solo se la partenza è davvero il giorno dopo la data di lavoro:
+// se i dati dicessero altro si torna alla data esplicita.
+function parteDomani(c, data) {
+  if (!c.dtpartenza || !data) return false;
+  const g = (iso) => new Date(`${iso}T00:00:00Z`).getTime();
+  return g(c.dtpartenza) - g(data) === 86400000;
+}
+
+// Avanzamento del soggiorno: pallini (o barra) + testo parlante ("Notte 3 di 7").
+function renderAvanzamento(c, data) {
   const av = c.avanzamento;
   if (c.statoPartenza === 'checkout') {
     const n = c.notti != null ? ` · ${c.notti} ${c.notti === 1 ? 'notte' : 'notti'}` : '';
     return `<span>Soggiorno concluso${n}</span>`;
   }
   if (!av) return `<span>Parte il ${fmtData(c.dtpartenza)}</span>`;
-  // Pallini solo per soggiorni brevi: oltre le 14 notti diventano rumore.
-  const dots = av.notti <= 14
-    ? `<span class="ic-prog">${Array.from({ length: av.notti }, (_, i) => `<i class="ic-dot${i < av.notte ? ' on' : ''}"></i>`).join('')}</span>`
-    : '';
-  const testo = av.ultimaNotte && c.statoPartenza === 'partenza'
-    ? 'Ultima notte · <b>parte oggi</b>'
+  // Chi parte oggi ha finito: nessuna notte in corso e colore spento.
+  if (c.statoPartenza === 'partenza') {
+    return progressoSoggiorno(av, true)
+      + `<span>${av.notti} ${av.notti === 1 ? 'notte' : 'notti'} · <b>parte oggi</b></span>`;
+  }
+  // L'ultima sera è quella in cui si fa ancora in tempo a rimediare a qualcosa:
+  // va detta, non lasciata dedurre da "Notte 2 di 2".
+  const testo = av.ultimaNotte && parteDomani(c, data)
+    ? '<b>Ultima notte</b> · parte domani'
     : `Notte ${av.notte} di ${av.notti} · parte ${fmtData(c.dtpartenza)}`;
-  return `${dots}<span>${testo}</span>`;
+  return progressoSoggiorno(av, false) + `<span>${testo}</span>`;
 }
 
 // "Ospite di ritorno". `storico.n` sono i soggiorni GIÀ CONCLUSI: quello in corso
@@ -991,7 +1030,7 @@ function schedaInCasa(c) {
         <span class="ic-spacer"></span>
         ${pill}
       </div>
-      <div class="ic-stay">${renderAvanzamento(c)}${badgeStorico(c.storico)}</div>
+      <div class="ic-stay">${renderAvanzamento(c, incasaData)}${badgeStorico(c.storico)}</div>
       ${flagBlock}
       ${notaBlock}
       ${prefBlock}
