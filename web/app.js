@@ -1825,7 +1825,11 @@ $('#cli-suggerimenti').addEventListener('click', async (e) => {
       salvaIntol = true;
     } else {
       // Ambito non deciso dall'AI: default 'nucleo' (di gruppo). L'operatore lo toggla se serve.
-      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, { method: 'POST', body: JSON.stringify({ reparto: s.reparto, categoria: s.categoria, testo: s.testo, ambito: 'nucleo' }) });
+      // `origine: 'ai'` è l'unico punto in cui il server può sapere che questa
+      // preferenza nasce da un suggerimento: da qui in poi la riga è identica a
+      // una scritta a mano, ed è quello che finora rendeva impossibile dire
+      // quanto l'AI venga davvero usata.
+      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze`, { method: 'POST', body: JSON.stringify({ reparto: s.reparto, categoria: s.categoria, testo: s.testo, ambito: 'nucleo', origine: 'ai' }) });
       salvaPref = true;
     }
   }

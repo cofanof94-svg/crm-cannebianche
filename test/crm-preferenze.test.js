@@ -42,3 +42,24 @@ test('listPreferenze filtra per cliente; delete true/false', async () => {
   assert.strictEqual(await deletePreferenza(fakeDb([{ id: 1 }]), 1), true);
   assert.strictEqual(await deletePreferenza(fakeDb([]), 9), false);
 });
+
+test("origine: 'ai' si registra, qualunque altra cosa vale 'manuale'", async () => {
+  // Le due strade -- pulsante "Aggiungi" e conferma di un suggerimento --
+  // arrivano al database identiche: senza questo campo non si puo' dire se
+  // l'AI faccia risparmiare tempo o si stia rileggendo cio' che gia' si sapeva.
+  const { createPreferenza } = require('../src/crm/preferenze');
+  const visti = [];
+  const db = { async query(text, params) { visti.push({ text, params }); return [{ id: 1 }]; } };
+  const base = { pmsCustomerId: 1, autoreUserId: 1, reparto: 'F&B', categoria: 'Cibo', testo: 'x' };
+
+  await createPreferenza(db, { ...base, origine: 'ai' });
+  assert.strictEqual(visti[0].params.origine, 'ai');
+  assert.match(visti[0].text, /origine/);
+
+  await createPreferenza(db, base); // non dichiarata
+  assert.strictEqual(visti[1].params.origine, 'manuale');
+
+  // Meglio sottostimare l'AI che gonfiarla: un valore inventato non passa.
+  await createPreferenza(db, { ...base, origine: 'magia' });
+  assert.strictEqual(visti[2].params.origine, 'manuale');
+});

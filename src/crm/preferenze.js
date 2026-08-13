@@ -30,12 +30,20 @@ async function listCondivise(db, ids) {
   );
 }
 
-async function createPreferenza(db, { pmsCustomerId, autoreUserId, reparto, categoria, testo, ambito = 'nucleo' }) {
+// `origine` dice se la preferenza è stata scritta a mano o confermata da un
+// suggerimento dell'AI. Le due strade passano dalla stessa chiamata e producono
+// righe identiche: senza questo campo non si può rispondere a "l'AI ci sta
+// facendo risparmiare tempo o ci stiamo rileggendo quello che già sapevamo".
+// Il valore arriva da chi chiama, perché è l'unico che sa da quale pulsante si
+// è passati.
+const ORIGINI = ['manuale', 'ai'];
+
+async function createPreferenza(db, { pmsCustomerId, autoreUserId, reparto, categoria, testo, ambito = 'nucleo', origine = 'manuale' }) {
   const rows = await db.query(
-    `INSERT INTO customer_preferences (pms_customer_id, autore_user_id, reparto, categoria, testo, ambito, created_at)
+    `INSERT INTO customer_preferences (pms_customer_id, autore_user_id, reparto, categoria, testo, ambito, origine, created_at)
      OUTPUT INSERTED.id
-     VALUES (@pmsCustomerId, @autoreUserId, @reparto, @categoria, @testo, @ambito, SYSUTCDATETIME())`,
-    { pmsCustomerId, autoreUserId, reparto, categoria, testo, ambito }
+     VALUES (@pmsCustomerId, @autoreUserId, @reparto, @categoria, @testo, @ambito, @origine, SYSUTCDATETIME())`,
+    { pmsCustomerId, autoreUserId, reparto, categoria, testo, ambito, origine: ORIGINI.includes(origine) ? origine : 'manuale' }
   );
   return rows[0];
 }
@@ -56,4 +64,4 @@ async function updatePreferenza(db, id, { ambito, testo, reparto, categoria }) {
 const { deleteById } = require('./helpers');
 const deletePreferenza = (db, id, membri) => deleteById(db, 'customer_preferences', id, membri);
 
-module.exports = { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI };
+module.exports = { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI, ORIGINI };

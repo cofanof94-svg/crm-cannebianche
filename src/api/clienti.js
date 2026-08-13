@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth } = require('../auth/middleware');
 const { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, getNotePrenotazioni } = require('../pms/clienti');
 const { proponiPerSoggiorno } = require('../crm/allergie-note');
+const { registraAi } = require('../crm/registro');
 const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, setComplaintFollowUp, setComplaintClasse, deleteComplaint, FOLLOWUP_MAX, CATEGORIE_COMPLAINT } = require('../crm/complaint');
@@ -246,10 +247,16 @@ function createClientiRouter(pmsDb, crmDb) {
       const guasto = guastoAi(err);
       if (!guasto) throw err; // sconosciuto: meglio un 500 nei log che un messaggio inventato
       console.log(`[AI suggerimenti] cliente=${codCli} utente=${req.session.user.username} GUASTO: ${guasto}`);
+      await registraAi(crmDb, {
+        funzione: 'suggerimenti', azione: 'generato', codCli, utenteId: req.session.user.id, esito: 'guasto', dettaglio: guasto,
+      });
       return res.status(503).json({ error: guasto });
     }
     // Audit minimale (Fase 3 privacy): chi ha generato suggerimenti, per chi, quanti.
     console.log(`[AI suggerimenti] cliente=${codCli} utente=${req.session.user.username} n=${suggerimenti.length}`);
+    await registraAi(crmDb, {
+      funzione: 'suggerimenti', azione: 'generato', codCli, utenteId: req.session.user.id, nProposte: suggerimenti.length,
+    });
     res.json({ suggerimenti });
   });
 
@@ -276,10 +283,25 @@ function createClientiRouter(pmsDb, crmDb) {
       const guasto = guastoAi(err);
       if (!guasto) throw err; // sconosciuto: meglio un 500 nei log che un messaggio inventato
       console.log(`[AI briefing] cliente=${codCli} utente=${req.session.user.username} GUASTO: ${guasto}`);
+      await registraAi(crmDb, {
+        funzione: 'briefing', azione: 'generato', codCli, utenteId: req.session.user.id, esito: 'guasto', dettaglio: guasto,
+      });
       return res.status(503).json({ error: guasto });
     }
     // Audit (privacy): chi ha richiesto un briefing pubblico, per chi, con quante fonti.
     console.log(`[AI briefing] cliente=${codCli} utente=${req.session.user.username} identificazione=${out.identificazione} fonti=${out.fonti.length}`);
+    // Un briefing che non trova nulla è un esito, non un guasto: distinguerli
+    // serve a sapere se l'AI non funziona o se semplicemente l'ospite non è
+    // una persona di cui il web parli.
+    await registraAi(crmDb, {
+      funzione: 'briefing',
+      azione: 'generato',
+      codCli,
+      utenteId: req.session.user.id,
+      nProposte: out.fonti.length,
+      esito: out.testo ? 'ok' : 'vuoto',
+      dettaglio: `identificazione=${out.identificazione}`,
+    });
     res.json(out);
   });
 
@@ -509,8 +531,18 @@ function createClientiRouter(pmsDb, crmDb) {
     if (!REPARTI.includes(reparto)) return res.status(400).json({ error: 'Reparto non valido' });
     if (!CATEGORIE.includes(categoria)) return res.status(400).json({ error: 'Categoria non valida' });
     if (!AMBITI.includes(ambito)) return res.status(400).json({ error: 'Ambito non valido' });
+    // `origine` la dichiara il frontend: è l'unico che sa da quale pulsante si è
+    // passati, perché la preferenza scritta a mano e quella confermata da un
+    // suggerimento arrivano qui identiche. Un valore non previsto vale 'manuale'
+    // — meglio sottostimare l'AI che gonfiarla.
+    const origine = b.origine === 'ai' ? 'ai' : 'manuale';
     const { canonicalId } = await getGruppo(crmDb, codCli); // scrittura sul principale, vedi complaints
-    const preferenza = await createPreferenza(crmDb, { pmsCustomerId: canonicalId, autoreUserId: req.session.user.id, reparto, categoria, testo, ambito });
+    const preferenza = await createPreferenza(crmDb, { pmsCustomerId: canonicalId, autoreUserId: req.session.user.id, reparto, categoria, testo, ambito, origine });
+    if (origine === 'ai') {
+      await registraAi(crmDb, {
+        funzione: 'suggerimenti', azione: 'accettato', codCli, utenteId: req.session.user.id, dettaglio: testo,
+      });
+    }
     res.status(201).json({ preferenza });
   });
 

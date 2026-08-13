@@ -263,3 +263,57 @@ test('un utente eliminato non sopravvive nella propria sessione', async () => {
   delete utenti.banco;
   assert.strictEqual((await ag.get('/api/clienti/47186')).status, 401);
 });
+
+// --- Registro: accessi e uso dell'AI -----------------------------------------
+// Registrare non deve MAI far fallire l'azione registrata: e' l'unica regola che
+// governa questa parte, perche' scrive per essere guardata dopo e non per far
+// funzionare qualcosa adesso.
+
+test("l'accesso viene registrato, riuscito o fallito che sia", async () => {
+  const hash = await hashPassword(PASSWORD);
+  const utenti = { banco: { id: 2, username: 'banco', password_hash: hash, role: 'reception', attivo: 1 } };
+  const scritte = [];
+  const crmDb = {
+    async query(text, params) {
+      if (/INSERT INTO crm_accessi/.test(text)) { scritte.push(params); return []; }
+      if (/FROM users WHERE username/.test(text)) { const u = utenti[params.username]; return u ? [u] : []; }
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) {
+        const u = Object.values(utenti).find((x) => x.id === Number(params.id));
+        return u ? [u] : [];
+      }
+      return [];
+    },
+  };
+  const app = createApp({ crmDb, pmsDb: { async query() { return []; } }, sessionSecret: 'test' });
+
+  await request(app).post('/api/auth/login').send({ username: 'banco', password: PASSWORD });
+  await request(app).post('/api/auth/login').send({ username: 'banco', password: 'sbagliata' });
+  await request(app).post('/api/auth/login').send({ username: 'inesistente', password: PASSWORD });
+
+  assert.deepStrictEqual(scritte.map((s) => s.esito), ['ok', 'credenziali', 'credenziali']);
+  assert.strictEqual(scritte[0].utenteId, 2);
+  // Chi non esiste non si puo' collegare a nessuno, ma il tentativo si conta.
+  assert.strictEqual(scritte[2].utenteId, null);
+  assert.strictEqual(scritte[2].username, 'inesistente');
+});
+
+test('se il registro non scrive, si entra lo stesso', async () => {
+  // La tabella potrebbe non esserci (migrazione non ancora lanciata). Un accesso
+  // negato perche' non si e' potuto annotare che e' avvenuto sarebbe assurdo.
+  const hash = await hashPassword(PASSWORD);
+  const utenti = { banco: { id: 2, username: 'banco', password_hash: hash, role: 'reception', attivo: 1 } };
+  const crmDb = {
+    async query(text, params) {
+      if (/INSERT INTO crm_accessi/.test(text)) throw new Error("Invalid object name 'crm_accessi'");
+      if (/FROM users WHERE username/.test(text)) { const u = utenti[params.username]; return u ? [u] : []; }
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) {
+        const u = Object.values(utenti).find((x) => x.id === Number(params.id));
+        return u ? [u] : [];
+      }
+      return [];
+    },
+  };
+  const app = createApp({ crmDb, pmsDb: { async query() { return []; } }, sessionSecret: 'test' });
+  const res = await request(app).post('/api/auth/login').send({ username: 'banco', password: PASSWORD });
+  assert.strictEqual(res.status, 200, "un guasto del registro non deve chiudere fuori nessuno");
+});
