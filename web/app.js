@@ -540,8 +540,13 @@ function flagAllergie(s, classe) {
 // Sono PROPOSTE: il CRM non scrive niente da solo in un dato di sicurezza.
 // L'operatore vede la frase da cui nasce la proposta, sceglie a chi attribuirla
 // e conferma. Scartate → spariscono finché resta su questa pagina.
+// La chiave porta l'ambito perché lo stesso termine si può proporre in due
+// posti diversi: su una prenotazione (Arrivi, In casa) e sulla scheda di una
+// persona, dove un numero di pratica non esiste.
 const proposteScartate = new Set();
-const chiaveProposta = (x, termine) => `${x.codpratica}|${String(termine).toLowerCase()}`;
+const chiaveProposta = (x, termine) => (x && x.codpratica != null
+  ? `pratica:${x.codpratica}|${String(termine).toLowerCase()}`
+  : `cliente:${x && x.codCliente}|${String(termine).toLowerCase()}`);
 
 // Chi può essere il destinatario: il referente e gli occupanti con un codice.
 // La nota è della pratica, quindi la persona la sceglie chi sa leggerla.
@@ -555,24 +560,63 @@ function personeDellaPrenotazione(x) {
   return out;
 }
 
+// Una riga di proposta. Le due fonti si comportano in modo diverso proprio dove
+// conta: quella che viene dall'anagrafica della persona porta il nome già
+// scritto (non c'è niente da scegliere, e non c'è modo di sbagliare persona),
+// quella che viene dalla nota della prenotazione chiede all'operatore di dire a
+// chi va attribuita, perché la nota riguarda la pratica e non un ospite solo.
+function rigaProposta(p, opzioni, chiave) {
+  const daAnagrafica = p.fonte === 'anagrafica' && Number.isInteger(p.codCli);
+  const chi = daAnagrafica
+    ? `<span class="prop-chi-certo">👤 ${esc(p.nome || `#${p.codCli}`)}</span>
+       <input type="hidden" class="prop-chi" value="${p.codCli}">`
+    : `<select class="prop-chi" title="A chi attribuire l'allergia">${opzioni}</select>`;
+  const fonte = daAnagrafica
+    ? '<span class="prop-fonte prop-fonte-certa" title="Scritta sull\'anagrafica di questa persona: l\'attribuzione è certa">dalla sua anagrafica</span>'
+    : '<span class="prop-fonte" title="Scritta nella nota della prenotazione, che riguarda tutta la pratica: scegli tu a chi attribuirla">dalla prenotazione</span>';
+  return `
+    <div class="prop-riga" data-prop-termine="${esc(p.termine)}" data-prop-chiave="${esc(chiave)}">
+      <span class="prop-termine">⚠ ${esc(p.termine)}</span>
+      <span class="prop-frase" title="${esc(p.frase)}">«${esc(p.frase)}»</span>
+      ${chi}${fonte}
+      <button type="button" class="btn-icon prop-ok" data-add-prop>Aggiungi</button>
+      <button type="button" class="btn-icon prop-no" data-ign-prop>Ignora</button>
+    </div>`;
+}
+
 function proposteAllergie(x) {
   const proposte = ((x.snapshot && x.snapshot.allergieProposte) || [])
     .filter((p) => p && p.termine && !proposteScartate.has(chiaveProposta(x, p.termine)));
   if (!proposte.length) return '';
   const persone = personeDellaPrenotazione(x);
-  if (!persone.length) return ''; // senza un ospite a cui attribuirla non si propone
+  // Le proposte dalla nota hanno bisogno di qualcuno a cui attribuirle; quelle
+  // dall'anagrafica no, perché il nome ce l'hanno già.
+  const utili = persone.length ? proposte : proposte.filter((p) => p.fonte === 'anagrafica' && Number.isInteger(p.codCli));
+  if (!utili.length) return '';
   const opzioni = persone.map((p) => `<option value="${p.codCli}">${esc(p.nome)}</option>`).join('');
-  const righe = proposte.map((p) => `
-    <div class="prop-riga" data-prop-pratica="${esc(x.codpratica)}" data-prop-termine="${esc(p.termine)}">
+  return `<div class="prop-box">
+    <div class="prop-testa">🔎 Possibili allergie
+      <span class="info info-wide" data-tip="Trovate cercando parole come allergia, intolleranza o celiachia nei testi del gestionale. Sono proposte: nulla viene salvato finché non premi Aggiungi. Quelle che vengono dall'anagrafica di una persona portano già il suo nome; quelle che vengono dalla nota della prenotazione riguardano la pratica, quindi l'ospite lo scegli tu.">i</span></div>
+    ${utili.map((p) => rigaProposta(p, opzioni, chiaveProposta(x, p.termine))).join('')}</div>`;
+}
+
+// Stesso riquadro sulla scheda ospite, dove la persona è una sola e le proposte
+// arrivano solo dalla sua anagrafica (vedi il commento sulla rotta).
+function proposteAllergieScheda(codCli, proposte) {
+  const utili = (proposte || [])
+    .filter((p) => p && p.termine && !proposteScartate.has(chiaveProposta({ codCliente: codCli }, p.termine)));
+  if (!utili.length) return '';
+  const righe = utili.map((p) => `
+    <div class="prop-riga" data-prop-termine="${esc(p.termine)}" data-prop-chiave="${esc(chiaveProposta({ codCliente: codCli }, p.termine))}">
       <span class="prop-termine">⚠ ${esc(p.termine)}</span>
       <span class="prop-frase" title="${esc(p.frase)}">«${esc(p.frase)}»</span>
-      <select class="prop-chi" title="A chi attribuire l'allergia">${opzioni}</select>
+      <input type="hidden" class="prop-chi" value="${p.codCli}">
       <button type="button" class="btn-icon prop-ok" data-add-prop>Aggiungi</button>
       <button type="button" class="btn-icon prop-no" data-ign-prop>Ignora</button>
     </div>`).join('');
   return `<div class="prop-box">
-    <div class="prop-testa">🔎 Possibili allergie dalle note della prenotazione
-      <span class="info info-wide" data-tip="Trovate cercando parole come allergia, intolleranza o celiachia nelle note del PMS. Sono proposte: nulla viene salvato finché non premi Aggiungi, e sei tu a scegliere l'ospite — la nota è della prenotazione, non della persona.">i</span></div>
+    <div class="prop-testa">🔎 Possibili allergie dalle annotazioni del gestionale
+      <span class="info info-wide" data-tip="Trovate nelle annotazioni di anagrafica, che il gestionale tiene sulla singola persona: sono già attribuite con certezza. Nulla viene salvato finché non premi Aggiungi.">i</span></div>
     ${righe}</div>`;
 }
 
@@ -621,7 +665,10 @@ async function gestisciProposta(btn, ricarica) {
   const riga = btn.closest('[data-prop-termine]');
   if (!riga) return;
   const termine = riga.dataset.propTermine;
-  const chiave = `${riga.dataset.propPratica}|${termine.toLowerCase()}`;
+  // La chiave la scrive chi disegna la riga: qui non si sa se veniamo da una
+  // prenotazione o dalla scheda di una persona, e ricalcolarla a mano è il modo
+  // di farla divergere.
+  const chiave = riga.dataset.propChiave;
   if (btn.hasAttribute('data-ign-prop')) { proposteScartate.add(chiave); ricarica(); return; }
   const codCli = Number(riga.querySelector('.prop-chi').value);
   if (!Number.isInteger(codCli)) return;
@@ -2195,6 +2242,12 @@ async function caricaIntolleranze(codCli) {
         </span>
       </div>
     </li>`).join('') || '<li class="nota-vuota">Nessuna intolleranza registrata.</li>';
+  // Le proposte lette nelle annotazioni del gestionale stanno SOTTO l'elenco:
+  // prima quello che è registrato davvero, poi quello che si potrebbe aggiungere.
+  // Solo per chi può scrivere: a un utente in sola lettura mostreremmo due
+  // pulsanti che non funzionano.
+  const box = $('#cli-intol-proposte');
+  if (box) box.innerHTML = puo('scrivi') ? proposteAllergieScheda(codCli, body.proposte) : '';
 }
 
 $('#intol-form').addEventListener('submit', async (e) => {
@@ -2215,6 +2268,13 @@ $('#cli-intolleranze').addEventListener('click', async (e) => {
     await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/intolleranze/${del.dataset.delIntol}`, { method: 'DELETE' });
     caricaIntolleranze(clienteCorrente);
   }
+});
+
+// Conferma/scarto delle proposte lette in anagrafica: stessa funzione delle card
+// di Arrivi e In casa, così il comportamento resta uno solo.
+$('#cli-intol-proposte').addEventListener('click', (e) => {
+  const prop = e.target.closest('[data-add-prop], [data-ign-prop]');
+  if (prop) gestisciProposta(prop, () => caricaIntolleranze(clienteCorrente));
 });
 
 // --- Complaints ---

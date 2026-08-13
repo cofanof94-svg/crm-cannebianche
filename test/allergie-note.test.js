@@ -152,7 +152,7 @@ test('la preposizione non si mangia le prime lettere della sostanza', () => {
   // Il difetto peggiore trovato sui dati veri: mancava il confine di parola dopo
   // la preposizione, quindi "al" combaciava con l'inizio di "ALIMENTARI".
   assert.deepStrictEqual(termini('allergica agli animali'), ['Animali']);
-  assert.deepStrictEqual(termini("FORTE ALLERGIA ALL'AGLIO"), ['AGLIO']);
+  assert.deepStrictEqual(termini("FORTE ALLERGIA ALL'AGLIO"), ['Aglio']);
   assert.deepStrictEqual(termini('allergia alle graminacee'), ['Graminacee']);
 });
 
@@ -167,8 +167,18 @@ test('"ALLERGIE ALIMENTARI" non è un allergene di nome "Alimentari"', () => {
 test('la coda amministrativa dell\'hotel non entra nell\'allergene', () => {
   // In queste note "OK" introduce sempre una pratica amministrativa — OK SALDO,
   // OK ODS, OK TRACCE — e mai un allergene.
-  assert.deepStrictEqual(termini('FORTE ALLERGIA AL CETRIOLO OK TRACCE'), ['CETRIOLO']);
+  assert.deepStrictEqual(termini('FORTE ALLERGIA AL CETRIOLO OK TRACCE'), ['Cetriolo']);
   assert.deepStrictEqual(termini('allergia al sedano OK SALDO'), ['Sedano']);
+});
+
+test('una nota scritta tutta in maiuscolo non produce proposte che urlano', () => {
+  // Le note del gestionale sono spesso in maiuscolo. Ricopiandole, in mezzo ai
+  // termini normali comparivano "CETRIOLO" e "MAIALE": visto sui dati veri il
+  // 13/08/2026. Se invece qualche minuscola c'è, non si tocca niente — potrebbe
+  // esserci una sigla voluta.
+  assert.deepStrictEqual(termini('ALLERGIA AL MAIALE'), ['Maiale']);
+  assert.deepStrictEqual(termini('FORTISSIMA ALLERGIA ALLE PIUME'), ['Piume']);
+  assert.deepStrictEqual(termini('allergia ai pollini di BETULLA'), ['Pollini di BETULLA']);
 });
 
 test('istruzioni operative: non sono allergeni', () => {
@@ -227,4 +237,87 @@ test('"no" e "senza" contano solo se attaccati alla sostanza', () => {
   assert.deepStrictEqual(termini('No glutine per la signora'), ['Glutine']);
   assert.deepStrictEqual(termini('Niente lattosio a colazione'), ['Lattosio']);
   assert.deepStrictEqual(termini('Menù senza frutta a guscio'), ['Frutta a guscio']);
+});
+
+// --- Le due fonti del gestionale --------------------------------------------
+// `Prenota.Note` sta sulla PRATICA (piu' occupanti, attribuzione da chiedere);
+// `Anagra.Annotazioni` sta sulla PERSONA (attribuzione certa per costruzione).
+const { proponiPerSoggiorno } = require('../src/crm/allergie-note');
+
+test("l'allergia scritta in anagrafica arriva gia' attribuita", () => {
+  const p = proponiPerSoggiorno({
+    annotazioni: [{ codCli: 51030, nome: 'TRANQUILLI LUCIA', testo: 'ALLERGIA CROSTACEI, MITILI E COZZE' }],
+  });
+  assert.deepStrictEqual(p.map((x) => x.termine), ['Crostacei', 'Molluschi']);
+  assert.ok(p.every((x) => x.fonte === 'anagrafica' && x.codCli === 51030 && x.nome === 'TRANQUILLI LUCIA'));
+});
+
+test("l'allergia scritta nella nota della prenotazione resta da attribuire", () => {
+  const p = proponiPerSoggiorno({ nota: 'la signora e\' allergica ai crostacei' });
+  assert.deepStrictEqual(p.map((x) => x.termine), ['Crostacei']);
+  assert.strictEqual(p[0].fonte, 'prenotazione');
+  assert.strictEqual(p[0].codCli, null); // la sceglie l'operatore: "la signora" quale?
+});
+
+test('lo stesso termine da entrambe le fonti produce una proposta sola, quella certa', () => {
+  // Caso reale del 13/08/2026: il cetriolo dell'ospite in camera 214 e' scritto
+  // sia nella nota della pratica sia nella sua anagrafica.
+  const p = proponiPerSoggiorno({
+    nota: 'FORTE ALLERGIA AL CETRIOLO OK TRACCE',
+    annotazioni: [{ codCli: 81241, nome: 'SISON RAFAEL', testo: 'LUI HA FORTE ALLERGIA AL CETRIOLO' }],
+  });
+  assert.strictEqual(p.length, 1);
+  assert.strictEqual(p[0].fonte, 'anagrafica');
+  assert.strictEqual(p[0].codCli, 81241);
+});
+
+test('due persone con la stessa allergia restano due proposte: sono due piatti', () => {
+  const p = proponiPerSoggiorno({
+    annotazioni: [
+      { codCli: 1, nome: 'ROSSI ANNA', testo: 'intollerante al glutine' },
+      { codCli: 2, nome: 'ROSSI MARIO', testo: 'intollerante al glutine' },
+    ],
+  });
+  assert.deepStrictEqual(p.map((x) => x.codCli), [1, 2]);
+});
+
+test("un'allergia gia' registrata non si ripropone, da nessuna delle due fonti", () => {
+  const gia = [{ testo: 'Glutine', chi: 'ROSSI ANNA' }]; // forma con il nome (D2)
+  const p = proponiPerSoggiorno({
+    nota: 'ospite intollerante al glutine',
+    annotazioni: [{ codCli: 1, nome: 'ROSSI ANNA', testo: 'intollerante al glutine' }],
+    giaPresenti: gia,
+  });
+  assert.deepStrictEqual(p, []);
+});
+
+test('le allergie registrate si riconoscono anche nella vecchia forma a stringhe', () => {
+  // Il 12/08/2026 la lista e' passata da testi a { testo, chi } in card e qui no:
+  // il confronto lavorava su "[object Object]" e ogni ricaricamento riproponeva
+  // un'allergia gia' salvata. Reggere le due forme evita che si ripeta.
+  const p = proponiPerSoggiorno({ nota: 'ospite intollerante al glutine', giaPresenti: ['glutine'] });
+  assert.deepStrictEqual(p, []);
+});
+
+test('annotazione senza codice cliente: si scarta, non si attribuisce a caso', () => {
+  const p = proponiPerSoggiorno({ annotazioni: [{ codCli: null, nome: 'X', testo: 'allergia al sedano' }] });
+  assert.deepStrictEqual(p, []);
+});
+
+test('la coda si ferma anche quando l\'istruzione e\' in mezzo, non solo in testa', () => {
+  // Annotazione vera del 13/08/2026 (anagrafica 81241): senza questo taglio
+  // usciva un allergene chiamato "Cetriolo evitare in cibi e bevande", che oltre
+  // a essere illeggibile in cucina non combaciava piu' con il "Cetriolo" della
+  // nota di prenotazione -- e la stessa allergia veniva proposta due volte.
+  assert.deepStrictEqual(termini('FORTE ALLERGIA AL CETRIOLO EVITARE IN CIBI E BEVANDE'), ['Cetriolo']);
+  assert.deepStrictEqual(termini('allergia alle piume rimuovere i cuscini dalla stanza'), ['Piume']);
+});
+
+test('le frasi rivolte al personale non diventano allergeni', () => {
+  // Stessa annotazione: "...e di comunicare questa allergia ai ristoranti
+  // prenotati per nostro conto" proponeva "Ristoranti prenotati per nostro conto)".
+  assert.deepStrictEqual(termini('Si prega di comunicare questa allergia ai ristoranti prenotati per nostro conto'), []);
+  assert.deepStrictEqual(termini('Please inform the restaurant about this allergy'), []);
+  // Ma una sostanza vera resta valida anche dentro una formula di cortesia.
+  assert.deepStrictEqual(termini('Si prega di preparare pasti senza glutine'), ['Glutine']);
 });

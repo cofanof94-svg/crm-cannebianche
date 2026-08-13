@@ -849,6 +849,13 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
    non nascosta in un suggerimento. */
 .prop-frase { flex: 1 1 220px; min-width: 0; font-size: 12px; font-style: italic; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prop-chi { font: inherit; font-size: 12px; padding: 2px 6px; border: 1px solid var(--border-strong); border-radius: 7px; max-width: 190px; }
+/* Quando l'allergia è scritta sull'anagrafica della persona non c'è niente da
+   scegliere: al posto della tendina il nome, che è già certo. */
+.prop-chi-certo { font-size: 12px; font-weight: 700; color: var(--text); }
+/* La provenienza si legge a colpo d'occhio: verde salvia = attribuzione certa,
+   sabbia = da attribuire. Serve a sapere quanto fidarsi prima di premere. */
+.prop-fonte { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-700); background: var(--accent-050); border-radius: 5px; padding: 1px 6px; }
+.prop-fonte-certa { color: var(--sea-700); background: var(--sea-050); }
 .prop-ok { font-weight: 700; color: var(--sea-700); }
 .prop-ok:hover { background: var(--sea-050); }
 .prop-no { color: var(--muted); }

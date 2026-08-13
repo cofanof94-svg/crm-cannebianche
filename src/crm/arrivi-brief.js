@@ -18,7 +18,7 @@ const { listPreferenze } = require('./preferenze');
 const { listComplaints } = require('./complaint');
 const { listIntolleranze } = require('./intolleranze');
 const { listNotePersonali } = require('./profilo');
-const { proponiDaNote } = require('./allergie-note');
+const { proponiPerSoggiorno } = require('./allergie-note');
 
 // Tolti `anniversari` e `suggerimentiAi` (12/08): valevano zero da sempre e nessuna
 // schermata li mostrava. Un contatore fermo a zero, il giorno che finisce in una
@@ -199,10 +199,18 @@ function costruisciSnapshot(a, ctx) {
     if (data) { compleanno = { codCli: id, nome: an.nominativo, data }; break; }
   }
 
-  // Possibili allergie lette nella nota della prenotazione: PROPOSTE, non dati.
-  // Chi le conferma sceglie anche a quale ospite attribuirle (la nota è della
-  // pratica, non della persona). Già registrate → non si ripropongono.
-  const allergieProposte = proponiDaNote(a.note, intoll);
+  // Possibili allergie: PROPOSTE, non dati. Il CRM non scrive mai da solo in un
+  // dato di sicurezza. Due fonti, con due gradi di certezza diversi:
+  // - le ANNOTAZIONI di anagrafica, che stanno sulla singola persona e quindi
+  //   arrivano con il nome già attribuito;
+  // - la NOTA della prenotazione, che riguarda la pratica: lì chi conferma
+  //   sceglie anche a quale ospite attribuirla.
+  // Già registrate → non si ripropongono.
+  const annotazioni = ids
+    .map((id) => ctx.anagra.get(id))
+    .filter((an) => an && an.note)
+    .map((an) => ({ codCli: an.codCli, nome: an.nominativo, testo: an.note }));
+  const allergieProposte = proponiPerSoggiorno({ nota: a.note, annotazioni, giaPresenti: intoll });
 
   return { vip, indesiderato, preferenzeTop: prefTop, intolleranze: intoll, reclami, relazioni, compleanno, notaPersonale, allergieProposte };
 }

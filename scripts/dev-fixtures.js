@@ -20,7 +20,11 @@ const DATA_LAVORO = piu(0);
 // CodVip: 'V1' classificazione, 'IN' ospite indesiderato, vuoto = nessuna.
 const ANAGRAFICHE = [
   { CodCli: 1001, Cognome: 'TOSTI', Nome: 'CARLO', email: 'c.tosti@example.it', Telefono: '0805551001', Cellulare: '3391001001', Citta: 'BARI', CodNaz: 'I', dtNascita: '1968-04-12', CodFis: 'TSTCRL68D12A662X', CodVip: 'V1', DesVip: 'BOLLICINE + FRUTTA FRESCA', Annotazioni: 'Cliente storico, sempre stessa camera.', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
-  { CodCli: 1002, Cognome: 'HEUSER', Nome: 'HENRY MICHAEL', email: 'h.heuser@example.com', Telefono: '', Cellulare: '+4915112345', Citta: 'MÜNCHEN', CodNaz: 'D', dtNascita: null, CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
+  // Allergia scritta nell'ANAGRAFICA e non nella nota della prenotazione (70102,
+  // che infatti non ha note): è il caso che il 13/08/2026 in hotel riguardava due
+  // ospiti in camera. Deve comparire in card e nella scheda col nome già
+  // attribuito, senza tendina — la frase sta sulla sua anagrafica.
+  { CodCli: 1002, Cognome: 'HEUSER', Nome: 'HENRY MICHAEL', email: 'h.heuser@example.com', Telefono: '', Cellulare: '+4915112345', Citta: 'MÜNCHEN', CodNaz: 'D', dtNascita: null, CodFis: '', CodVip: '', DesVip: null, Annotazioni: 'ALLERGIA CROSTACEI, MITILI E COZZE', Privacy: 'N', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
   { CodCli: 1003, Cognome: 'HAEFLIGER', Nome: 'SANDRA', email: 's.haefliger@example.ch', Telefono: '', Cellulare: '+41791234567', Citta: 'ZÜRICH', CodNaz: 'CH', dtNascita: '1979-08-30', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1004, Cognome: 'PAGLIUSO', Nome: 'ROBERT RALPH', email: 'rr.pagliuso@example.com', Telefono: '', Cellulare: '+13475550142', Citta: 'NEW YORK', CodNaz: 'USA', dtNascita: '1971-02-19', CodFis: '', CodVip: 'V1', DesVip: 'BOLLICINE + FRUTTA FRESCA', Annotazioni: 'Gruppo famiglia, 4 camere.', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
   { CodCli: 1005, Cognome: 'BORSOS', Nome: 'ANNAMÁRIA', email: 'a.borsos@example.hu', Telefono: '', Cellulare: '+36301234567', Citta: 'BUDAPEST', CodNaz: 'H', dtNascita: null, CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
@@ -45,7 +49,10 @@ const ANAGRAFICHE = [
   { CodCli: 1012, Cognome: 'BIANCHI', Nome: 'FEDERICO', email: 'f.bianchi@example.it', Telefono: '', Cellulare: '3491012012', Citta: 'ROMA', CodNaz: 'I', dtNascita: '1965-07-19', CodFis: '', CodVip: 'IN', DesVip: 'OSPITE INDESIDERATO', Annotazioni: 'Contestazioni ripetute, valutare con la direzione.', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'S', PrivacyCessioneDati: 'S' },
   { CodCli: 1013, Cognome: 'DUBOIS', Nome: 'CLAIRE', email: 'c.dubois@example.fr', Telefono: '', Cellulare: '+33612345678', Citta: 'LYON', CodNaz: 'F', dtNascita: '1982-05-23', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1014, Cognome: 'SCHMIDT', Nome: 'LUKAS', email: 'l.schmidt@example.de', Telefono: '', Cellulare: '+491701234567', Citta: 'HAMBURG', CodNaz: 'D', dtNascita: '1976-09-30', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'S' },
-  { CodCli: 1016, Cognome: 'CONTE', Nome: 'VALERIA', email: 'v.conte@example.it', Telefono: '', Cellulare: '3281016016', Citta: 'LECCE', CodNaz: 'I', dtNascita: '1985-04-27', CodFis: '', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
+  // Stessa allergia scritta in due posti: qui in anagrafica, e nella nota della
+  // prenotazione 70211 ("Ospite intollerante al lattosio"). Deve uscire UNA
+  // proposta sola, quella con il nome già attribuito.
+  { CodCli: 1016, Cognome: 'CONTE', Nome: 'VALERIA', email: 'v.conte@example.it', Telefono: '', Cellulare: '3281016016', Citta: 'LECCE', CodNaz: 'I', dtNascita: '1985-04-27', CodFis: '', CodVip: '', DesVip: null, Annotazioni: 'Intollerante al lattosio.', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   { CodCli: 1015, Cognome: 'AL-FARSI', Nome: 'NOURA', email: 'n.alfarsi@example.com', Telefono: '', Cellulare: '+971501234567', Citta: 'DUBAI', CodNaz: 'UAE', dtNascita: null, CodFis: '', CodVip: 'V1', DesVip: 'BOLLICINE + FRUTTA FRESCA', Annotazioni: '', Privacy: 'N', Privacy2: 'N', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' },
   // --- Due ospiti per collaudare il Briefing AI ------------------------------
   // Il briefing è l'unica funzione che cerca DAVVERO su internet: con un nome

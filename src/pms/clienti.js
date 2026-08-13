@@ -214,9 +214,12 @@ async function getSoggiorniCliente(pmsDb, ids) {
 
 // Anagrafica minima per una lista di codici (dashboard arrivi): nome, data di
 // nascita e VIP decodificato. Una sola query set-based. Ritorna Map codice → dati.
+// `Annotazioni` è la nota che il gestionale tiene sulla PERSONA (mentre
+// `Prenota.Note` sta sulla pratica). Serve alle allergie: quando l'allergia è
+// scritta lì, si sa di chi è senza doverlo chiedere a nessuno.
 const sqlAnagraByIds = (inl) => `
 SELECT a.CodCli, a.Cognome, a.Nome, CONVERT(varchar(10), a.dtNascita, 23) AS dtNascita,
-       a.CodVip, tv.desvip AS DesVip
+       a.CodVip, tv.desvip AS DesVip, a.Annotazioni
 FROM Anagra a
 LEFT JOIN TabVip tv ON LTRIM(RTRIM(tv.codvip)) = LTRIM(RTRIM(a.CodVip)) AND ISNULL(a.CodVip,'') <> ''
 WHERE a.CodCli IN ${inl}`;
@@ -234,6 +237,7 @@ async function getAnagraByIds(pmsDb, ids) {
       nominativo: nominativo(r.Cognome, r.Nome),
       dtNascita: pulisci(r.dtNascita),
       vip: vipInfo(r.CodVip, r.DesVip),
+      note: pulisci(r.Annotazioni),
     });
   }
   return map;

@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth } = require('../auth/middleware');
-const { cercaClienti, getCliente, getSoggiorniCliente } = require('../pms/clienti');
+const { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds } = require('../pms/clienti');
+const { proponiPerSoggiorno } = require('../crm/allergie-note');
 const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
 const { listComplaints, createComplaint, updateComplaintTesto, setComplaintPeriodo, setComplaintStato, setComplaintFollowUp, setComplaintClasse, deleteComplaint, FOLLOWUP_MAX, CATEGORIE_COMPLAINT } = require('../crm/complaint');
@@ -366,11 +367,30 @@ function createClientiRouter(pmsDb, crmDb) {
   delRoute('complaints', deleteComplaint, 'Complaint non trovato');
 
   // --- Intolleranze / allergie (dato di sicurezza) ---
+  // Insieme alle allergie registrate viaggiano le PROPOSTE lette nelle
+  // annotazioni di anagrafica del gestionale: sono informazioni che l'hotel ha
+  // già scritto e che oggi restano in un riquadro chiuso, quindi non arrivano in
+  // cucina finché qualcuno non le registra qui.
+  //
+  // Solo dalle annotazioni, mai dalle note di prenotazione: la nota della
+  // pratica parla di "la signora" fra quattro occupanti, e su questa pagina non
+  // c'è nessuno a cui chiedere di quale signora si tratti — la si attribuirebbe
+  // in silenzio a chi ha aperto la scheda. Negli Arrivi quella scelta esiste
+  // (il menù a tendina); qui no, quindi entra solo ciò che è certo per
+  // costruzione: la frase sta sull'anagrafica di quella persona.
   router.get('/clienti/:codCli/intolleranze', async (req, res) => {
     const codCli = intParam(req.params.codCli);
     if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { membri } = await getGruppo(crmDb, codCli);
-    res.json({ intolleranze: await listIntolleranze(crmDb, membri) });
+    const intolleranze = await listIntolleranze(crmDb, membri);
+    const anagra = await getAnagraByIds(pmsDb, membri);
+    const annotazioni = membri
+      .map((id) => anagra.get(id))
+      .filter((an) => an && an.note)
+      .map((an) => ({ codCli: an.codCli, nome: an.nominativo, testo: an.note }));
+    const proposte = proponiPerSoggiorno({ annotazioni, giaPresenti: intolleranze.map((i) => i.testo) })
+      .filter((p) => p.fonte === 'anagrafica');
+    res.json({ intolleranze, proposte });
   });
 
   router.post('/clienti/:codCli/intolleranze', async (req, res) => {

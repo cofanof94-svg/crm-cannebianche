@@ -117,7 +117,23 @@ const CODA_AMMINISTRATIVA = /\s+OK\b.*$/i;
 // Le voci dopo `inserir` vengono dalle note vere del 13/08: "chiedere rooming e
 // intolleranze - inserire prenotazioni al ristorante per il 26" proponeva
 // "Inserire prenotazioni al ristorante per" come se fosse un allergene.
-const ISTRUZIONE = /^(?:verificar|avvisar|avvertir|controllar|segnalar|informar|chieder|contattar|comunicar|ricordar|prepar|servir|evitar|confermar|inserir|prenotar|assegnar|vedi\b|come\b|da\s|please\b|pls\b|ok\b)/i;
+const VERBI_ISTRUZIONE = 'verificar|avvisar|avvertir|controllar|segnalar|informar|chieder|contattar|comunicar|ricordar|prepar|servir|evitar|eliminar|rimuover|escluder|confermar|inserir|prenotar|assegnar';
+const ISTRUZIONE = new RegExp(`^(?:${VERBI_ISTRUZIONE}|vedi\\b|come\\b|da\\s|please\\b|pls\\b|ok\\b)`, 'i');
+
+// Lo stesso verbo può comparire DENTRO la coda, non solo all'inizio: da lì in
+// poi non si parla più della sostanza ma di cosa farne. Sui dati veri del
+// 13/08/2026, "FORTE ALLERGIA AL CETRIOLO EVITARE IN CIBI E BEVANDE" produceva
+// un allergene chiamato "Cetriolo evitare in cibi e bevande" — che oltre a
+// essere illeggibile in cucina non combaciava più con il "Cetriolo" trovato
+// nella nota della prenotazione, quindi la stessa allergia usciva due volte.
+const CODA_ISTRUZIONE = new RegExp(`\\s+(?:${VERBI_ISTRUZIONE})\\w*\\b.*$`, 'i');
+
+// Frasi che si rivolgono al personale invece di dichiarare un'allergia: "si
+// prega di comunicare questa allergia ai ristoranti prenotati" parla di
+// un'allergia già detta altrove, e la coda dopo il marcatore ("ai ristoranti…")
+// non è una sostanza. Vale solo per le sostanze FUORI elenco: se la frase
+// nomina il glutine, il glutine resta buono anche dentro una cortesia.
+const FRASE_DIRETTIVA = /^\s*(?:si\s+prega|si\s+ricorda|vi\s+preghiam|preghiam|please|kindly|pls\b)/i;
 
 // Code che dicono "ci sono allergie" senza dire QUALI: proporle come allergene
 // significherebbe mettere in cucina una voce chiamata "Alimentari".
@@ -180,7 +196,7 @@ function ritaglia(frase, max = 120) {
 
 // Ripulisce la coda catturata ("ai pollini di betulla" → "Pollini di betulla").
 function ripulisci(t) {
-  const grezzo = String(t || '').replace(CODA_AMMINISTRATIVA, '');
+  const grezzo = String(t || '').replace(CODA_AMMINISTRATIVA, '').replace(CODA_ISTRUZIONE, '');
   let s = grezzo.replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|i|il|lo|la|le|gli|un|una)\\b\\s+`, 'i'), '');
   // Se la cattura è arrivata al limite, l'ultima parola è quasi certamente
   // tagliata a metà ("fiori fresch"): si butta invece di salvarla monca.
@@ -189,6 +205,12 @@ function ripulisci(t) {
     s = s.slice(0, s.lastIndexOf(' ')).trim();
   }
   if (!s || ISTRUZIONE.test(s) || GENERICO.test(s)) return null;
+  // Le note del gestionale sono spesso scritte tutte in maiuscolo ("ALLERGIA AL
+  // MAIALE"): ricopiandole si finiva con proposte che urlano in mezzo a termini
+  // scritti normalmente. Se non c'è nemmeno una minuscola, il testo è del tutto
+  // maiuscolo e va riportato alla forma normale; se le minuscole ci sono, non si
+  // tocca niente, perché potrebbero esserci sigle volute.
+  if (!/[a-zàèéìòù]/.test(s)) s = s.toLowerCase();
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -218,7 +240,9 @@ function estraiAllergie(nota) {
     }
     // Marcatore esplicito ma sostanza fuori elenco: si propone comunque il testo
     // che segue, perché "allergica ai pollini" è un'informazione da non perdere.
-    if (!trovata && /\ballerg\w*|\bintolleran\w*/i.test(frase)) {
+    // Non però quando la frase è rivolta al personale: lì il marcatore richiama
+    // un'allergia detta altrove e la coda è tutt'altro (i ristoranti, la cucina).
+    if (!trovata && !FRASE_DIRETTIVA.test(frase) && /\ballerg\w*|\bintolleran\w*/i.test(frase)) {
       const m = frase.match(DOPO_MARCATORE);
       if (m) aggiungi(ripulisci(m[1]), frase);
     }
@@ -226,11 +250,68 @@ function estraiAllergie(nota) {
   return out;
 }
 
+// Le allergie già registrate arrivano in due forme: testi puri, oppure
+// `{ testo, chi }` da quando ognuna porta il nome di chi la ha (decisione D2 del
+// 12/08/2026). Reggere entrambe non è pigrizia: quel giorno la forma è cambiata
+// nella card e qui no, e per un mese il confronto ha lavorato su
+// "[object Object]" — cioè un'allergia già salvata veniva riproposta a ogni
+// ricaricamento della pagina, proprio dove si chiede all'operatore di fidarsi.
+function testiGiaPresenti(lista) {
+  const out = new Set();
+  for (const v of lista || []) {
+    const testo = (v && typeof v === 'object') ? v.testo : v;
+    const s = String(testo == null ? '' : testo).trim().toLowerCase();
+    if (s) out.add(s);
+  }
+  return out;
+}
+
 // Proposte al netto di quelle già registrate sul cliente (confronto senza
 // maiuscole): ciò che è già nella card non si ripropone.
 function proponiDaNote(nota, giaPresenti) {
-  const gia = new Set((giaPresenti || []).map((t) => String(t || '').trim().toLowerCase()).filter(Boolean));
+  const gia = testiGiaPresenti(giaPresenti);
   return estraiAllergie(nota).filter((p) => !gia.has(p.termine.toLowerCase()));
 }
 
-module.exports = { estraiAllergie, proponiDaNote, frasi, SOSTANZE };
+// Tutte le proposte di un soggiorno, dalle due fonti che il gestionale offre.
+//
+// Sono fonti diverse per natura, non due copie della stessa cosa:
+// - `annotazioni` sta sull'ANAGRAFICA della singola persona, quindi si sa di chi
+//   parla: l'operatore deve solo dire sì o no;
+// - `nota` sta sulla PRATICA, che può avere quattro occupanti: "la signora è
+//   allergica ai crostacei" non dice quale signora, e la persona la sceglie chi
+//   sa leggerla.
+//
+// Quando lo stesso termine arriva da entrambe vince l'anagrafica, perché porta
+// l'attribuzione certa. Caso reale del 13/08/2026: la pratica 63755 e
+// l'anagrafica 81241 dicono tutte e due "cetriolo" dello stesso ospite.
+//
+// `annotazioni`: [{ codCli, nome, testo }] — di norma il referente e gli occupanti.
+function proponiPerSoggiorno({ nota, annotazioni, giaPresenti } = {}) {
+  const gia = testiGiaPresenti(giaPresenti);
+  const out = [];
+  const daAnagrafica = new Set();
+
+  for (const a of annotazioni || []) {
+    if (!a || !Number.isInteger(a.codCli) || !a.testo) continue;
+    for (const p of estraiAllergie(a.testo)) {
+      const chiave = p.termine.toLowerCase();
+      if (gia.has(chiave)) continue;
+      // Una persona sola non ha bisogno di due volte la stessa allergia, ma due
+      // persone diverse con la stessa allergia restano due proposte distinte:
+      // vanno registrate su entrambe.
+      if (out.some((x) => x.codCli === a.codCli && x.termine.toLowerCase() === chiave)) continue;
+      daAnagrafica.add(chiave);
+      out.push({ termine: p.termine, frase: p.frase, fonte: 'anagrafica', codCli: a.codCli, nome: a.nome || null });
+    }
+  }
+
+  for (const p of estraiAllergie(nota)) {
+    const chiave = p.termine.toLowerCase();
+    if (gia.has(chiave) || daAnagrafica.has(chiave)) continue;
+    out.push({ termine: p.termine, frase: p.frase, fonte: 'prenotazione', codCli: null, nome: null });
+  }
+  return out;
+}
+
+module.exports = { estraiAllergie, proponiDaNote, proponiPerSoggiorno, frasi, SOSTANZE };
