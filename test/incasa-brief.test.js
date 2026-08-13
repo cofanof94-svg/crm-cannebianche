@@ -97,3 +97,49 @@ test('arricchisciInCasa: lista vuota → briefing a zero', async () => {
   assert.deepStrictEqual(enr.clienti, []);
   assert.strictEqual(enr.briefing.presenti, 0);
 });
+
+// --- Ospiti del giorno (day use) ---------------------------------------------
+// Arrivo e partenza nello stesso giorno: gli esterni di SPA, piscina e serate.
+// Circa 1.200 l'anno, e fino al 13/08/2026 non comparivano da nessuna parte
+// perché il gestionale li marca "partiti" fin dalla prenotazione.
+
+test('isDayUse riconosce solo gli ospiti del giorno', () => {
+  const { isDayUse } = require('../src/crm/incasa-brief');
+  assert.strictEqual(isDayUse({ statoPartenza: 'dayuse' }), true);
+  assert.strictEqual(isDayUse({ statoPartenza: 'partenza' }), false);
+  assert.strictEqual(isDayUse({ statoPartenza: 'checkout' }), false);
+  assert.strictEqual(isDayUse({ statoPartenza: 'incasa' }), false);
+});
+
+test('un ospite del giorno non è una partenza da gestire', () => {
+  // Se contasse come partenza gonfierebbe "Partono oggi", che la reception
+  // confronta con il gestionale: il 14 agosto passerebbe da 12 a 22.
+  assert.strictEqual(parteOggi({ statoPartenza: 'dayuse' }), false);
+});
+
+test('ordinaInCasa: gli ospiti del giorno stanno in fondo, sotto agli usciti', () => {
+  const ordinati = ordinaInCasa([
+    { camere: '', statoPartenza: 'dayuse' },
+    { camere: '221', statoPartenza: 'incasa' },
+    { camere: '106', statoPartenza: 'checkout' },
+    { camere: '104', statoPartenza: 'partenza' },
+  ]);
+  assert.deepStrictEqual(ordinati.map((c) => c.statoPartenza),
+    ['partenza', 'incasa', 'checkout', 'dayuse']);
+});
+
+test('calcolaBriefingInCasa: gli ospiti del giorno hanno un contatore loro', () => {
+  const b = calcolaBriefingInCasa([
+    { statoPartenza: 'incasa', snapshot: {} },
+    { statoPartenza: 'checkout', snapshot: {} },
+    { statoPartenza: 'dayuse', snapshot: { intolleranze: ['Glutine'] } },
+    { statoPartenza: 'dayuse', snapshot: { vip: { cod: 'V1' } } },
+  ]);
+  assert.strictEqual(b.dayUse, 2);
+  assert.strictEqual(b.presenti, 1);     // non occupano una camera
+  assert.strictEqual(b.usciti, 1);       // e non hanno fatto check-in
+  assert.strictEqual(b.partonoOggi, 1);  // solo il check-out vero
+  // I segnali però contano come per tutti: è il motivo per cui li mostriamo.
+  assert.strictEqual(b.alert, 1);
+  assert.strictEqual(b.vip, 1);
+});

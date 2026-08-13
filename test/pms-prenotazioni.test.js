@@ -78,3 +78,67 @@ test('getRiepilogoGiorno: nessuna riga -> zeri', async () => {
   const r = await getRiepilogoGiorno(pms, '2026-07-06');
   assert.deepStrictEqual(r, { arrivi: 0, partenze: 0, presenti: 0 });
 });
+
+// Il check-out di una prenotazione si decide sulle righe di Alberg, che sono una
+// per OCCUPANTE. La domanda "questa prenotazione e' uscita?" ha una sola risposta
+// giusta (decisione di Mik del 13/08/2026): SI' solo se sono chiuse tutte le
+// righe. Il test guarda il SQL perche' e' li' che vive la regola: la vecchia
+// versione usava SELECT TOP 1 senza ORDER BY e su una prenotazione con righe
+// discordi la risposta la sceglieva il piano di esecuzione del database.
+test('lo stato di uscita non dipende da quale riga del conto risponde', async () => {
+  const pms = fakePms({ righe: [] });
+  await getInCasaByData(pms, '2026-08-13');
+  const sql = pms.calls[0].text;
+
+  assert.doesNotMatch(sql, /TOP 1\s+al\.flgpar/i, 'la riga non si sceglie a caso');
+  // Uscita = esistono righe E non ne esiste nessuna ancora aperta.
+  assert.match(sql, /EXISTS \(SELECT 1 FROM Alberg al WHERE al\.codpratica = p\.codpratica\)/i);
+  assert.match(sql, /NOT EXISTS[\s\S]*NOT IN \('O', 'D'\)/i);
+});
+
+test('una prenotazione senza righe di conto non risulta uscita', async () => {
+  const pms = fakePms({ righe: [] });
+  await getInCasaByData(pms, '2026-08-13');
+  // Senza il controllo di esistenza, "nessuna riga aperta" sarebbe vero anche
+  // quando di righe non ce n'e' nessuna, e la prenotazione sparirebbe in fondo
+  // alla lista senza che nessuno abbia fatto il check-out.
+  const sql = pms.calls[0].text;
+  const posEsiste = sql.search(/WHEN EXISTS \(SELECT 1 FROM Alberg/i);
+  const posNonEsiste = sql.search(/AND NOT EXISTS \(SELECT 1 FROM Alberg/i);
+  assert.ok(posEsiste > -1 && posNonEsiste > posEsiste, 'le due condizioni vanno insieme, in questo ordine');
+});
+
+// Gli ospiti del giorno entrano nella lista "In casa" ma non negli Arrivi: il
+// gestionale li marca 'P' (partiti) fin dalla prenotazione perche' non
+// pernottano, quindi la vecchia condizione flgincasa='S' li escludeva tutti.
+test('la lista in casa comprende gli ospiti del giorno, non solo chi ha fatto check-in', async () => {
+  const pms = fakePms({ righe: [] });
+  await getInCasaByData(pms, '2026-08-14');
+  const sql = pms.calls[0].text;
+
+  assert.match(sql, /CAST\(p\.dtarrivo AS date\) = CAST\(p\.dtpartenza AS date\) THEN 'dayuse'/i);
+  // La condizione sul check-in non e' piu' l'unica via d'ingresso.
+  assert.doesNotMatch(sql, /WHERE p\.DataEliminazione IS NULL AND p\.flgincasa = 'S'/i);
+  assert.match(sql, /p\.flgincasa = 'S'\s*\n\s*OR \(/i);
+});
+
+test('una pratica di un giorno di chi e\' gia\' in albergo non produce una seconda card', async () => {
+  const pms = fakePms({ righe: [] });
+  await getInCasaByData(pms, '2026-08-14');
+  // Sono scritture contabili (l'extra addebitato a parte): senza questa
+  // esclusione lo stesso ospite comparirebbe due volte nella stessa lista.
+  assert.match(pms.calls[0].text, /NOT EXISTS \(\s*SELECT 1 FROM Prenota p2[\s\S]*p2\.codclinterm = p\.codclinterm/i);
+  // "Gia' in albergo" deve voler dire check-in fatto. I voucher regalo sono
+  // registrati come prenotazioni lunghe un anno: senza questa condizione
+  // coprirebbero qualunque data e cancellerebbero l'ospite dalla lista.
+  // Successo davvero il 13/08/2026 con la pratica 59349 (20/12/25 -> 20/12/26).
+  assert.match(pms.calls[0].text, /SELECT 1 FROM Prenota p2[\s\S]{0,200}p2\.flgincasa = 'S'/i);
+});
+
+test('gli arrivi restano solo di chi prende una camera', async () => {
+  const pms = fakePms({ righe: [] });
+  await getArriviByData(pms, '2026-08-14');
+  // La pagina Arrivi prepara camera, orario e check-in: un ospite del giorno
+  // non ne ha nessuno, e sommarlo falserebbe il riquadro "Arrivi oggi".
+  assert.doesNotMatch(pms.calls[0].text, /dayuse/i);
+});

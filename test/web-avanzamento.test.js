@@ -139,3 +139,18 @@ test('senza avanzamento calcolabile si dice almeno quando parte', () => {
   const html = renderAvanzamento({ dtpartenza: '2026-08-20' }, OGGI);
   assert.strictEqual(html, '<span>Parte il 20/08/2026</span>');
 });
+
+test("l'ospite del giorno non ha un soggiorno da far avanzare", () => {
+  const html = renderAvanzamento({
+    statoPartenza: 'dayuse', dtarrivo: OGGI, dtpartenza: OGGI, notti: 0,
+    paxAdulti: 2, paxBambini: 1, avanzamento: null,
+  }, OGGI);
+  // Niente pallini, niente "parte il…": parte in giornata per definizione.
+  assert.doesNotMatch(html, /ic-dot|ic-bar|Parte il/);
+  assert.strictEqual(html, '<span>In hotel per la giornata · 3 persone</span>');
+});
+
+test("l'ospite del giorno senza pax dichiarati non inventa un numero", () => {
+  const html = renderAvanzamento({ statoPartenza: 'dayuse', dtpartenza: OGGI }, OGGI);
+  assert.strictEqual(html, '<span>In hotel per la giornata</span>');
+});

@@ -49,7 +49,9 @@ function rigaPrenota(p, data) {
     dtarrivo: p.dtarrivo,
     dtpartenza: p.dtpartenza,
     notti: notti(p.dtarrivo, p.dtpartenza),
-    statoPartenza: p.stato === 'checkout' ? 'checkout' : (p.dtpartenza === data ? 'partenza' : 'incasa'),
+    statoPartenza: p.dtarrivo === p.dtpartenza
+      ? 'dayuse'
+      : (p.stato === 'checkout' ? 'checkout' : (p.dtpartenza === data ? 'partenza' : 'incasa')),
     camere: p.camere,
     tipologie: p.tipologie,
     paxAdulti: p.paxAdulti,
@@ -80,10 +82,14 @@ const pmsDb = {
 
     if (/AS arrivi/.test(t)) {
       const d = params.data || F.DATA_LAVORO;
+      // Gli ospiti del giorno non entrano nei tre numeri della Home: non fanno
+      // check-in, non occupano una camera la notte e non sono una partenza da
+      // gestire. Nel gestionale vero restano fuori perché sono marcati 'P'.
+      const pernotta = F.PRENOTAZIONI.filter((p) => p.dtarrivo < p.dtpartenza);
       return [{
-        arrivi: F.PRENOTAZIONI.filter((p) => p.dtarrivo === d).length,
-        partenze: F.PRENOTAZIONI.filter((p) => p.dtpartenza === d).length,
-        presenti: F.PRENOTAZIONI.filter((p) => p.stato !== 'arrivo' && p.dtarrivo <= d && p.dtpartenza >= d).length,
+        arrivi: pernotta.filter((p) => p.dtarrivo === d).length,
+        partenze: pernotta.filter((p) => p.dtpartenza === d).length,
+        presenti: pernotta.filter((p) => p.stato !== 'arrivo' && p.dtarrivo <= d && p.dtpartenza >= d).length,
       }];
     }
 
@@ -111,13 +117,25 @@ const pmsDb = {
     // --- Liste operative ---
     if (/AS statoPartenza/.test(t)) {
       const d = params.data || F.DATA_LAVORO;
+      // Una pratica di un giorno intestata a chi quel giorno è già in albergo è
+      // una scrittura contabile, non una persona: resta fuori, come nel vero.
+      // "Già in albergo" = check-in fatto, non "ha una pratica che copre oggi":
+      // i voucher regalo sono prenotazioni lunghe un anno e coprirebbero tutto.
+      const pernottaOggi = (codCli) => F.PRENOTAZIONI.some((p) => p.codCliente === codCli
+        && p.stato !== 'arrivo' && p.dtarrivo < p.dtpartenza && p.dtarrivo <= d && p.dtpartenza >= d);
       return F.PRENOTAZIONI
         .filter((p) => p.stato !== 'arrivo' && p.dtarrivo <= d && p.dtpartenza >= d)
+        .filter((p) => p.dtarrivo !== p.dtpartenza || !pernottaOggi(p.codCliente))
         .map((p) => rigaPrenota(p, d));
     }
+    // Arrivi: gli ospiti del giorno non ci sono, come nel gestionale vero (che
+    // li tiene fuori perché li marca 'partiti'). La pagina Arrivi prepara chi
+    // prende una camera: camera, orario, check-in. Loro non ne hanno nessuno.
     if (/CAST\(p\.dtarrivo AS date\) = CAST\(@data AS date\)/.test(t)) {
       const d = params.data || F.DATA_LAVORO;
-      return F.PRENOTAZIONI.filter((p) => p.dtarrivo === d).map((p) => rigaPrenota(p, d));
+      return F.PRENOTAZIONI
+        .filter((p) => p.dtarrivo === d && p.dtarrivo < p.dtpartenza)
+        .map((p) => rigaPrenota(p, d));
     }
 
     // --- Anagrafiche ---

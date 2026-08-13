@@ -95,7 +95,21 @@ WHERE p.DataEliminazione IS NULL AND ISNULL(p.flgincasa, '') <> 'P'
   AND CAST(p.dtarrivo AS date) = CAST(@data AS date)
 ORDER BY a.Cognome, p.codpratica`;
 
-// Clienti in casa alla data: check-in fatto (flgincasa='S') e @data nel soggiorno [arrivo, partenza).
+// Chi c'è in hotel alla data. Due popolazioni diverse nella stessa lista:
+//
+// 1. chi dorme qui: check-in fatto (flgincasa='S') e @data dentro il soggiorno;
+// 2. gli OSPITI DEL GIORNO (day use): arrivo e partenza nello stesso giorno.
+//    Sono gli esterni di SPA, piscina, cene e serate — circa 1.200 l'anno, un
+//    volume paragonabile ai soggiorni. Il gestionale li segna 'P' (partiti) fin
+//    dalla prenotazione, perché non pernottano, e per questo finora non
+//    comparivano da nessuna parte: né qui né negli Arrivi. Fra loro ci sono
+//    ospiti che conosciamo — chi è già stato qui quattro volte e torna per la
+//    piscina ha le sue allergie e le sue preferenze in scheda, e devono
+//    arrivare in cucina come per tutti gli altri.
+//
+// Restano fuori le pratiche di un giorno intestate a chi QUEL GIORNO è già in
+// albergo con un soggiorno vero: sono scritture contabili (l'extra addebitato a
+// parte), non persone, e produrrebbero una seconda card per lo stesso ospite.
 const SQL_INCASA = `
 SELECT
   p.codpratica,
@@ -105,17 +119,49 @@ SELECT
   CONVERT(varchar(10), p.dtarrivo, 23) AS dtarrivo,
   CONVERT(varchar(10), p.dtpartenza, 23) AS dtpartenza,
   DATEDIFF(day, p.dtarrivo, p.dtpartenza) AS notti,
+  -- Alberg ha una riga per OCCUPANTE, non per prenotazione: il conto si chiude
+  -- persona per persona. La prenotazione risulta uscita solo quando le righe sono
+  -- chiuse TUTTE (decisione di Mik, 13/08/2026): finché in camera resta anche una
+  -- persona sola, la card deve stare in lista come una presenza normale, altrimenti
+  -- housekeeping e F&B smettono di vedere una camera ancora occupata.
+  -- Prima si leggeva una riga sola, presa senza ordinamento: con righe discordi
+  -- (171 pratiche su 25.183 nello storico) la risposta la sceglieva il database.
   CASE
-    WHEN (SELECT TOP 1 al.flgpar FROM Alberg al WHERE al.codpratica = p.codpratica) IN ('O', 'D') THEN 'checkout'
+    -- Prima di tutto il resto: un ospite del giorno parte oggi per definizione,
+    -- e senza questo ramo finirebbe fra le partenze, gonfiando un numero che la
+    -- reception confronta con il gestionale.
+    WHEN CAST(p.dtarrivo AS date) = CAST(p.dtpartenza AS date) THEN 'dayuse'
+    WHEN EXISTS (SELECT 1 FROM Alberg al WHERE al.codpratica = p.codpratica)
+     AND NOT EXISTS (SELECT 1 FROM Alberg al WHERE al.codpratica = p.codpratica
+                       AND ISNULL(al.flgpar, '') NOT IN ('O', 'D')) THEN 'checkout'
     WHEN CAST(p.dtpartenza AS date) = CAST(@data AS date) THEN 'partenza'
     ELSE 'incasa'
   END AS statoPartenza,
   ${COLONNE}
 FROM Prenota p
 LEFT JOIN Anagra a ON a.CodCli = p.codclinterm
-WHERE p.DataEliminazione IS NULL AND p.flgincasa = 'S'
+WHERE p.DataEliminazione IS NULL
   AND CAST(p.dtarrivo AS date) <= CAST(@data AS date)
   AND CAST(p.dtpartenza AS date) >= CAST(@data AS date)
+  AND (
+    p.flgincasa = 'S'
+    OR (
+      CAST(p.dtarrivo AS date) = CAST(p.dtpartenza AS date)
+      -- "Già in albergo" vuol dire check-in fatto (flgincasa='S'), non
+      -- "ha un'altra pratica che copre questa data": i voucher regalo sono
+      -- registrati come prenotazioni lunghe un anno, e senza questa condizione
+      -- coprirebbero qualunque giorno, facendo sparire l'ospite dalla lista.
+      AND NOT EXISTS (
+        SELECT 1 FROM Prenota p2
+        WHERE p2.DataEliminazione IS NULL
+          AND p2.flgincasa = 'S'
+          AND p2.codclinterm = p.codclinterm
+          AND p2.codpratica <> p.codpratica
+          AND CAST(p2.dtarrivo AS date) < CAST(p2.dtpartenza AS date)
+          AND CAST(@data AS date) >= CAST(p2.dtarrivo AS date)
+          AND CAST(@data AS date) <= CAST(p2.dtpartenza AS date))
+    )
+  )
 ORDER BY a.Cognome, p.codpratica`;
 
 const SQL_RIEPILOGO = `
@@ -160,7 +206,7 @@ function mapRiga(r) {
     dtpartenza: r.dtpartenza,
     dtPrenota: r.dtPrenota, // data creazione prenotazione
     notti: r.notti,
-    statoPartenza: r.statoPartenza, // 'incasa' | 'partenza' | 'checkout' (solo "in casa")
+    statoPartenza: r.statoPartenza, // 'incasa' | 'partenza' | 'checkout' | 'dayuse' (solo "in casa")
     oraArrivo: normalizzaOra(r.oraArrivo),
     inCasa: r.inCasa === 'S',
     trattamento: pulisci(r.trattamento),

@@ -110,6 +110,32 @@ const PRENOTAZIONI = [
     occupanti: [],
   },
 
+  // --- Ospiti del giorno (day use) ------------------------------------------
+  // Arrivo e partenza nello stesso giorno: gli esterni di SPA, piscina e serate.
+  // Il gestionale li segna "partiti" fin dalla prenotazione perché non
+  // pernottano, e per questo fino al 13/08/2026 non comparivano da nessuna
+  // parte. Ne servono due, per le due situazioni opposte.
+
+  // 1013 è un'ospite che conosciamo (torna fra due giorni con una camera):
+  // oggi viene solo per la SPA, ma la sua celiachia deve arrivare in cucina
+  // lo stesso. È il motivo per cui questa lista esiste.
+  {
+    codpratica: 70214, codCliente: 1013, camere: '', tipologie: '', dtarrivo: piu(0), dtpartenza: piu(0),
+    trattamento: '', tariffa: '', extra: 180, stato: 'dayuse', paxAdulti: 2, paxBambini: 0, tariffaNotte: 0,
+    note: 'ACQUISTO E-SHOP ACCESSO SPA PER DUE. OK SALDO. La signora è celiaca, avvisare il bistrot.',
+    occupanti: [],
+  },
+  // 1001 invece è GIÀ in casa (pratica 70101, camera 101): questa è una
+  // scrittura contabile per un extra addebitato a parte, non una persona in
+  // più. Non deve produrre una seconda card, altrimenti lo stesso ospite
+  // comparirebbe due volte nella stessa lista.
+  {
+    codpratica: 70215, codCliente: 1001, camere: '', tipologie: '', dtarrivo: piu(0), dtpartenza: piu(0),
+    trattamento: '', tariffa: '', extra: 90, stato: 'dayuse', paxAdulti: 1, paxBambini: 0, tariffaNotte: 0,
+    note: 'PAGANO EXTRA — cena al ristorante addebitata su pratica separata.',
+    occupanti: [],
+  },
+
   // --- Arrivi dei prossimi giorni -------------------------------------------
   // Ogni pratica è pensata per mettere alla prova una cosa precisa: si naviga con
   // le frecce nella pagina Arrivi. Il caso da verificare è scritto sopra ognuna.

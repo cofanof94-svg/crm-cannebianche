@@ -97,6 +97,10 @@ function attenzioniDi(x) {
   if (s.compleanno) out.push(`Compleanno ${fmtData(s.compleanno.data)}${s.compleanno.nome ? ' — ' + s.compleanno.nome : ''}`);
   if (x.statoPartenza === 'partenza') out.push('Parte oggi');
   if (x.statoPartenza === 'checkout') out.push('Check-out effettuato');
+  // Sul foglio dei reparti va detto: chi legge vede una riga senza camera e
+  // senza notti, e deve capire che è un esterno in giornata, non un dato
+  // mancante. Per la cucina è la stessa cosa di un ospite in camera.
+  if (x.statoPartenza === 'dayuse') out.push('Day use');
   return out;
 }
 

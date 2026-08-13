@@ -807,6 +807,10 @@ const INCASA_CHIPS = [
   { key: 'ricorrenze', label: 'Ricorrenze', field: 'ricorrenze', pred: (c) => !!(c.snapshot && c.snapshot.compleanno) },
   { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (c) => !!(c.snapshot && c.snapshot.reclami && c.snapshot.reclami.totali > 0) },
   { key: 'usciti', label: 'Usciti', field: 'usciti', pred: (c) => c.statoPartenza === 'checkout' },
+  // Ospiti del giorno: esterni di SPA, piscina e serate. Stanno in fondo alla
+  // lista perché non hanno camera, e hanno un chip per tirarli fuori quando
+  // servono davvero — la sera di una festa sono la lista della cucina.
+  { key: 'dayuse', label: 'Day use', field: 'dayUse', pred: (c) => c.statoPartenza === 'dayuse' },
 ];
 
 // resetFiltri: rientrando nella pagina si riparte dalla lista completa. Fa
@@ -939,6 +943,12 @@ function parteDomani(c, data) {
 // Avanzamento del soggiorno: pallini (o barra) + testo parlante ("Notte 3 di 7").
 function renderAvanzamento(c, data) {
   const av = c.avanzamento;
+  // L'ospite del giorno non ha un soggiorno da far avanzare: si dice cosa è,
+  // non "quando parte" — parte in giornata per definizione.
+  if (c.statoPartenza === 'dayuse') {
+    const pax = Number(c.paxAdulti || 0) + Number(c.paxBambini || 0);
+    return `<span>In hotel per la giornata${pax ? ` · ${pax} ${pax === 1 ? 'persona' : 'persone'}` : ''}</span>`;
+  }
   if (c.statoPartenza === 'checkout') {
     const n = c.notti != null ? ` · ${c.notti} ${c.notti === 1 ? 'notte' : 'notti'}` : '';
     return `<span>Soggiorno concluso${n}</span>`;
@@ -983,19 +993,24 @@ function renderOspitiInCasa(c) {
 function schedaInCasa(c) {
   const s = c.snapshot || null;
   const uscito = c.statoPartenza === 'checkout';
+  const dayUse = c.statoPartenza === 'dayuse';
   const accento = s && s.indesiderato ? ' ic-danger' : (s && s.vip ? ' ic-vip' : '');
   const nome = c.nominativo
     ? linkCliente(c.codCliente, c.nominativo, { classe: 'ic-name' })
     : '<span class="ic-name">(senza nominativo)</span>';
-  const camere = c.camere
+  // Un ospite del giorno non ha camera: il trattino al posto del numero
+  // sembrerebbe un dato mancante invece di una camera che non esiste.
+  const camere = dayUse ? '' : (c.camere
     ? c.camere.split(',').map((x) => `<span class="ic-room">${esc(x.trim())}</span>`).join('')
-    : '<span class="ic-room ic-room-vuota">—</span>';
+    : '<span class="ic-room ic-room-vuota">—</span>');
   const tipologie = c.tipologie
     ? c.tipologie.split(',').map((t) => `<span class="ic-tipo">${esc(t.trim())}</span>`).join('')
     : '';
-  const pill = uscito
-    ? '<span class="pill pill-checkout">Check-out effettuato</span>'
-    : (c.statoPartenza === 'partenza' ? '<span class="pill pill-partenza">Parte oggi</span>' : '');
+  const pill = dayUse
+    ? '<span class="pill pill-dayuse">Day use</span>'
+    : (uscito
+      ? '<span class="pill pill-checkout">Check-out effettuato</span>'
+      : (c.statoPartenza === 'partenza' ? '<span class="pill pill-partenza">Parte oggi</span>' : ''));
 
   const flags = [];
   if (s && s.indesiderato) flags.push('<span class="flag flag-danger">⚠ Ospite indesiderato</span>');
@@ -1022,7 +1037,7 @@ function schedaInCasa(c) {
     : '';
 
   return `
-    <article class="ic${accento}${uscito ? ' ic-out' : ''}">
+    <article class="ic${accento}${uscito ? ' ic-out' : ''}${dayUse ? ' ic-dayuse' : ''}">
       <div class="ic-head">
         ${camere}${tipologie}
         ${nome}
@@ -1039,7 +1054,7 @@ function schedaInCasa(c) {
       <div class="ic-op">
         ${tratt ? `<span><i>Trattamento</i><b>${tratt}</b></span>` : ''}
         ${c.extra ? `<span><i>Extra</i><b>${euro(c.extra)}</b></span>` : ''}
-        <span><i>Soggiorno</i><b>${c.importo != null ? euro(c.importo) : '—'}</b></span>
+        ${dayUse ? '' : `<span><i>Soggiorno</i><b>${c.importo != null ? euro(c.importo) : '—'}</b></span>`}
         <span><i>Pratica</i><b>${esc(c.codpratica)}</b></span>
       </div>
       ${note}

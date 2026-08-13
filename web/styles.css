@@ -40,6 +40,7 @@
   --st-partenza-bg: #fbe7d6; --st-partenza-fg: #8f4d18; --st-partenza-dot: #d2762f; /* Parte oggi */
   --st-concluso-bg: #eceae5; --st-concluso-fg: #6b6257; --st-concluso-dot: #a89f93; /* Partito/Concluso */
   --st-anomalia-bg: #f7e3e0; --st-anomalia-fg: #98392f; --st-anomalia-dot: #c05a4e; /* No-show */
+  --st-giornata-bg: #e3eeee; --st-giornata-fg: #3f6360; --st-giornata-dot: #5f938d; /* Day use */
 
   --radius: 14px;
   --radius-sm: 9px;
@@ -233,6 +234,8 @@ tbody tr:hover { background: var(--surface-2); }
 .pill-partenza::before { background: var(--st-partenza-dot); }
 .pill-checkout { background: var(--st-concluso-bg); color: var(--st-concluso-fg); }
 .pill-checkout::before { background: var(--st-concluso-dot); }
+.pill-dayuse { background: var(--st-giornata-bg); color: var(--st-giornata-fg); }
+.pill-dayuse::before { background: var(--st-giornata-dot); }
 .pill-noshow { background: var(--st-anomalia-bg); color: var(--st-anomalia-fg); }
 .pill-noshow::before { background: var(--st-anomalia-dot); }
 /* Eliminata: prenotazione annullata, non un soggiorno andato male → grigio con
@@ -765,6 +768,10 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .ic-danger { border-left-color: var(--danger); }
 .ic-out { opacity: .62; }
 .ic-out:hover { opacity: 1; }
+/* Ospiti del giorno: stanno in fondo e non hanno camera. Il bordo colorato a
+   sinistra li stacca dal blocco delle camere senza spegnerli come i partiti —
+   qui l'informazione (allergie, preferenze) serve ancora tutta. */
+.ic-dayuse { border-left: 3px solid var(--st-giornata-dot); }
 
 .ic-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .ic-room { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--brand); background: var(--brand-050); border-radius: 8px; padding: 1px 11px; font-variant-numeric: tabular-nums; }

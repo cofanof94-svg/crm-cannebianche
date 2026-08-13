@@ -13,8 +13,13 @@
 const { arricchisciArrivi } = require('./arrivi-brief');
 
 function briefingInCasaVuoto(n) {
-  return { presenti: n || 0, partonoOggi: 0, vip: 0, alert: 0, reclami: 0, ricorrenze: 0, usciti: 0 };
+  return { presenti: n || 0, partonoOggi: 0, vip: 0, alert: 0, reclami: 0, ricorrenze: 0, usciti: 0, dayUse: 0 };
 }
+
+// Ospite del giorno: entra e esce in giornata, non dorme qui (SPA, piscina,
+// cene, serate). Non ha camera né notti, quindi quasi tutto ciò che la pagina
+// dice di un soggiorno non lo riguarda.
+const isDayUse = (c) => c.statoPartenza === 'dayuse';
 
 // Numero della prima camera, per l'ordinamento ("104, 106" → 104). Le camere non
 // numeriche (o assenti) finiscono in fondo mantenendo l'ordine alfabetico.
@@ -24,11 +29,16 @@ function numeroCamera(camere) {
   return Number.isInteger(n) ? n : Number.MAX_SAFE_INTEGER;
 }
 
-// Ordine di reception: prima i presenti per numero di camera, poi i check-out fatti.
+// Ordine di reception: prima i presenti per numero di camera, poi i check-out
+// fatti, in fondo gli ospiti del giorno. Questi ultimi vanno per ultimi perché
+// non hanno una camera: nel rack non saprebbero dove stare, e sono comunque la
+// parte meno urgente della giornata (decisione di Mik, 13/08/2026).
+const rango = (c) => (isDayUse(c) ? 2 : (c.statoPartenza === 'checkout' ? 1 : 0));
+
 function ordinaInCasa(clienti) {
   return (clienti || []).slice().sort((a, b) => {
-    const outA = a.statoPartenza === 'checkout' ? 1 : 0;
-    const outB = b.statoPartenza === 'checkout' ? 1 : 0;
+    const outA = rango(a);
+    const outB = rango(b);
     if (outA !== outB) return outA - outB;
     const ca = numeroCamera(a.camere);
     const cb = numeroCamera(b.camere);
@@ -59,7 +69,10 @@ function calcolaBriefingInCasa(clienti) {
   const b = briefingInCasaVuoto(0);
   for (const c of clienti || []) {
     const s = c.snapshot || {};
-    if (c.statoPartenza === 'checkout') { b.usciti += 1; } else { b.presenti += 1; }
+    // Gli ospiti del giorno hanno un contatore tutto loro: non sono "presenti"
+    // (non occupano una camera) e non sono "usciti" (non hanno fatto check-in).
+    if (isDayUse(c)) b.dayUse += 1;
+    else if (c.statoPartenza === 'checkout') { b.usciti += 1; } else { b.presenti += 1; }
     if (parteOggi(c)) b.partonoOggi += 1;
     if (s.vip) b.vip += 1;
     if ((s.intolleranze && s.intolleranze.length) || s.indesiderato) b.alert += 1;
@@ -89,5 +102,5 @@ async function arricchisciInCasa(pmsDb, crmDb, clienti, data) {
 
 module.exports = {
   arricchisciInCasa, briefingInCasaVuoto, calcolaBriefingInCasa,
-  ordinaInCasa, numeroCamera, avanzamento, parteOggi,
+  ordinaInCasa, numeroCamera, avanzamento, parteOggi, isDayUse,
 };
