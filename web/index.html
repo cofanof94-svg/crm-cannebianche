@@ -62,6 +62,10 @@
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>
           <span>Duplicati</span>
         </a>
+        <a href="#analytics" data-nav="analytics" id="nav-analytics" hidden>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>
+          <span>Analytics</span>
+        </a>
         <a href="#utenti" data-nav="utenti" id="nav-utenti" hidden>
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M18 13.5a5.5 5.5 0 0 1 3.5 5.5"/></svg>
           <span>Utenti</span>
@@ -213,6 +217,32 @@
         </section>
 
         <!-- GESTIONE DUPLICATI -->
+        <!-- ANALYTICS. Due blocchi separati apposta: gli ospiti li racconta il
+             gestionale, che è pieno; la conoscenza che ne abbiamo la racconta il
+             CRM, che al 13/08/2026 conteneva 64 preferenze su 14 clienti. Tenerli
+             insieme farebbe sembrare inaffidabile anche la metà buona. -->
+        <section id="view-analytics" class="view" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Analytics</h1>
+              <p class="sub">Chi sono gli ospiti, cosa consumano, e quanto ne sa il CRM.</p>
+            </div>
+            <div class="toolbar an-periodo">
+              <div class="an-chips" id="an-periodi">
+                <button type="button" class="chip" data-periodo="7g">7 giorni</button>
+                <button type="button" class="chip" data-periodo="30g">30 giorni</button>
+                <button type="button" class="chip" data-periodo="3m">3 mesi</button>
+                <button type="button" class="chip is-on" data-periodo="12m">12 mesi</button>
+              </div>
+              <label class="an-dal">dal <input type="date" id="an-da" /></label>
+              <label class="an-dal">al <input type="date" id="an-a" /></label>
+              <label class="check an-vip"><input type="checkbox" id="an-vip" /> Solo VIP</label>
+            </div>
+          </div>
+          <div id="analytics-msg" class="state"><span class="caricamento"><span class="spinner"></span>Caricamento…</span></div>
+          <div id="analytics-body" hidden></div>
+        </section>
+
         <section id="view-duplicati" class="view" hidden>
           <div class="page-head">
             <div>
@@ -454,5 +484,6 @@
 
   <script src="/app.js"></script>
   <script src="/export.js"></script>
+  <script src="/analytics.js"></script>
 </body>
 </html>

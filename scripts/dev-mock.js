@@ -80,6 +80,27 @@ const pmsDb = {
 
     if (/AS data FROM Persona/.test(t)) return [{ data: F.DATA_LAVORO }];
 
+    // --- Analytics (le fixture non hanno anni di storico: numeri inventati ma
+    // coerenti fra loro, per vedere la pagina disegnata e non per studiarli) ---
+    if (/analytics:kpi/.test(t)) return [{ soggiorni: 412, ospiti: 388, notti: 1704, vip: 96, diRitorno: 71 }];
+    if (/analytics:qualita/.test(t)) return [{ ospiti: 388, senzaEmail: 141, senzaTelefono: 132, senzaDataNascita: 58 }];
+    if (/analytics:canali/.test(t)) return [
+      { voce: 'DIRETTI', n: 186 }, { voce: 'OTA', n: 121 }, { voce: 'T. OPERATOR', n: 64 }, { voce: 'AGENZIE', n: 41 }];
+    if (/analytics:nazioni/.test(t)) return [
+      { voce: 'USA', n: 92 }, { voce: 'I', n: 74 }, { voce: 'GB', n: 58 }, { voce: 'D', n: 31 }, { voce: 'Non indicata', n: 27 }];
+    if (/analytics:vip/.test(t)) return [
+      { voce: 'BOLLICINE + FRUTTA FRESCA DI STAGIONE', n: 44 }, { voce: 'SELEZIONE DI BISCOTTI', n: 21 }, { voce: 'VIRTUOSO', n: 9 }];
+    if (/analytics:consumi/.test(t)) return [
+      { voce: 'ACQUA NAT. CANNE BIANCHE', n: 1180, euro: 3480, tipo: 'B' },
+      { voce: 'CAFFÈ', n: 640, euro: 3900, tipo: 'B' },
+      { voce: 'APEROL SPRITZ', n: 402, euro: 11200, tipo: 'B' },
+      { voce: 'INSALATA MISTA', n: 318, euro: 3090, tipo: 'F' }];
+    if (/analytics:spa/.test(t)) return [
+      { voce: 'PERCORSO INTERNI', n: 118, euro: 2180 }, { voce: 'SERENITY', n: 57, euro: 6620 }];
+    if (/analytics:andamento/.test(t)) return [
+      { mese: '2026-03', n: 48 }, { mese: '2026-04', n: 71 }, { mese: '2026-05', n: 88 },
+      { mese: '2026-06', n: 79 }, { mese: '2026-07', n: 84 }, { mese: '2026-08', n: 42 }];
+
     if (/AS arrivi/.test(t)) {
       const d = params.data || F.DATA_LAVORO;
       // Gli ospiti del giorno non entrano nei tre numeri della Home: non fanno
@@ -291,6 +312,43 @@ const crmDb = {
   async query(text, params = {}) {
     const t = String(text);
     const ids = idsDaIn(t);
+
+    // --- Analytics, blocco CRM ---
+    // Calcolato sullo store vero del finto, non inventato: così la pagina mostra
+    // gli stessi numeri delle altre schermate e si vede se qualcosa non torna.
+    const distinti = (arr) => new Set(arr.map((r) => codiceDi(r)).filter((x) => x != null)).size;
+    if (/conPreferenze/.test(t)) {
+      return [{
+        conPreferenze: distinti(store.preferenze),
+        conAllergie: distinti(store.intolleranze),
+        conReclami: distinti(store.complaints),
+        conNotePersonali: distinti(store.profili.filter((p) => p.note_personali)),
+        conNucleo: distinti(store.nucleo),
+        anagraficheFuse: store.merge.length,
+      }];
+    }
+    if (/AS preferenze/.test(t)) {
+      return [{ preferenze: store.preferenze.length, allergie: store.intolleranze.length, reclami: store.complaints.length }];
+    }
+    if (/AS daClassificare/.test(t)) {
+      return [{
+        totali: store.complaints.length,
+        aperti: store.complaints.filter((c) => c.stato === 'aperto').length,
+        risolti: store.complaints.filter((c) => c.resolved_at).length,
+        daClassificare: store.complaints.filter((c) => !c.reparto || !c.categoria).length,
+      }];
+    }
+    if (/FROM customer_preferences GROUP BY reparto/.test(t)) {
+      const per = new Map();
+      for (const p of store.preferenze) per.set(p.reparto, (per.get(p.reparto) || 0) + 1);
+      return [...per.entries()].map(([voce, n]) => ({ voce, n })).sort((a, b) => b.n - a.n);
+    }
+    if (/FROM ai_events/.test(t)) return [];
+    if (/FROM crm_accessi/.test(t)) {
+      // Un accesso finto per far vedere il riquadro pieno invece che vuoto.
+      if (/GROUP BY/.test(t)) return [{ voce: 'admin', n: 3 }];
+      return [{ riusciti: 3, falliti: 0, utentiAttivi: 1, giorniConAccessi: 1 }];
+    }
 
     // --- users ---
     // Le SCRITTURE prima delle letture, sempre. "DELETE FROM users WHERE id = @id"

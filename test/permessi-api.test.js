@@ -121,8 +121,9 @@ test('admin: passa dappertutto', async () => {
   assert.ok(login.permessi.includes('vedi-analytics'));
   assert.notStrictEqual((await ag.get('/api/admin/users')).status, 403);
   assert.notStrictEqual((await ag.post('/api/clienti/47186/preferenze').send({})).status, 403);
-  // Analytics non è ancora implementata: 404 va bene, 403 no.
-  assert.strictEqual((await ag.get('/api/analytics')).status, 404);
+  // Analytics esiste dal 13/08/2026. Qui interessa solo che l'admin ci passi:
+  // che cosa risponda con le finte del test non e' il punto di questo file.
+  assert.notStrictEqual((await ag.get('/api/analytics')).status, 403);
 });
 
 test('un ruolo vecchio nel database non diventa un permesso in più', async () => {

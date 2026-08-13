@@ -962,3 +962,61 @@ body.sola-lettura :is(
 /* Confronto delle anagrafiche di una scheda fusa: è un'azione di lettura, quindi
    sta con le chip ma non si traveste da comando principale. */
 .merge-vedi { align-self: center; }
+
+/* ===== Analytics =========================================================
+   Nessuna libreria di grafici: le barre sono elementi con una larghezza in
+   percentuale e l'andamento è una spezzata SVG. Il progetto non ha dipendenze
+   sul frontend e non vale la pena introdurne una per due grafici. */
+.an-periodo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.an-chips { display: flex; gap: 6px; }
+.an-dal { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.an-dal input { font: inherit; font-size: 12.5px; padding: 4px 7px; border: 1px solid var(--border-strong); border-radius: 7px; }
+.an-vip { font-size: 12.5px; }
+.an-periodo-eco { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; }
+.an-periodo-eco span { margin-left: 8px; color: var(--faint); }
+
+.an-sez { margin: 0 0 26px; }
+.an-h { font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--brand); margin: 0 0 12px; }
+.an-nota { font-family: var(--font-sans); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); margin-left: 8px; }
+
+/* Le sezioni interne di un blocco sono più piccole del titolo del blocco:
+   senza, "Provenienza" gridava quanto "I nostri ospiti". */
+.an-griglia .an-h { font-size: 14px; }
+.an-griglia { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-bottom: 22px; }
+.an-griglia-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+
+.an-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.an-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
+.an-kpi-n { font-family: var(--font-display); font-size: 26px; font-weight: 600; color: var(--brand); line-height: 1.1; }
+.an-kpi-l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.an-delta { display: inline-block; margin-top: 7px; font-size: 11px; font-weight: 700; border-radius: 5px; padding: 1px 6px; }
+.an-delta-su { color: var(--st-presente-fg); background: var(--st-presente-bg); }
+.an-delta-giu { color: var(--st-partenza-fg); background: var(--st-partenza-bg); }
+.an-delta-fermo { color: var(--muted); background: var(--surface-2); }
+
+.an-barre { display: flex; flex-direction: column; gap: 7px; }
+.an-barra { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; align-items: center; gap: 10px; font-size: 12.5px; }
+.an-barra-l { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.an-barra-t { background: var(--surface-2); border-radius: 4px; height: 10px; overflow: hidden; }
+.an-barra-t i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.an-barra-n { font-weight: 700; color: var(--brand); font-variant-numeric: tabular-nums; }
+.an-barra-n em { font-style: normal; font-weight: 400; color: var(--faint); font-size: 11.5px; }
+.an-vuoto { font-size: 12.5px; color: var(--faint); margin: 0; }
+
+.an-trend { margin: 0 0 22px; }
+.an-trend svg { width: 100%; height: 120px; display: block; }
+.an-trend-linea { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.an-trend-area { fill: var(--accent-050); stroke: none; }
+.an-trend-x { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); margin-top: 3px; }
+
+.an-cop { font-size: 13px; color: var(--text); background: var(--sand-050); border-left: 3px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 10px 14px; margin: 0 0 20px; }
+.an-su { color: var(--muted); }
+
+/* I numeri che oggi sono piccoli (reclami, AI) stanno qui, senza percentuali:
+   su due casi una percentuale sembra precisa e non lo è. */
+.an-minori { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.an-minore { background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 12.5px; color: var(--text); text-decoration: none; display: block; }
+.an-minore b { font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--brand); margin-right: 6px; }
+.an-minore small { display: block; color: var(--faint); font-size: 11.5px; margin-top: 3px; }
+a.an-minore:hover { background: var(--sand-050); }
+.an-minore-vuoto b { color: var(--faint); }

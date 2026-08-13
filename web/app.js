@@ -119,6 +119,7 @@ async function refresh() {
   $('#welcome').textContent = currentUser.username;
   $('#avatar').textContent = (currentUser.username[0] || '?').toUpperCase();
   $('#nav-utenti').hidden = !puo('gestisci-utenti');
+  $('#nav-analytics').hidden = !puo('vedi-analytics');
   // Un attributo sul body e i comandi che scrivono spariscono via CSS, anche da
   // quello che verrà disegnato dopo: nessun render deve ricordarsi di chiedere.
   document.body.classList.toggle('sola-lettura', !puo('scrivi'));
@@ -175,7 +176,7 @@ function route() {
   // Le altre viste accettano un parametro dopo la barra: oggi solo
   // #incasa/<chip>, per aprire "In casa" con un filtro già attivo.
   const [view, param] = hash.split('/');
-  const known = ['home', 'arrivi', 'incasa', 'ricerca', 'duplicati', 'utenti'];
+  const known = ['home', 'arrivi', 'incasa', 'ricerca', 'duplicati', 'analytics', 'utenti'];
   let v = known.includes(view) ? view : 'home';
   // Sezioni riservate: chi non ha il permesso viene rimandato alla home, anche
   // arrivandoci da URL diretto. Il backend rifiuta comunque le chiamate, questo
@@ -186,7 +187,7 @@ function route() {
     location.hash = '#home';
     return;
   }
-  const titoli = { home: 'Home', arrivi: 'Arrivi', incasa: 'In casa', ricerca: 'Ricerca', duplicati: 'Duplicati', utenti: 'Utenti' };
+  const titoli = { home: 'Home', arrivi: 'Arrivi', incasa: 'In casa', ricerca: 'Ricerca', duplicati: 'Duplicati', analytics: 'Analytics', utenti: 'Utenti' };
   $('#topbar-title').textContent = titoli[v] || 'Home';
   document.querySelectorAll('.view').forEach((el) => { el.hidden = true; });
   document.querySelectorAll('.sidebar a').forEach((a) => a.classList.toggle('active', a.dataset.nav === v));
@@ -199,6 +200,9 @@ function route() {
   else if (v === 'incasa') initInCasa(!cameFrom.startsWith('cliente/'), param);
   else if (v === 'ricerca') initRicerca();
   else if (v === 'duplicati') loadDuplicatiPage();
+  // analytics.js è caricato dopo app.js: alla primissima route può non esserci
+  // ancora, e ci pensa lui a richiamarsi (stessa forma dell'aggancio di export.js).
+  else if (v === 'analytics') { if (typeof initAnalytics === 'function') initAnalytics(); }
   else if (v === 'utenti') loadUsers();
 }
 window.addEventListener('hashchange', route);
