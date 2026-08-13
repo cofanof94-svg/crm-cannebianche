@@ -40,6 +40,13 @@ const SOSTANZE = [
   { re: /\bfragol\w*|\bstrawberr\w*|\berdbeer\w*/i, termine: 'Fragole' },
   { re: /\bnichel\b|\bnickel\b/i, termine: 'Nichel' },
   { re: /\blattice\b|\blatex\b/i, termine: 'Lattice' },
+  // Le piume non si mangiano, ma qui sono l'allergene più ricorrente dopo il
+  // glutine: cuscini, piumini, coperte. Restavano fuori dall'elenco e uscivano
+  // come code di testo libero, ogni volta scritte diversamente — "Piume d'oca",
+  // "Down feathers in pillows and bedding", "Feathers pls request no feather
+  // pillows" — cioè tre voci diverse in cucina e in governante per la stessa
+  // cosa. Con la sostanza in elenco diventano tutte "Piume".
+  { re: /\bpium\w*|\bfeather\w*|\bdown\s+(?:pillow|feather|duvet)\w*|\bdaunen\w*|\bfeder(?:n|kissen)\b|\bplume[sn]?\b/i, termine: 'Piume' },
 ];
 
 // Marcatori: dicono che quella sostanza è un problema, non un gradimento.
@@ -235,6 +242,12 @@ function ripulisci(t) {
     s = s.slice(0, s.lastIndexOf(' ')).trim();
   }
   // Anche dopo aver buttato l'ultima parola può restare appesa una congiunzione.
+  // Parentesi che si chiude senza essersi mai aperta: la cattura è entrata in
+  // un inciso cominciato prima del marcatore. "Frutta secca) CON MENù ALLA
+  // CARTA" finisce a "Frutta secca". Se invece la parentesi è aperta dentro il
+  // termine — "Penicillin (PCN)" — è parte del nome e non si tocca.
+  const chiusa = s.indexOf(')');
+  if (chiusa > -1 && s.lastIndexOf('(', chiusa) === -1) s = s.slice(0, chiusa);
   s = s.replace(CONGIUNZIONE_FINALE, '').trim();
   // Meno di tre lettere non è una sostanza: è un pezzo di frase rimasto dopo un
   // taglio. Da "ALLERGIE DA COMUNICARE" restava "Da".

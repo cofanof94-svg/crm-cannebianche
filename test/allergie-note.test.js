@@ -137,9 +137,11 @@ test('note in inglese: allergic to / coeliac / nut allergy', () => {
   assert.deepStrictEqual(termini('Client is Coeliac and has to have gluten free food'), ['Celiachia', 'Glutine']);
   assert.deepStrictEqual(termini('one of the guests has a nut allergy'), ['Frutta a guscio']);
   assert.deepStrictEqual(termini('Food Allergies include: dairy and gluten'), ['Glutine', 'Latticini']);
-  // "allergic to X" con X fuori elenco: prima usciva "To feathers", con il "to"
-  // attaccato, perché fra le preposizioni c'erano solo quelle italiane.
-  assert.deepStrictEqual(termini('the guest is allergic to feathers'), ['Feathers']);
+  // "allergic to X": prima usciva "To feathers", con il "to" attaccato, perché
+  // fra le preposizioni c'erano solo quelle italiane. Ora le piume sono in
+  // elenco, quindi la stessa allergia scritta in cinque modi diversi diventa
+  // una voce sola invece di cinque.
+  assert.deepStrictEqual(termini('the guest is allergic to feathers'), ['Piume']);
 });
 
 test('note in tedesco e francese: poche ma coperte', () => {
@@ -344,7 +346,7 @@ test('"questa allergia" richiama, non dichiara', () => {
   // (nota vera: prima veniva persa da una regola troppo grossolana)
   assert.deepStrictEqual(
     termini('please provide twin beds in both rooms, we are strictly non smokers and allergic to feather pillow'),
-    ['Feather pillow']
+    ['Piume']
   );
 });
 
@@ -395,4 +397,24 @@ test("l'anagrafica batte la prenotazione anche quando le note sono piu' d'una", 
   assert.strictEqual(p.length, 1);
   assert.strictEqual(p[0].fonte, 'anagrafica');
   assert.strictEqual(p[0].codCli, 7);
+});
+
+test('le piume sono un allergene, e uno solo', () => {
+  // Sul database dell'hotel la stessa allergia era scritta in cinque modi e
+  // usciva come cinque voci diverse: "Piume d'oca", "Down feathers in pillows
+  // and bedding", "Feathers pls request no feather pillows", "Feather pillow",
+  // "Feathers". In cucina e in governante sono la stessa cosa.
+  assert.deepStrictEqual(termini('NO CUSCINI IN PIUMA, GLI OSPITI SONO ALLERGICI'), ['Piume']);
+  assert.deepStrictEqual(termini('FEATHER FREE ROOM PLEASE DUE TO ALLERGY'), ['Piume']);
+  assert.deepStrictEqual(termini('asking for hypoallergenic bedding And NO down/feather pillows'), ['Piume']);
+  assert.deepStrictEqual(termini("LA SIGNORA e' MOLTO ALLERGICA ALLE PIUME D'OCA"), ['Piume']);
+  // Il piumino nominato senza marcatore resta un gradimento, non un'allergia.
+  assert.deepStrictEqual(termini('gradisce un piumino leggero'), []);
+  assert.deepStrictEqual(termini('camera con piumino, servire crostacei'), []);
+});
+
+test('una parentesi che si chiude senza essersi aperta chiude anche il termine', () => {
+  assert.deepStrictEqual(termini('allergia alla frutta secca) CON MENu ALLA CARTA'), ['Frutta secca']);
+  // Ma le parentesi del nome restano: fanno parte di come si chiama.
+  assert.deepStrictEqual(termini('allergic to Penicillin (PCN)'), ['Penicillin (PCN)']);
 });
