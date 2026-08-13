@@ -9,6 +9,9 @@ async function makeApp() {
   const crmDb = {
     async query(text, params) {
       if (/FROM users WHERE username/.test(text)) return params.username === 'admin' ? [admin] : [];
+      // Il ruolo in sessione si rilegge a ogni richiesta: senza questa riga la
+      // guardia considera l'utente sparito e risponde 401.
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) return Number(params.id) === admin.id ? [admin] : [];
       return [];
     },
   };

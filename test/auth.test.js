@@ -10,6 +10,10 @@ async function appWithUser(user) {
       if (/FROM users WHERE username/.test(text) && params.username === user.username) {
         return [user];
       }
+      // Il server rilegge l'utente per id a ogni richiesta autenticata.
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text) && Number(params.id) === user.id) {
+        return [user];
+      }
       return [];
     },
   };

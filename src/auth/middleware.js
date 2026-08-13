@@ -1,8 +1,41 @@
+const { getUserById } = require('../crm/users');
+
 function requireAuth(req, res, next) {
   if (!req.session || !req.session.user) {
     return res.status(401).json({ error: 'Non autenticato' });
   }
   next();
+}
+
+// Il ruolo (e l'essere attivo) vengono letti al login e messi nella sessione.
+// Senza questa guardia non li rilegge più nessuno, e la conseguenza è che
+// declassare o disattivare qualcuno NON ha effetto finché non esce e rientra:
+// resta dentro con i permessi vecchi anche per ore, visto che la sessione dura
+// otto ore. Visto succedere in hotel il 13/08/2026 declassando un utente a sola
+// lettura e trovandolo ancora operativo nell'altra finestra.
+//
+// Quindi a ogni richiesta si rilegge la riga dell'utente. È una lettura per
+// chiave primaria su una tabella di tre righe: il costo è trascurabile rispetto
+// a lasciare in giro permessi revocati.
+function sessioneAggiornata(crmDb) {
+  return async (req, res, next) => {
+    const sessione = req.session && req.session.user;
+    if (!sessione) return next(); // non autenticato: se ne occupa requireAuth
+    try {
+      const attuale = await getUserById(crmDb, sessione.id);
+      // Utente eliminato o disattivato: la sessione muore adesso, non al logout.
+      if (!attuale || !attuale.attivo) {
+        return req.session.destroy(() => res.status(401).json({ error: 'Sessione non più valida' }));
+      }
+      if (attuale.role !== sessione.role) {
+        console.log(`[permessi] ${sessione.username}: ruolo cambiato da ${sessione.role} a ${attuale.role}`);
+        sessione.role = attuale.role;
+      }
+      return next();
+    } catch (err) {
+      return next(err);
+    }
+  };
 }
 
 function requireRole(...roles) {
@@ -83,4 +116,4 @@ function guardiaPermessi() {
   };
 }
 
-module.exports = { requireAuth, requireRole, guardiaPermessi, permessoPer };
+module.exports = { requireAuth, requireRole, guardiaPermessi, permessoPer, sessioneAggiornata };

@@ -23,6 +23,13 @@ async function makeApp(opts = {}) {
         const u = allUsers().find((x) => x.username === params.username);
         return u ? [u] : [];
       }
+      // Lettura per id: il server la fa a ogni richiesta per riallineare il
+      // ruolo in sessione. Qui serve anche perché i test cancellano utenti, e
+      // dopo la cancellazione la sessione di quell'utente deve cadere.
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) {
+        const u = allUsers().find((x) => x.id === Number(params.id) && !deleted.includes(x.id));
+        return u ? [u] : [];
+      }
       if (/INSERT INTO users/.test(text)) {
         if (duplicateUsernames.includes(params.username)) {
           const err = new Error('Violation of UNIQUE KEY constraint'); err.number = 2627; throw err;

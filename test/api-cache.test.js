@@ -9,6 +9,7 @@ async function makeApp() {
   const crmDb = {
     async query(text, params) {
       if (/FROM users WHERE username/.test(text)) return params.username === 'admin' ? [admin] : [];
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) return Number(params.id) === admin.id ? [admin] : [];
       return [];
     },
   };

@@ -54,6 +54,7 @@ async function makeApp(opts = {}) {
       // le letture di lista interpolano gli id nel gruppo come IN (a, b, …)
       const ids = (() => { const m = String(text).match(/IN \(([\d,\s]+)\)/); return m ? m[1].split(',').map((s) => Number(s.trim())) : []; })();
       if (/FROM users WHERE username/.test(text)) return params.username === 'admin' ? [admin] : [];
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) return Number(params.id) === admin.id ? [admin] : [];
       if (/INSERT INTO customer_nucleo_init/.test(text)) { nucleoInit.add(params.pmsCustomerId); return []; }
       if (/FROM customer_nucleo_init/.test(text)) return nucleoInit.has(params.pmsCustomerId) ? [{ x: 1 }] : [];
       if (/customer_merge/.test(text)) {

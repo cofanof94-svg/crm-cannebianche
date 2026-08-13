@@ -27,6 +27,12 @@ async function appConUtenti() {
         const u = utenti[params.username];
         return u ? [u] : [];
       }
+      // Il ruolo si rilegge a ogni richiesta: qui la finta deve saperlo dire
+      // anche per id, altrimenti la guardia crede che l'utente sia sparito.
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) {
+        const u = Object.values(utenti).find((x) => x.id === Number(params.id));
+        return u ? [u] : [];
+      }
       return [];
     },
   };
@@ -192,4 +198,68 @@ test('i ruoli assegnabili li elenca il server, con etichetta e descrizione', asy
   }
   // 'marketing' non è più assegnabile: non deve ricomparire dal menu.
   assert.ok(!res.body.ruoli.some((r) => r.nome === 'marketing'));
+});
+
+// --- Revoca dei permessi a sessione aperta -----------------------------------
+// Il ruolo viene letto al login e messo in sessione. Fino al 13/08/2026 nessuno
+// lo rileggeva piu': declassare qualcuno non aveva effetto finche' non usciva e
+// rientrava, e la sessione dura otto ore. Visto in hotel declassando un utente a
+// sola lettura e trovandolo ancora operativo nell'altra finestra.
+
+async function appConUtentiModificabili() {
+  const hash = await hashPassword(PASSWORD);
+  const utenti = {
+    banco: { id: 2, username: 'banco', password_hash: hash, role: 'reception', attivo: 1 },
+  };
+  const crmDb = {
+    async query(text, params) {
+      if (/FROM users WHERE username/.test(text)) {
+        const u = utenti[params.username];
+        return u ? [u] : [];
+      }
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) {
+        const u = Object.values(utenti).find((x) => x.id === Number(params.id));
+        return u ? [u] : [];
+      }
+      return [];
+    },
+  };
+  const app = createApp({ crmDb, pmsDb: { async query() { return []; } }, sessionSecret: 'test' });
+  return { app, utenti };
+}
+
+test('declassare un utente ha effetto subito, non al suo prossimo accesso', async () => {
+  const { app, utenti } = await appConUtentiModificabili();
+  const { ag } = await entra(app, 'banco');
+
+  // Prima: scrive.
+  assert.notStrictEqual((await ag.post('/api/clienti/47186/preferenze').send({})).status, 403);
+
+  // Un admin lo declassa mentre lui e' dentro, con la sessione ancora aperta.
+  utenti.banco.role = 'readonly';
+
+  const dopo = await ag.post('/api/clienti/47186/preferenze').send({});
+  assert.strictEqual(dopo.status, 403, 'la revoca deve valere sulla sessione gia\' aperta');
+  // E anche cio' che l'interfaccia legge deve dire la verita' nuova.
+  const me = await ag.get('/api/me');
+  assert.deepStrictEqual(me.body.user.permessi, ['leggi']);
+});
+
+test('disattivare un utente lo butta fuori subito', async () => {
+  const { app, utenti } = await appConUtentiModificabili();
+  const { ag } = await entra(app, 'banco');
+  assert.notStrictEqual((await ag.get('/api/clienti/47186')).status, 401);
+
+  utenti.banco.attivo = 0;
+
+  const res = await ag.get('/api/clienti/47186');
+  assert.strictEqual(res.status, 401, 'un utente disattivato non resta dentro fino al logout');
+  assert.match(res.body.error, /sessione/i);
+});
+
+test('un utente eliminato non sopravvive nella propria sessione', async () => {
+  const { app, utenti } = await appConUtentiModificabili();
+  const { ag } = await entra(app, 'banco');
+  delete utenti.banco;
+  assert.strictEqual((await ag.get('/api/clienti/47186')).status, 401);
 });

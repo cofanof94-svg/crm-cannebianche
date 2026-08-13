@@ -5,7 +5,7 @@ const { createAuthRouter } = require('./auth/routes');
 const { createAdminRouter } = require('./api/admin');
 const { createArriviRouter } = require('./api/arrivi');
 const { createClientiRouter } = require('./api/clienti');
-const { requireAuth, guardiaPermessi } = require('./auth/middleware');
+const { requireAuth, guardiaPermessi, sessioneAggiornata } = require('./auth/middleware');
 const { utenteConPermessi } = require('./auth/permessi');
 
 function createApp({ crmDb, pmsDb, sessionSecret }) {
@@ -29,6 +29,11 @@ function createApp({ crmDb, pmsDb, sessionSecret }) {
   // Login e logout restano pubblici: sono montati PRIMA della guardia, che da qui
   // in avanti pretende una sessione e il permesso giusto per ogni rotta.
   app.use('/api/auth', createAuthRouter(crmDb));
+
+  // Prima della guardia: il ruolo in sessione va riallineato a quello scritto a
+  // database, altrimenti un declassamento o una disattivazione non hanno effetto
+  // fino al logout dell'interessato — cioè fino a otto ore dopo.
+  app.use('/api', sessioneAggiornata(crmDb));
 
   // Un solo punto di controllo per tutte le API. Sta qui, e non dentro i singoli
   // router, perché una rotta nuova deve nascere protetta anche se chi la scrive
