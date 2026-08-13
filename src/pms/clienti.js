@@ -300,4 +300,33 @@ async function getStoricoByIds(pmsDb, ids) {
   return map;
 }
 
-module.exports = { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, getStoricoByIds, vipInfo };
+// Note delle prenotazioni CORRENTI di una persona (come intestataria o come
+// occupante di una camera), per proporre le allergie anche dalla sua scheda.
+//
+// Solo `Prenota`, non l'archivio: sono le prenotazioni che riguardano l'ospite
+// adesso o nei prossimi mesi. Le note dei soggiorni conclusi anni fa
+// riporterebbero a galla richieste vecchie ogni volta che si apre la scheda,
+// e chi legge non avrebbe modo di sapere se valgono ancora.
+const sqlNotePrenotazioni = (inl) => `
+SELECT p.codpratica,
+  CONVERT(varchar(10), p.dtarrivo, 23) AS dtarrivo,
+  CONVERT(varchar(10), p.dtpartenza, 23) AS dtpartenza,
+  p.Note AS testo
+FROM Prenota p
+WHERE p.DataEliminazione IS NULL
+  AND p.Note IS NOT NULL AND LTRIM(RTRIM(p.Note)) <> ''
+  AND (p.codclinterm IN ${inl}
+       OR EXISTS (SELECT 1 FROM Alberg al WHERE al.codpratica = p.codpratica AND al.codcli IN ${inl}))
+ORDER BY p.dtarrivo DESC`;
+
+async function getNotePrenotazioni(pmsDb, ids) {
+  const arr = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Number.isInteger))];
+  if (!arr.length) return [];
+  const inl = inClause(arr);
+  return pmsDb.query(sqlNotePrenotazioni(inl), {});
+}
+
+module.exports = {
+  cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, getStoricoByIds,
+  getNotePrenotazioni, vipInfo,
+};

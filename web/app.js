@@ -600,23 +600,33 @@ function proposteAllergie(x) {
     ${utili.map((p) => rigaProposta(p, opzioni, chiaveProposta(x, p.termine))).join('')}</div>`;
 }
 
-// Stesso riquadro sulla scheda ospite, dove la persona è una sola e le proposte
-// arrivano solo dalla sua anagrafica (vedi il commento sulla rotta).
+// Stesso riquadro sulla scheda ospite. Qui la persona è una sola, quindi non
+// c'è nessuna tendina: quello che cambia fra le due fonti è quanto puoi fidarti,
+// e va detto. Le annotazioni di anagrafica sono sue per costruzione; le note di
+// prenotazione riguardano una pratica che può avere più occupanti, quindi la
+// riga porta con sé la pratica e le date per farti giudicare.
 function proposteAllergieScheda(codCli, proposte) {
   const utili = (proposte || [])
     .filter((p) => p && p.termine && !proposteScartate.has(chiaveProposta({ codCliente: codCli }, p.termine)));
   if (!utili.length) return '';
-  const righe = utili.map((p) => `
+  const righe = utili.map((p) => {
+    const daAnagrafica = p.fonte === 'anagrafica';
+    const fonte = daAnagrafica
+      ? '<span class="prop-fonte prop-fonte-certa" title="Scritta sull\'anagrafica di questa persona: l\'attribuzione è certa">dalla sua anagrafica</span>'
+      : `<span class="prop-fonte" title="Scritta nella nota di una prenotazione, che può riguardare più occupanti: verifica che sia sua">dalla prenotazione${p.codpratica ? ` ${esc(p.codpratica)}` : ''}${p.dtarrivo ? ` · ${fmtData(p.dtarrivo)}` : ''}</span>`;
+    return `
     <div class="prop-riga" data-prop-termine="${esc(p.termine)}" data-prop-chiave="${esc(chiaveProposta({ codCliente: codCli }, p.termine))}">
       <span class="prop-termine">⚠ ${esc(p.termine)}</span>
       <span class="prop-frase" title="${esc(p.frase)}">«${esc(p.frase)}»</span>
+      ${fonte}
       <input type="hidden" class="prop-chi" value="${p.codCli}">
       <button type="button" class="btn-icon prop-ok" data-add-prop>Aggiungi</button>
       <button type="button" class="btn-icon prop-no" data-ign-prop>Ignora</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   return `<div class="prop-box">
-    <div class="prop-testa">🔎 Possibili allergie dalle annotazioni del gestionale
-      <span class="info info-wide" data-tip="Trovate nelle annotazioni di anagrafica, che il gestionale tiene sulla singola persona: sono già attribuite con certezza. Nulla viene salvato finché non premi Aggiungi.">i</span></div>
+    <div class="prop-testa">🔎 Possibili allergie
+      <span class="info info-wide" data-tip="Trovate nei testi del gestionale: le annotazioni di anagrafica, che stanno sulla singola persona, e le note delle sue prenotazioni, che riguardano la pratica e possono parlare di un altro occupante. Ogni riga dice da dove viene. Nulla viene salvato finché non premi Aggiungi.">i</span></div>
     ${righe}</div>`;
 }
 

@@ -138,6 +138,14 @@ const pmsDb = {
         .map((p) => rigaPrenota(p, d));
     }
 
+    // Note delle prenotazioni di una persona (proposte di allergia sulla scheda).
+    if (/p\.Note AS testo/.test(t)) {
+      const ids = idsDaIn(t);
+      return F.PRENOTAZIONI
+        .filter((p) => p.note && (ids.includes(p.codCliente) || (p.occupanti || []).some((o) => ids.includes(o.codCli))))
+        .map((p) => ({ codpratica: p.codpratica, dtarrivo: p.dtarrivo, dtpartenza: p.dtpartenza, testo: p.note }));
+    }
+
     // --- Anagrafiche ---
     if (/WHERE a\.CodCli = @codCli/.test(t)) {
       const a = anagraByCod.get(Number(params.codCli));

@@ -321,7 +321,7 @@ function proponiDaNote(nota, giaPresenti) {
 // l'anagrafica 81241 dicono tutte e due "cetriolo" dello stesso ospite.
 //
 // `annotazioni`: [{ codCli, nome, testo }] — di norma il referente e gli occupanti.
-function proponiPerSoggiorno({ nota, annotazioni, giaPresenti } = {}) {
+function proponiPerSoggiorno({ nota, note, annotazioni, giaPresenti } = {}) {
   const gia = testiGiaPresenti(giaPresenti);
   const out = [];
   const daAnagrafica = new Set();
@@ -340,10 +340,31 @@ function proponiPerSoggiorno({ nota, annotazioni, giaPresenti } = {}) {
     }
   }
 
-  for (const p of estraiAllergie(nota)) {
-    const chiave = p.termine.toLowerCase();
-    if (gia.has(chiave) || daAnagrafica.has(chiave)) continue;
-    out.push({ termine: p.termine, frase: p.frase, fonte: 'prenotazione', codCli: null, nome: null });
+  // `nota` è la nota della prenotazione che si sta guardando (card di Arrivi e
+  // In casa); `note` sono le note di più prenotazioni della stessa persona, che
+  // servono alla sua scheda — lì non c'è una prenotazione sola davanti.
+  const daPrenotazione = [];
+  if (nota) daPrenotazione.push({ testo: nota });
+  for (const n of note || []) if (n && n.testo) daPrenotazione.push(n);
+
+  for (const n of daPrenotazione) {
+    for (const p of estraiAllergie(n.testo)) {
+      const chiave = p.termine.toLowerCase();
+      if (gia.has(chiave) || daAnagrafica.has(chiave)) continue;
+      // La stessa allergia ripetuta su due prenotazioni della stessa persona è
+      // una proposta sola: chi guarda deve decidere una volta.
+      if (out.some((x) => x.fonte === 'prenotazione' && x.termine.toLowerCase() === chiave)) continue;
+      out.push({
+        termine: p.termine,
+        frase: p.frase,
+        fonte: 'prenotazione',
+        codCli: null,
+        nome: null,
+        codpratica: n.codpratica == null ? null : n.codpratica,
+        dtarrivo: n.dtarrivo || null,
+        dtpartenza: n.dtpartenza || null,
+      });
+    }
   }
   return out;
 }

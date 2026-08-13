@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../auth/middleware');
-const { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds } = require('../pms/clienti');
+const { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, getNotePrenotazioni } = require('../pms/clienti');
 const { proponiPerSoggiorno } = require('../crm/allergie-note');
 const { getGustiFB } = require('../pms/gusti');
 const { getTrattamentiSpa } = require('../pms/spa');
@@ -367,29 +367,36 @@ function createClientiRouter(pmsDb, crmDb) {
   delRoute('complaints', deleteComplaint, 'Complaint non trovato');
 
   // --- Intolleranze / allergie (dato di sicurezza) ---
-  // Insieme alle allergie registrate viaggiano le PROPOSTE lette nelle
-  // annotazioni di anagrafica del gestionale: sono informazioni che l'hotel ha
-  // già scritto e che oggi restano in un riquadro chiuso, quindi non arrivano in
-  // cucina finché qualcuno non le registra qui.
+  // Insieme alle allergie registrate viaggiano le PROPOSTE lette nei testi del
+  // gestionale: informazioni che l'hotel ha già scritto e che restano invisibili
+  // durante il servizio finché qualcuno non le registra qui.
   //
-  // Solo dalle annotazioni, mai dalle note di prenotazione: la nota della
-  // pratica parla di "la signora" fra quattro occupanti, e su questa pagina non
-  // c'è nessuno a cui chiedere di quale signora si tratti — la si attribuirebbe
-  // in silenzio a chi ha aperto la scheda. Negli Arrivi quella scelta esiste
-  // (il menù a tendina); qui no, quindi entra solo ciò che è certo per
-  // costruzione: la frase sta sull'anagrafica di quella persona.
+  // Due fonti, come nelle card, e per la stessa ragione — ma qui la persona è
+  // una sola. Le annotazioni di anagrafica sono già sue per costruzione. Le note
+  // di prenotazione invece riguardano la pratica, che può avere più occupanti:
+  // all'inizio le avevo escluse da questa pagina proprio per non attribuirgliele
+  // in silenzio. Alla prova coi dati veri la scelta non regge (Mik, 13/08/2026):
+  // chi apre la scheda ha davanti la frase, il numero di pratica e le date, e
+  // giudica meglio di qualunque regola. Quindi entrano, ma dichiarate: la
+  // proposta porta con sé da quale prenotazione arriva.
   router.get('/clienti/:codCli/intolleranze', async (req, res) => {
     const codCli = intParam(req.params.codCli);
     if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
-    const { membri } = await getGruppo(crmDb, codCli);
+    const { canonicalId, membri } = await getGruppo(crmDb, codCli);
     const intolleranze = await listIntolleranze(crmDb, membri);
-    const anagra = await getAnagraByIds(pmsDb, membri);
+    const [anagra, note] = await Promise.all([
+      getAnagraByIds(pmsDb, membri),
+      getNotePrenotazioni(pmsDb, membri),
+    ]);
     const annotazioni = membri
       .map((id) => anagra.get(id))
       .filter((an) => an && an.note)
       .map((an) => ({ codCli: an.codCli, nome: an.nominativo, testo: an.note }));
-    const proposte = proponiPerSoggiorno({ annotazioni, giaPresenti: intolleranze.map((i) => i.testo) })
-      .filter((p) => p.fonte === 'anagrafica');
+    // Su questa pagina la persona è quella della scheda: le proposte lette nelle
+    // note della prenotazione vanno su di lei, ed è per questo che la card
+    // mostra la frase da cui nascono.
+    const proposte = proponiPerSoggiorno({ note, annotazioni, giaPresenti: intolleranze.map((i) => i.testo) })
+      .map((p) => (p.codCli == null ? { ...p, codCli: canonicalId } : p));
     res.json({ intolleranze, proposte });
   });
 

@@ -358,3 +358,41 @@ test('note che annunciano allergie senza dirle: niente proposta', () => {
   assert.deepStrictEqual(termini('ALLERGIE DA COMUNICARE'), []);
   assert.deepStrictEqual(termini('allergie non segnalate'), []);
 });
+
+test('la scheda di una persona legge le note di piu\' prenotazioni', () => {
+  // Sulla card degli Arrivi c'e' UNA prenotazione davanti; sulla scheda di una
+  // persona ce ne possono essere diverse, e la proposta deve dire da quale
+  // arriva -- e' l'unico modo perche' chi guarda possa giudicare se e' sua.
+  const p = proponiPerSoggiorno({
+    note: [
+      { codpratica: 60403, dtarrivo: '2026-09-07', dtpartenza: '2026-09-11', testo: 'questi sono allergici agli animali' },
+      { codpratica: 61111, dtarrivo: '2026-05-02', dtpartenza: '2026-05-05', testo: 'la signora e\' celiaca' },
+    ],
+  });
+  assert.deepStrictEqual(p.map((x) => x.termine), ['Animali', 'Celiachia']);
+  assert.strictEqual(p[0].codpratica, 60403);
+  assert.strictEqual(p[0].dtarrivo, '2026-09-07');
+  assert.strictEqual(p[1].codpratica, 61111);
+  assert.ok(p.every((x) => x.fonte === 'prenotazione'));
+});
+
+test('la stessa allergia su due prenotazioni e\' una proposta sola', () => {
+  const p = proponiPerSoggiorno({
+    note: [
+      { codpratica: 1, testo: 'ospite celiaca' },
+      { codpratica: 2, testo: 'la signora e\' celiaca, avvisare la cucina' },
+    ],
+  });
+  assert.deepStrictEqual(p.map((x) => x.termine), ['Celiachia']);
+  assert.strictEqual(p[0].codpratica, 1); // la prima incontrata
+});
+
+test("l'anagrafica batte la prenotazione anche quando le note sono piu' d'una", () => {
+  const p = proponiPerSoggiorno({
+    annotazioni: [{ codCli: 7, nome: 'ROSSI ANNA', testo: 'allergica ai crostacei' }],
+    note: [{ codpratica: 9, testo: 'la signora e\' allergica ai crostacei' }],
+  });
+  assert.strictEqual(p.length, 1);
+  assert.strictEqual(p[0].fonte, 'anagrafica');
+  assert.strictEqual(p[0].codCli, 7);
+});
