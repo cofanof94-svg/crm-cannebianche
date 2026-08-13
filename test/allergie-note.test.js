@@ -116,6 +116,68 @@ test('frasi: spezza su punti, punti e virgola e a capo', () => {
   assert.deepStrictEqual(frasi('a. b'), []); // frammenti troppo corti per dire qualcosa
 });
 
+// --- Note VERE del gestionale, 13/08/2026 -----------------------------------
+// Prese dalle 30.934 note reali dell'hotel. La maggior parte degli ospiti è
+// straniera: delle note che parlano di allergie, 235 sono italiane, 76 inglesi,
+// 8 tedesche, 8 francesi. Il vocabolario di sole parole italiane ne perdeva 56.
+
+test('note in inglese: "gluten free" è la forma straniera più diffusa', () => {
+  // Da sola, in 29 note. Prima non produceva niente: il "free" non era un marcatore.
+  assert.deepStrictEqual(termini('Note Ms Attwood is gluten free.'), ['Glutine']);
+  assert.deepStrictEqual(termini('Gluten Free Diet!'), ['Glutine']);
+  assert.deepStrictEqual(termini('gluten-free baked goods available at breakfast'), ['Glutine']);
+  assert.deepStrictEqual(termini('glutenfree food and vegan'), ['Glutine']);
+  assert.deepStrictEqual(termini('Dairy-free milk'), ['Latticini']);
+  // Ma "free" che parla d'altro non deve marcare niente.
+  assert.deepStrictEqual(termini('free upgrade alla suite, servire pesce alla cena'), []);
+});
+
+test('note in inglese: allergic to / coeliac / nut allergy', () => {
+  assert.deepStrictEqual(termini('I am coeliac (gluten free)'), ['Celiachia', 'Glutine']);
+  assert.deepStrictEqual(termini('Client is Coeliac and has to have gluten free food'), ['Celiachia', 'Glutine']);
+  assert.deepStrictEqual(termini('one of the guests has a nut allergy'), ['Frutta a guscio']);
+  assert.deepStrictEqual(termini('Food Allergies include: dairy and gluten'), ['Glutine', 'Latticini']);
+  // "allergic to X" con X fuori elenco: prima usciva "To feathers", con il "to"
+  // attaccato, perché fra le preposizioni c'erano solo quelle italiane.
+  assert.deepStrictEqual(termini('the guest is allergic to feathers'), ['Feathers']);
+});
+
+test('note in tedesco e francese: poche ma coperte', () => {
+  assert.deepStrictEqual(termini('Kunde ist Zöliakie, bitte glutenfrei'), ['Celiachia', 'Glutine']);
+  assert.deepStrictEqual(termini('allergique aux crustacés'), ['Crostacei']);
+  assert.deepStrictEqual(termini('sans gluten pour une personne'), ['Glutine']);
+});
+
+test('la preposizione non si mangia le prime lettere della sostanza', () => {
+  // Il difetto peggiore trovato sui dati veri: mancava il confine di parola dopo
+  // la preposizione, quindi "al" combaciava con l'inizio di "ALIMENTARI".
+  assert.deepStrictEqual(termini('allergica agli animali'), ['Animali']);
+  assert.deepStrictEqual(termini("FORTE ALLERGIA ALL'AGLIO"), ['AGLIO']);
+  assert.deepStrictEqual(termini('allergia alle graminacee'), ['Graminacee']);
+});
+
+test('"ALLERGIE ALIMENTARI" non è un allergene di nome "Alimentari"', () => {
+  // Dice che ci sono allergie senza dire quali: proporlo metterebbe in cucina
+  // una voce che non significa niente.
+  assert.deepStrictEqual(termini('ALLERGIE ALIMENTARI'), []);
+  assert.deepStrictEqual(termini('Food allergies'), []);
+  assert.deepStrictEqual(termini('ALLERGIE /PREFERENZE NELLE NOTE'), []);
+});
+
+test('la coda amministrativa dell\'hotel non entra nell\'allergene', () => {
+  // In queste note "OK" introduce sempre una pratica amministrativa — OK SALDO,
+  // OK ODS, OK TRACCE — e mai un allergene.
+  assert.deepStrictEqual(termini('FORTE ALLERGIA AL CETRIOLO OK TRACCE'), ['CETRIOLO']);
+  assert.deepStrictEqual(termini('allergia al sedano OK SALDO'), ['Sedano']);
+});
+
+test('istruzioni operative: non sono allergeni', () => {
+  // "chiedere rooming e intolleranze - inserire prenotazioni al ristorante per il
+  // 26" proponeva "Inserire prenotazioni al ristorante per", tre volte.
+  assert.deepStrictEqual(termini('chiedere rooming e intolleranze - inserire prenotazioni al ristorante per il 26'), []);
+  assert.deepStrictEqual(termini('allergie: please confirm with the kitchen'), []);
+});
+
 // --- I tre difetti trovati nel collaudo dell'11/08/2026 ---------------------
 
 test('marcatore senza sostanza: nessuna proposta, nemmeno un troncone di parola', () => {

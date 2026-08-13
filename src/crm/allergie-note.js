@@ -18,22 +18,27 @@
 
 // Sostanze: da sole non vogliono dire niente ("torta alle noci" è un dolce, non
 // un'allergia). Contano solo se nella stessa frase c'è un marcatore.
+// Le note dell'hotel NON sono solo in italiano: sui 30.934 testi veri esaminati il
+// 13/08, delle note che parlano di allergie 235 sono italiane, 76 inglesi, 8
+// tedesche e 8 francesi. La maggior parte degli ospiti è straniera, quindi ogni
+// voce porta anche le forme delle altre lingue: senza, "gluten free" — l'espressione
+// straniera più frequente, 29 note — non produceva niente.
 const SOSTANZE = [
-  { re: /\bglutine\b|\bgluten\b/i, termine: 'Glutine' },
-  { re: /\blattosio\b|\blactose\b/i, termine: 'Lattosio' },
-  { re: /\blatticin\w*/i, termine: 'Latticini' },
-  { re: /\barachid\w*|\bpeanut\w*/i, termine: 'Arachidi' },
-  { re: /\bfrutta a guscio\b|\bnoci\b|\bnocciol\w*|\bmandorl\w*|\bpistacch\w*|\banacard\w*/i, termine: 'Frutta a guscio' },
-  { re: /\bcrostace\w*|\bgamber\w*|\bscampi\b|\baragost\w*/i, termine: 'Crostacei' },
-  { re: /\bmollusch\w*|\bcozze\b|\bvongol\w*/i, termine: 'Molluschi' },
-  { re: /\bpesce\b|\bpesci\b/i, termine: 'Pesce' },
-  { re: /\buov\w+/i, termine: 'Uova' },
-  { re: /\bsoia\b/i, termine: 'Soia' },
-  { re: /\bsedano\b/i, termine: 'Sedano' },
-  { re: /\bsesamo\b/i, termine: 'Sesamo' },
-  { re: /\bsolfit\w*/i, termine: 'Solfiti' },
-  { re: /\bfragol\w*/i, termine: 'Fragole' },
-  { re: /\bnichel\b/i, termine: 'Nichel' },
+  { re: /\bglutine\b|\bgluten\w*\b|\bfrumento\b|\bwheat\b|\bweizen\b|\bblé\b/i, termine: 'Glutine' },
+  { re: /\blattosio\b|\blactose\b|\blaktose\w*/i, termine: 'Lattosio' },
+  { re: /\blatticin\w*|\bdairy\b|\bmilchprodukt\w*|\bproduits laitiers\b/i, termine: 'Latticini' },
+  { re: /\barachid\w*|\bpeanut\w*|\berdnuss\w*|\bcacahuèt\w*/i, termine: 'Arachidi' },
+  { re: /\bfrutta a guscio\b|\bnoci\b|\bnocciol\w*|\bmandorl\w*|\bpistacch\w*|\banacard\w*|\btree ?nuts?\b|\bnuts?\b|\bnüsse\b|\bnuss\b|\bfruits à coque\b/i, termine: 'Frutta a guscio' },
+  { re: /\bcrostace\w*|\bgamber\w*|\bscampi\b|\baragost\w*|\bshellfish\b|\bshrimps?\b|\bprawns?\b|\bkrustentier\w*|\bcrustacés\b/i, termine: 'Crostacei' },
+  { re: /\bmollusch\w*|\bcozze\b|\bvongol\w*|\bmussels?\b|\bclams?\b|\boysters?\b|\bostrich\w*/i, termine: 'Molluschi' },
+  { re: /\bpesce\b|\bpesci\b|\bfish\b|\bfisch\b|\bpoisson\b/i, termine: 'Pesce' },
+  { re: /\buov\w+|\begg\w*|\beier\b|\bœufs?\b|\boeufs?\b/i, termine: 'Uova' },
+  { re: /\bsoia\b|\bsoy\w*\b|\bsoja\b/i, termine: 'Soia' },
+  { re: /\bsedano\b|\bcelery\b|\bsellerie\b|\bcéleri\b/i, termine: 'Sedano' },
+  { re: /\bsesamo\b|\bsesame\b|\bsesam\b/i, termine: 'Sesamo' },
+  { re: /\bsolfit\w*|\bsulphit\w*|\bsulfit\w*/i, termine: 'Solfiti' },
+  { re: /\bfragol\w*|\bstrawberr\w*|\berdbeer\w*/i, termine: 'Fragole' },
+  { re: /\bnichel\b|\bnickel\b/i, termine: 'Nichel' },
   { re: /\blattice\b|\blatex\b/i, termine: 'Lattice' },
 ];
 
@@ -48,14 +53,22 @@ const SOSTANZE = [
 // Da qui la regola di vicinanza: fra un marcatore debole e la sua sostanza ci
 // possono stare al massimo due parole, e nessuna virgola — la virgola vuol dire
 // che si sta già parlando d'altro.
-const MARCATORE_FORTE = /\ballerg\w*|\bintolleran\w*|\bevita\w*|\bvietat\w*|\bnon può\b|\bnon puo\b/i;
-const MARCATORE_DEBOLE = /\bno\b|\bniente\b|\bsenza\b/gi;
+// `allerg\w*` copre già l'inglese (allergic, allergy, allergies) e il tedesco
+// (Allergie, allergisch). Le altre forme vanno aggiunte.
+const MARCATORE_FORTE = /\ballerg\w*|\bintolleran\w*|\bevita\w*|\bvietat\w*|\bnon può\b|\bnon puo\b|\bunverträglich\w*|\bintoleran\w*|\bcannot (?:eat|have)\b|\bmust avoid\b|\bdoit éviter\b/i;
+const MARCATORE_DEBOLE = /\bno\b|\bniente\b|\bsenza\b|\bohne\b|\bsans\b|\bwithout\b/gi;
 const PAROLE_FRA_DEBOLE_E_SOSTANZA = 2;
+
+// "X free" è una restrizione dichiarata, non un gradimento: vale da sola come
+// "senza X", e nelle note straniere è la forma più comune in assoluto ("gluten
+// free" da solo compare in 29 note). Il trattino e l'attaccato sono la norma.
+// La stessa cosa in tedesco è un suffisso: glutenfrei, laktosefrei.
+const SENZA_STRANIERO = /\b(gluten|lactose|dairy|milk|nut|nuts|soy|soya|egg|eggs|wheat|fish|shellfish|sesame)[\s-]*free\b|\b(gluten|laktose|weizen|nuss)frei\b/i;
 
 // Termini che valgono da soli, senza bisogno di marcatore.
 const AUTONOMI = [
-  { re: /\bceliac\w*/i, termine: 'Celiachia' },
-  { re: /\bfavismo\b|\bfavic\w*/i, termine: 'Favismo' },
+  { re: /\bceliac\w*|\bcoeliac\w*|\bzöliakie\b|\bzoeliakie\b|\bcœliaque\b|\bcoeliaque\b/i, termine: 'Celiachia' },
+  { re: /\bfavismo\b|\bfavic\w*|\bfavism\b/i, termine: 'Favismo' },
 ];
 
 // Negazione dell'allergia stessa ("non è allergico", "nessuna allergia").
@@ -70,7 +83,15 @@ const NEGAZIONE = /\bnon\s+(?:è|e|ha|sono|hanno|risulta|risultano)?\s*(?:altre?
 // ATTENZIONE all'ordine delle alternative: in una regex vince la PRIMA che
 // combacia, quindi le preposizioni lunghe vanno prima ("ai" prima di "a"),
 // altrimenti "ai pollini" diventa "i pollini".
-const PREPOSIZIONI = 'della|delle|degli|dello|alla|alle|agli|allo|del|dei|ai|ad|al|a';
+// ATTENZIONE al confine di parola dopo la preposizione (il `\b` in DOPO_MARCATORE):
+// senza, "ALLERGIE ALIMENTARI" faceva combaciare `al` con le prime due lettere di
+// ALIMENTARI e proponeva "Imentari"; "allergica agli ANIMALI" proponeva "NIMALI".
+// Trovati nelle note vere il 13/08, 30.934 testi.
+// L'inglese "to" sta qui e non altrove: "allergic to feathers" proponeva
+// "To feathers", perché nessuna preposizione italiana combaciava.
+// Le forme con l'apostrofo vanno PRIMA, o "alla" combacia con "all'" lasciando
+// l'apostrofo attaccato al termine: "allergia ALL'AGLIO" dava "All'aglio".
+const PREPOSIZIONI = "all'|dell'|dall'|nell'|sull'|della|delle|degli|dello|alla|alle|agli|allo|del|dei|ai|ad|al|a|to|the|gegen|aux|au|à";
 // La cattura si ferma anche sui due punti: "allergica ai pollini: evitare i
 // fiori" deve dare "pollini", non tutta la frase con le istruzioni operative.
 // Il \b dopo \w* non è decorativo: senza, la regex tornava indietro dentro la
@@ -78,13 +99,29 @@ const PREPOSIZIONI = 'della|delle|degli|dello|alla|alle|agli|allo|del|dei|ai|ad|
 // di "allergi" e proponeva "ca" come sostanza — e "Ca" finiva fra le allergie, in
 // rosso, su un canale che deve restare credibile. Con il \b il ripiegamento a metà
 // parola è impossibile: o c'è una sostanza dopo il marcatore, o non si propone nulla.
-const DOPO_MARCATORE = new RegExp(`\\b(?:allergi\\w*|intolleran\\w*)\\b\\s*(?:${PREPOSIZIONI})?\\s*[:\\-—]?\\s*([^.;,:\\n]{2,40})`, 'i');
+// `allerg\w*` invece di `allergi\w*`: prende anche l'inglese (allergic, allergy).
+const DOPO_MARCATORE = new RegExp(
+  `\\b(?:allerg\\w*|intolleran\\w*|unverträglich\\w*)\\b\\s*(?:(?:${PREPOSIZIONI})\\b)?\\s*[:\\-—]?\\s*([^.;,:\\n]{2,40})`,
+  'i'
+);
 const CODA_MAX = 40;
+
+// In queste note "OK" introduce sempre una nota amministrativa — "OK SALDO",
+// "OK ODS", "OK TRACCE" — e mai un allergene: la coda si taglia lì.
+// Da "FORTE ALLERGIA AL CETRIOLO OK TRACCE" deve restare "Cetriolo".
+const CODA_AMMINISTRATIVA = /\s+OK\b.*$/i;
 
 // Dopo i due punti la reception scrive quasi sempre cosa fare, non cosa evita:
 // "allergica: verificare in cucina" non è un'allergia chiamata "verificare in
 // cucina". Queste code si buttano.
-const ISTRUZIONE = /^(?:verificar|avvisar|avvertir|controllar|segnalar|informar|chieder|contattar|comunicar|ricordar|prepar|servir|evitar|confermar|vedi\b|come\b|da\s)/i;
+// Le voci dopo `inserir` vengono dalle note vere del 13/08: "chiedere rooming e
+// intolleranze - inserire prenotazioni al ristorante per il 26" proponeva
+// "Inserire prenotazioni al ristorante per" come se fosse un allergene.
+const ISTRUZIONE = /^(?:verificar|avvisar|avvertir|controllar|segnalar|informar|chieder|contattar|comunicar|ricordar|prepar|servir|evitar|confermar|inserir|prenotar|assegnar|vedi\b|come\b|da\s|please\b|pls\b|ok\b)/i;
+
+// Code che dicono "ci sono allergie" senza dire QUALI: proporle come allergene
+// significherebbe mettere in cucina una voce chiamata "Alimentari".
+const GENERICO = /^(?:[/\\|]|alimentar\w*|food\b|alimentaires?\b|varie\b|vari\b|multiple\b|several\b|note\b|notes\b|in\s+nota|nelle\s+note)/i;
 
 // La nota è testo libero scritto a mano: si spezza su punti, punti e virgola e
 // a capo. Ogni pezzo si valuta da solo, così una negazione non "contagia" il
@@ -116,6 +153,12 @@ function marcata(frase, reSostanza) {
   const m = frase.match(reSostanza);
   if (!m) return false;
   const inizio = m.index;
+  // "gluten free", "laktosefrei": qui il marcatore viene DOPO la sostanza ed è
+  // attaccato. Si guarda solo il pezzetto subito successivo, non tutta la frase,
+  // per non far passare un "free" che parla d'altro (free upgrade, free wifi).
+  // In tedesco il suffisso resta attaccato: "glutenfrei" è una parola sola.
+  if (/(?:frei|free)$/i.test(m[0])) return true;
+  if (/^[\s-]*free\b|^frei\b/i.test(frase.slice(inizio + m[0].length))) return true;
   MARCATORE_DEBOLE.lastIndex = 0; // la regex è globale: lo stato va azzerato a ogni giro
   let d;
   while ((d = MARCATORE_DEBOLE.exec(frase)) !== null) {
@@ -137,11 +180,15 @@ function ritaglia(frase, max = 120) {
 
 // Ripulisce la coda catturata ("ai pollini di betulla" → "Pollini di betulla").
 function ripulisci(t) {
-  let s = String(t || '').replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|i|il|lo|la|le|gli|un|una)\\s+`, 'i'), '');
+  const grezzo = String(t || '').replace(CODA_AMMINISTRATIVA, '');
+  let s = grezzo.replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|i|il|lo|la|le|gli|un|una)\\b\\s+`, 'i'), '');
   // Se la cattura è arrivata al limite, l'ultima parola è quasi certamente
   // tagliata a metà ("fiori fresch"): si butta invece di salvarla monca.
-  if (String(t || '').trim().length >= CODA_MAX && s.includes(' ')) s = s.slice(0, s.lastIndexOf(' ')).trim();
-  if (!s || ISTRUZIONE.test(s)) return null;
+  // Il taglio non si applica se la coda amministrativa ha già accorciato il testo.
+  if (grezzo.length >= CODA_MAX && String(t || '').trim().length >= CODA_MAX && s.includes(' ')) {
+    s = s.slice(0, s.lastIndexOf(' ')).trim();
+  }
+  if (!s || ISTRUZIONE.test(s) || GENERICO.test(s)) return null;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
