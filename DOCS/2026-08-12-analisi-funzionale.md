@@ -1,8 +1,8 @@
 # Analisi funzionale — CRM Hotel Canne Bianche
 
-- **Data:** 2026-08-12
+- **Data:** 2026-08-12, **aggiornato il 2026-08-13 in hotel**
 - **Oggetto:** che cosa fa l'applicazione e con quali regole, dal punto di vista di chi la usa.
-- **Metodo:** lettura dei documenti in `DOCS/`, del codice in `src/` e `web/`, dei test in `test/`. Nessuna verifica sul database dell'hotel (irraggiungibile da qui).
+- **Metodo:** lettura dei documenti in `DOCS/`, del codice in `src/` e `web/`, dei test in `test/`. La prima stesura è stata scritta **senza il database dell'hotel**; il 13/08 tutto ciò che si poteva misurare è stato misurato sui dati veri, e dove i numeri contraddicevano il documento ha vinto il database.
 
 ---
 
@@ -22,9 +22,11 @@ Una regola può portare più marche: `[DOC][TEST]` significa che è richiesta ed
 
 | Marca | Significato |
 |---|---|
-| `[DECISO]` | Regola discussa e decisa con il committente il 12/08/2026. Non è più una deduzione: è un requisito. |
+| `[DECISO]` | Regola discussa e decisa con il committente (12 o 13 agosto 2026). Non è più una deduzione: è un requisito. |
 
-Il documento è aggiornato alle decisioni prese. Le tre domande che restano aperte richiedono i dati veri dell'hotel e sono elencate in §20.
+Il documento è aggiornato alle decisioni prese. Delle tre domande che richiedevano i dati veri dell'hotel, **due sono state chiuse il 13/08** e una resta aperta perché ha bisogno di giorni d'uso, non di un'interrogazione: sono in §20.
+
+**Cosa è cambiato il 13/08/2026, in hotel.** La giornata è servita a mettere l'applicazione davanti ai dati veri per la prima volta, e ha prodotto più correzioni della settimana precedente: gli **ospiti del giorno** che non comparivano da nessuna parte (§5), il badge **"Nª volta"** che contava come soggiorni le giornate e i voucher (§7), le allergie scritte in **anagrafica** che non arrivavano in cucina (§11), il **check-out** deciso da una riga presa a caso (§5), e un permesso revocato che **restava valido per ore** (§2). Nessuno di questi si vedeva sul server di sviluppo con dati inventati.
 
 ---
 
@@ -99,6 +101,7 @@ Solo chi ha un account entra, e ciascuno vede e può fare quello che gli compete
 - Credenziali sbagliate e utente inesistente danno **lo stesso messaggio**: non si può capire dall'esterno se un nome utente esiste `[DOC][TEST]`.
 - La sessione dura **8 ore** e viaggia su un cookie non leggibile da JavaScript `[CODICE]` (`src/app.js:18`).
 - Dopo il logout il vecchio cookie non vale più `[DOC]` (verificato nel collaudo dell'11/08).
+- **Ruolo e stato si rileggono a ogni richiesta**, non solo all'accesso `[DECISO][TEST]`. Fino al 13/08/2026 il ruolo veniva letto una volta sola al login e messo in sessione: declassare qualcuno non era un'etichetta rimasta indietro, era un permesso che **restava valido fino a otto ore**, e disattivare un account non buttava fuori nessuno. Trovato in hotel declassando un utente a sola lettura e vedendolo ancora operativo nell'altra finestra. Ora un ruolo cambiato si riallinea alla richiesta successiva e un utente disattivato o eliminato perde la sessione all'istante.
 - Non esiste blocco dopo N tentativi falliti, né limite di frequenza sul login: **è una scelta**, non una dimenticanza `[DECISO]`. Un blocco chiuderebbe fuori chi ha davvero dimenticato la password, e non esiste recupero via email. Vedi §17 per il quadro completo.
 
 ### I tre ruoli
@@ -120,6 +123,7 @@ Fissati da `[TEST]` (`test/permessi.test.js`, «i tre ruoli della Fase 1, e ness
 - Un ruolo sconosciuto nel database (per esempio il vecchio `marketing`) vale **sola lettura**, non pieni poteri. L'utente resta operativo per consultare e nella pagina Utenti compare con un'etichetta gialla "non previsto" `[DOC][TEST]`.
 - Nascondere i pulsanti non è la difesa: chiamando le interfacce a mano si prende comunque un 403. La matrice ruoli × operazioni è verificata chiamando le API senza passare dall'interfaccia `[TEST]` (`test/permessi-api.test.js`).
 - **Le maiuscole nell'indirizzo non aggirano il controllo.** Era un buco reale — la reception poteva crearsi un amministratore — chiuso il 12/08 con un test che rifà l'attacco `[DOC][TEST]`.
+- **Togliere un permesso ha effetto subito.** Vedi *Accesso*: era il secondo buco vero della gestione ruoli, e come il primo è stato trovato provando, non leggendo `[DECISO][TEST]`.
 - **La regola del metodo ha un limite, e va conosciuto**: una rotta di lettura che internamente scrive sfugge al controllo, perché la guardia guarda il metodo e non cosa succede dentro. È capitato con la precompilazione del nucleo (§14), corretta il 12/08 controllando il permesso dentro la rotta. Chi aggiunge una lettura che scrive deve fare lo stesso `[DECISO][TEST]`.
 - **Le righe si toccano solo dalla scheda del loro ospite**: il percorso delle richieste di modifica e cancellazione porta anche il codice ospite, e una riga che non è sua risulta inesistente `[DECISO][TEST]`. Non difende dal personale — chi può scrivere può scrivere — ma rende innocuo un errore di programmazione.
 
@@ -222,22 +226,36 @@ Gestire l'ospite durante il soggiorno: chi c'è, in che camera, a che punto è d
 ### Regole
 
 - **Nessun selettore di data**: la pagina è sempre alla data di lavoro del gestionale `[CODICE]`.
-- Entrano le prenotazioni non annullate con **check-in fatto** e data di lavoro compresa fra arrivo e partenza, **partenza inclusa** `[CODICE]` (`src/pms/prenotazioni.js:116-118`).
-- **Ordine da rack**: per numero di camera crescente, con chi ha già fatto il check-out in fondo. Le camere non numeriche vanno in coda in ordine alfabetico `[CODICE][TEST]` (`test/incasa-brief.test.js`).
-- Tre stati per riga: `incasa`, `partenza` (parte oggi, ancora in camera), `checkout` (check-out registrato) `[CODICE]`.
-- **Avanzamento del soggiorno**: "Notte 3 di 7 · parte il …", con pallini solo fino a 14 notti; oltre diventano rumore. Il giorno dell'arrivo è la notte 1. Chi ha fatto il check-out mostra "Soggiorno concluso" `[CODICE][TEST]`.
-- **Badge "Nª volta"** con la data dell'ultima visita, per chi è già stato in hotel; chi non c'è mai stato non ha badge `[CODICE]`.
+- Entrano le prenotazioni non annullate con **check-in fatto** e data di lavoro compresa fra arrivo e partenza, **partenza inclusa** `[CODICE]`.
+- **Ordine da rack**: per numero di camera crescente, poi chi ha già fatto il check-out, in fondo gli ospiti del giorno `[DECISO][TEST]` (`test/incasa-brief.test.js`).
+- Quattro stati per riga: `incasa`, `partenza` (parte oggi, ancora in camera), `checkout` (conto chiuso), `dayuse` (ospite del giorno) `[CODICE]`.
+- **Avanzamento del soggiorno**: "Notte 3 di 7 · parte il …". La notte in corso è disegnata come **anello**, non come pallino pieno: alla data di lavoro quella notte non è ancora stata dormita. Chi parte oggi ha la fila piena ma **spenta**. Il giorno dell'arrivo è la notte 1; chi ha fatto il check-out mostra "Soggiorno concluso" `[DECISO][TEST]`.
+- Oltre le **17 notti** i pallini diventano una **barra di larghezza fissa**: prima sparivano del tutto, e i soggiorni lunghi — quelli in cui sapere a che punto si è conta di più — restavano senza colpo d'occhio `[DECISO][TEST]`.
+- **Badge "Nª volta"** con la data dell'ultima visita, per chi ha già **dormito** qui; accanto, se ci sono, le **visite in giornata** in un badge separato (§7) `[DECISO][TEST]`.
 - Stessa banda di accoglienza degli Arrivi, stesse regole (§4).
-- Filtri: **Oggi in hotel** · Partono oggi · VIP · Alert · Ricorrenze · Reclami · Usciti `[CODICE]`.
+- Filtri: **Oggi in hotel** · Partono oggi · VIP · Alert · Ricorrenze · Reclami · Usciti · **Day use** `[CODICE]`.
 - **"Partono oggi"** comprende sia chi è ancora in camera con partenza odierna sia chi ha già fatto il check-out `[CODICE][TEST]`.
 - Il contatore **esclude** chi ha già fatto il check-out `[CODICE][TEST]`.
 - Con un filtro che non seleziona nulla il contatore dice **"0 di 5"**, non "5": diceva il numero pieno a schermo vuoto `[DOC][TEST]`.
 
 > **"Oggi in hotel" non è il numero della Home** `[DECISO]`. Questa lista comprende chi parte oggi, il riquadro "Restano stanotte" della Home no. Sono due domande diverse (vedi §3): i nomi lo dichiarano, invece di lasciar credere a un errore.
 
+### Ospiti del giorno (day use) — dal 13/08/2026
+
+Il gestionale registra gli esterni di SPA, piscina, cene e serate come prenotazioni con **arrivo e partenza nello stesso giorno**, e li marca "partiti" fin dalla creazione perché non pernottano. Il CRM chiedeva il check-in per la lista In casa e "diverso da partito" per gli Arrivi: **erano esclusi da entrambe**, cioè non comparivano da nessuna parte.
+
+Sono circa **1.200 l'anno**, stabili dal 2023, e fra loro ci sono ospiti che l'hotel conosce: il 13/08 è venuta per la piscina un'ospite con quattro soggiorni alle spalle e una celiachia in nota.
+
+- **Riconoscimento**: arrivo = partenza. Sui dati veri coincide sempre con "nessuna camera pianificata" (85 pratiche correnti, 3.168 archiviate dal 2024, tutte a zero camere), quindi non c'è ambiguità con le partenze anticipate `[DECISO]`.
+- **Restano fuori** le pratiche di un giorno intestate a chi in quel momento è già in albergo con il check-in fatto: sono scritture contabili (l'extra addebitato a parte) e produrrebbero una seconda card per lo stesso ospite `[DECISO][TEST]`.
+- «Già in albergo» significa **check-in fatto**, non «ha un'altra pratica che copre questa data»: i **voucher regalo** sono registrati come prenotazioni lunghe un anno e coprirebbero qualunque giorno `[DECISO][TEST]`.
+- **In pagina**: pastiglia "Day use", nessuna camera, nessuna notte, nessun importo di soggiorno; in coda alla lista. Restano allergie, preferenze, VIP, reclami, "Nª volta" e note `[DECISO]`.
+- **I tre numeri della Home non cambiano**: un ospite del giorno non fa check-in, non occupa una camera la notte, non è una partenza da gestire `[DECISO]`.
+- **Sul foglio dei reparti ci vanno**, con l'etichetta: per la cucina un celiaco a cena è un celiaco a cena, che dorma qui o no `[DECISO]`.
+
 ### Casi limite
 
-- Il check-out è determinato da **una sola riga** del conto alberghiero, presa senza criterio di scelta: con più camere, se il gestionale ne segna una come chiusa, l'intera prenotazione può risultare uscita `[CODICE]` (`src/pms/prenotazioni.js:109`). **Resta da chiarire con la software house del PMS**: vedi §20, domanda A.
+- La prenotazione risulta **uscita solo quando tutte le righe del conto sono chiuse** `[DECISO][TEST]`. Il conto ha una riga per occupante: se in camera resta anche una persona sola la card resta in lista come presenza normale, perché far sparire dalla lista qualcuno che è ancora in albergo è peggio che tenerci qualcuno già uscito. Serve anche il controllo che le righe *esistano*: senza, una pratica priva di conto risulterebbe uscita.
 - Se il CRM non risponde, la lista viene comunque servita, almeno ordinata per camera `[CODICE]`.
 
 ---
@@ -288,6 +306,16 @@ Numero di soggiorni, notti totali, LTV (arrangiamenti + extra), spesa media a so
 - **La city tax è esclusa** da extra e LTV: è una tassa di passaggio, non un ricavo `[DOC]`.
 - **Contano solo i soggiorni avvenuti** `[DECISO][TEST]`. Restano fuori: *Eliminata*, *No-show*, e le prenotazioni che devono ancora cominciare (*Pianificata*, *Confermato*). Queste ultime hanno importi a zero perché non c'è ancora nulla di maturato: contarle gonfiava il numero dei soggiorni e abbassava tutte le medie — un ospite con 10 soggiorni e 2 prenotazioni per l'estate prossima ne risultava 12.
 - Restano invece **dentro** i soggiorni *In casa* e *Partito*: stanno avvenendo o sono appena finiti, e i soldi sono veri. Così il numero coincide con il badge "Nª volta" delle schede, che mostra i soggiorni archiviati più quello in corso.
+
+> **Che cosa conta come "una volta"** `[DECISO][TEST]` — deciso il 13/08/2026 guardando l'archivio vero.
+>
+> L'archivio delle prenotazioni non contiene solo soggiorni. Su 41.337 pratiche archiviate: **12.492 sono giornate** (SPA, piscina, cene per esterni), **2.951 non hanno nemmeno le date** e **79 sono voucher regalo**, registrati come prenotazioni lunghe un anno perché quella è la loro validità. Un terzo di ciò che contava come soggiorno non lo era.
+>
+> Contandole tutte, **9.996 ospiti su 62.123** risultavano più affezionati di quanto fossero, e **5.363 comparivano come "di ritorno" senza aver mai dormito qui**. Un ospite in casa il 13/08 leggeva "7ª volta" con cinque soggiorni veri.
+>
+> Da oggi sono **due conteggi separati**: il badge "Nª volta" conta i soggiorni con pernottamento; le giornate hanno un badge a parte ("3 in giornata"). Non si sommano — chi ha dormito qui una volta e poi è tornato sei volte per la SPA è al secondo soggiorno — ma non si buttano: un cliente che torna spesso in giornata è un dato commerciale, e prima chi veniva **solo** in giornata non entrava proprio nello storico.
+>
+> Il taglio è fra **1 e 200 notti**: sotto c'è la giornata, sopra il voucher (stanno tutti sui 365 giorni), e qui la stagione dura meno di 200 giorni. Anche **"ultima visita"** guarda solo i soggiorni: prendeva il massimo fra le partenze, e un voucher valido fino al 2027 poteva far scrivere alla card una data che deve ancora arrivare.
 - **Le prenotazioni future restano visibili nello storico** `[DECISO][TEST]`: non contano nei numeri, ma sapere che l'ospite torna a giugno serve a chi lo accoglie.
 - Prima e ultima visita sono cliccabili e portano allo storico, che si apre e lampeggia `[CODICE]`.
 
@@ -399,17 +427,38 @@ CRM. Le proposte automatiche nascono da una nota del PMS ma non sono ancora un d
 
 ---
 
-## 11. Proposte di allergie dalle note del PMS
+## 11. Proposte di allergie dai testi del gestionale
 
 ### A cosa serve
 
-Le allergie spesso sono già scritte nella nota libera della prenotazione, ma in un posto dove nessuno le cerca. L'applicazione le riconosce e **le propone**; è la reception a decidere.
+Le allergie spesso sono già scritte nel gestionale, ma in posti dove nessuno le cerca durante il servizio. L'applicazione le riconosce e **le propone**; è la reception a decidere.
+
+### Le due fonti — dal 13/08/2026
+
+Il gestionale le scrive in due campi diversi, e la differenza non è un dettaglio tecnico: cambia **quanto ci si può fidare** della proposta `[DECISO][TEST]`.
+
+| Campo | Dove sta | Attribuzione |
+|---|---|---|
+| `Prenota.Note` | sulla **prenotazione** | incerta: la pratica può avere più occupanti |
+| `Anagra.Annotazioni` | sull'**anagrafica della persona** | certa per costruzione |
+
+Fino al 13/08 si leggeva solo il primo. Il secondo era già mostrato nella scheda ospite, in un riquadro richiuso che durante il servizio nessuno apre: **92 anagrafiche parlano di allergie e non arrivavano in cucina**. Quel giorno, in hotel, due ospiti dormivano in casa con un'allergia scritta in anagrafica e nessuna traccia nella nota della prenotazione.
+
+- Le proposte dall'**anagrafica** arrivano con il nome già attribuito: niente da scegliere `[DECISO][TEST]`.
+- Le proposte dalla **nota** mantengono il menu con referente e occupanti: la persona la sceglie chi sa leggere `[DECISO][TEST]`.
+- Ogni riga **dichiara la propria provenienza**, così chi guarda sa quanto fidarsi `[DECISO]`.
+- Quando lo stesso termine arriva da entrambe, **vince l'anagrafica** `[DECISO][TEST]`.
+- Nessuna interrogazione in più: `Annotazioni` è una colonna aggiunta alla lettura batch delle anagrafiche che Arrivi e In casa già fanno `[CODICE]`.
+
+### Dove compaiono
+
+Arrivi, In casa **e scheda ospite** `[DECISO]`. Sulla scheda entrano entrambe le fonti: all'inizio erano escluse le note di prenotazione per non attribuire in silenzio a chi apre la pagina un'allergia riferita a un altro occupante, ma alla prova coi dati veli la scelta non ha retto — chi apre la scheda ha davanti la frase, il numero di pratica e le date, e giudica meglio di qualunque regola. Sulla scheda si leggono le note delle prenotazioni **correnti**, non l'archivio: le richieste di soggiorni conclusi anni fa tornerebbero a galla a ogni apertura senza che nessuno sappia se valgono ancora.
 
 ### Perché propone e non scrive
 
 Due motivi osservati nelle note vere, nessuno risolvibile con più codice `[DOC]`:
 
-1. **La nota è della prenotazione, non della persona.** "La signora è celiaca", in una pratica con quattro ospiti, non dice quale signora. Attribuirla d'ufficio all'intestatario può mettere l'allergia sulla persona sbagliata — peggio che non averla, perché sposta l'attenzione della cucina.
+1. **La nota della prenotazione è della pratica, non della persona.** "La signora è celiaca", in una pratica con quattro ospiti, non dice quale signora. Attribuirla d'ufficio all'intestatario può mettere l'allergia sulla persona sbagliata — peggio che non averla, perché sposta l'attenzione della cucina.
 2. **La negazione esiste.** "Il bambino NON è allergico alle arachidi" si scrive davvero.
 
 ### Le regole di riconoscimento
@@ -450,8 +499,17 @@ Regole di fondo:
 
 - **Chi conferma sceglie a chi attribuire l'allergia** da un menu con il referente e tutti gli occupanti. Se la prenotazione non ha nessuna persona identificabile, la proposta non viene nemmeno mostrata `[CODICE]`.
 - L'analisi gira **solo** sulle note che Arrivi e In casa già caricano: arrivi della data mostrata e presenti in questo momento. Nessuna interrogazione nuova, nessun lavoro notturno, nessun popolamento massivo `[DOC]`.
-- **Le note dell'anagrafica non vengono lette**, solo quelle della prenotazione. Sarebbero per-persona, quindi senza il problema dell'attribuzione: è segnato come possibile miglioramento `[DOC]`.
-- Il vocabolario è tarato su note inventate: la verifica sui dati veri è il punto principale della checklist di rientro `[DOC]`.
+### Misura sui dati veri — 13/08/2026 `[DECISO]`
+
+Il vocabolario era tarato su note inventate, tutte italiane, in un albergo dove la maggioranza degli ospiti è straniera. Passata su **30.938 note di prenotazione** e **12.182 annotazioni di anagrafica**, con misura prima/dopo a ogni modifica:
+
+- aggiunte le forme **inglesi, tedesche e francesi** di ogni sostanza e la regola "X free / X frei": *"gluten free"* da solo compariva in 29 note e non produceva niente;
+- **le piume messe in elenco**: sono il secondo allergene per frequenza dopo il glutine e finivano nel testo libero, quindi la stessa cosa usciva come cinque voci diverse (*"Piume d'oca"*, *"Feather pillow"*, *"Down feathers in pillows and bedding"*…);
+- tagliate le code che non sono sostanze: istruzioni in mezzo alla frase (*"…AL CETRIOLO EVITARE IN CIBI E BEVANDE"*), verbi coniugati che aprono un'altra frase, parentesi mai aperte, marcatori dentro parole composte (*"allergy-friendly room"*), frasi che richiamano un'allergia detta altrove (*"comunicare questa allergia ai ristoranti"*), negazioni inglesi.
+
+**Dove siamo.** Su una finestra di sette giorni di ospiti veri: **7 proposte, corrette tutte e sette, zero falsi positivi**. Delle 32 note che nominano allergie senza produrre proposte: **14 è giusto che tacciano** (7 dicono che allergie non ce ne sono, 7 chiedono di raccoglierle), **12 nominano un'allergia senza dire di cosa** (cuscini anallergici, niente moquette, camera senza animali: l'allergene non è scritto e inventarlo sarebbe peggio che tacere), **5 sono elenchi di più sostanze in una frase sola** e **1 è una forma inglese non coperta**.
+
+> **Il limite di fondo delle regole** sono quei 5 elenchi: *"intollerante al lattosio e allergica allo zenzero"* dà il lattosio e perde lo zenzero. È l'unico punto in cui un modello linguistico sarebbe più bravo — insieme all'attribuzione ("la bambina il lattosio, la signora i crostacei"). Discusso il 13/08 e **rimandato**: le regole sono istantanee, gratuite e non si spengono quando finisce il credito dell'AI, e un'allergia è un dato sanitario che oggi non esce dall'albergo. Se un giorno si farà, va fatto **sopra** le regole e non al posto loro, leggendo ogni nota una volta sola e conservando il risultato.
 
 ### Chi può
 
@@ -817,14 +875,28 @@ Per riferimento, con il punto del documento in cui la decisione è ora scritta.
 
 ---
 
+---
+
+### Quello che ha aggiunto la giornata in hotel
+
+Nessuno di questi era fra le sedici domande: sono venuti fuori **guardando i dati veri**, e in tre casi su cinque provando l'applicazione invece che leggendola. Vanno letti come la misura di quanto vale un collaudo con i dati dell'hotel rispetto a uno con dati inventati.
+
+| Cosa | Come è emerso | Dove |
+|---|---|---|
+| Gli **ospiti del giorno** non comparivano da nessuna parte — 1.200 l'anno | Guardando perché certe pratiche fossero marcate "partite" con la partenza nel futuro | §5 |
+| Il badge **"Nª volta"** contava giornate e voucher come soggiorni: 5.363 ospiti risultavano di ritorno senza aver mai dormito qui | Cercando la causa di un voucher lungo un anno che nascondeva un'ospite dalla lista | §7 |
+| Le allergie scritte in **anagrafica** non arrivavano in cucina: due ospiti in casa quella notte | Chiedendosi se valesse la pena leggere un secondo campo | §11 |
+| Un permesso **revocato restava valido per ore** | Provando a declassare un utente e guardando l'altra finestra | §2 |
+| Il **check-out** era deciso da una riga presa senza criterio | Era la domanda A, ma i numeri hanno cambiato la risposta attesa | §5 |
+
 ### Punti in sospeso già dichiarati altrove
 
-Non sono domande aperte da porre: sono cose già note e scritte, riportate qui per completezza.
+Non sono domande aperte da porre: sono cose già note e scritte, riportate qui per completezza. **Barrate quelle chiuse il 13/08.**
 
-- **Gli importi vanno riconfermati con la software house del PMS** `[DOC]` (nota PENDING, checklist §3).
-- **Tre migrazioni da lanciare sul database dell'hotel** prima della messa in produzione; senza due di esse la sezione Reclami va in errore `[DOC]` (checklist §1).
-- **Quattro interrogazioni non sono mai state eseguite su SQL Server vero** `[DOC]` (checklist §2), fra cui quella del badge "Nª volta", dove il rischio non è l'errore ma il doppio conteggio.
-- **Il vocabolario delle allergie è tarato su note inventate** `[DOC]` (checklist §3).
+- ~~Gli importi vanno riconfermati con la software house del PMS~~ — chiusa il 07/08: la fonte è `PianificazioneSogg`, validata sui check-in reali.
+- ~~Tre migrazioni da lanciare sul database dell'hotel~~ — **eseguite e verificate il 13/08**. La terza (`crm-ruoli.sql`) è risultata inutile: nel database ci sono solo ruoli previsti.
+- ~~Sei interrogazioni mai eseguite su SQL Server vero~~ — **tutte eseguite il 13/08**, nessun errore. Il rischio segnalato sul badge "Nª volta" (doppio conteggio) **non c'era**; ce n'era un altro, più grosso, che nessuno aveva previsto: contava cose che non sono soggiorni (§7).
+- ~~Il vocabolario delle allergie è tarato su note inventate~~ — **misurato sulle 30.938 note vere** il 13/08, in due passate successive (§11).
 - **Nessun evento AI viene registrato**: ogni giorno di attesa è storico non recuperabile `[DOC]` (analisi analytics §3.1 e checklist §4).
 - **L'origine di una preferenza (manuale o AI) non è tracciata** `[DOC]` (analisi analytics §3.2).
 - **La memoria delle sessioni è in RAM**: da sostituire prima di far girare più di un processo `[DOC]` (`HANDOFF.md` §9).

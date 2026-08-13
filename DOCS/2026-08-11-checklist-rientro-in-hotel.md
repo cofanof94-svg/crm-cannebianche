@@ -5,7 +5,58 @@
 > per espressione regolare senza eseguirle**: valida l'interfaccia e la logica, non
 > il SQL. Questa lista è ciò che resta da fare con il database vero davanti.
 >
-> Aggiornata all'11/08/2026.
+> Aggiornata all'11/08/2026. **Giornata in hotel del 13/08: vedi il riepilogo qui
+> sotto.** Quasi tutta la lista è stata smarcata; quello che resta è in fondo.
+
+---
+
+## 0. Giornata del 13/08/2026 — cosa è stato fatto
+
+**Migrazioni** — eseguite e verificate: `crm-complaint-followup.sql` e
+`crm-complaint-reparto.sql` (le due obbligatorie), più l'eliminazione di
+`customer_notes` (`crm-drop-note.sql`, tabella mai usata, due righe di prova
+trascritte nello script). `crm-ruoli.sql` è risultata **non necessaria**: nel
+database ci sono solo ruoli previsti.
+
+**Interrogazioni mai eseguite** — tutte provate su SQL Server vero, nessun errore.
+
+**Difetti trovati sui dati veri e corretti in giornata:**
+
+1. gli **ospiti del giorno** (day use, ~1.200 l'anno) non comparivano in nessuna pagina;
+2. il badge **"Nª volta"** contava giornate e voucher come soggiorni: 5.363 ospiti risultavano di ritorno senza aver mai dormito in hotel;
+3. le allergie scritte nelle **annotazioni di anagrafica** non arrivavano in cucina (92 anagrafiche, due ospiti in casa quella notte);
+4. un **permesso revocato restava valido fino a otto ore**, perché il ruolo si leggeva solo al login;
+5. il **check-out** dipendeva da una riga del conto presa senza criterio;
+6. **allergia già registrata riproposta** a ogni ricaricamento (confronto fra forme di dato diverse);
+7. il **vocabolario delle allergie** rimisurato due volte sulle 30.938 note vere.
+
+**Verifiche superate:** importi, storico senza doppi conteggi, proposte di
+allergia su una settimana di ospiti veri (7 su 7 corrette, zero falsi positivi).
+
+---
+
+## 0-bis. Cosa resta aperto dopo il 13/08
+
+Sono le uniche cose che richiedono ancora l'hotel o una decisione.
+
+- [ ] **Gli utenti veri.** A database ci sono `admin`, `Fabio` e `read_only`, e
+      dopo le prove di ieri **nessun account reception attivo**: chi sta al banco
+      non ha con cosa entrare. Serve l'elenco delle persone con il ruolo di
+      ciascuna. Le password le imposta Mik, minimo 8 caratteri.
+- [ ] **Il credito AI è esaurito.** Restano non collaudate: Suggerisci
+      preferenze, Genera note personali, e soprattutto un caso *"Profilo
+      professionale"* vero da LinkedIn — che si può fare **solo in hotel**,
+      perché serve il nome di un ospite reale.
+- [ ] **Il foglio per i reparti** stampato con i volumi veri: sta in un A4?
+- [ ] **Fusione anagrafiche** sul caso reale Brolin (48758 / 55491 / 31355),
+      compreso lo scollegamento.
+- [ ] **Reclami**: i due in archivio sono senza reparto né categoria. Classificarli,
+      provare la risoluzione con follow-up obbligatorio, e dire se le otto
+      categorie rispecchiano i reclami veri (cambiarle dopo costa di più).
+- [ ] **"Ignora" sulle proposte di allergia**: se sono davvero rari i falsi
+      positivi ricorrenti si lascia com'è. Serve qualche giorno d'uso.
+- [ ] **Nome utente con lo spazio**: `Fabio C` esisteva prima del controllo che
+      oggi vieta gli spazi. Decidere se togliere il divieto o rinominare.
 
 ---
 
