@@ -321,3 +321,40 @@ test('le frasi rivolte al personale non diventano allergeni', () => {
   // Ma una sostanza vera resta valida anche dentro una formula di cortesia.
   assert.deepStrictEqual(termini('Si prega di preparare pasti senza glutine'), ['Glutine']);
 });
+
+// --- Casi trovati sugli arrivi di settembre 2026 ----------------------------
+
+test('un verbo coniugato chiude la sostanza: quello che segue e\' un\'altra frase', () => {
+  // Arrivo del 07/09: usciva "Animali e volevano una camera pet-free".
+  assert.deepStrictEqual(termini('questi sono allergici agli animali e volevano una camera pet-free garantita'), ['Animali']);
+  assert.deepStrictEqual(termini('allergia agli animali! cercare di assegnare camera al piano terra'), ['Animali']);
+});
+
+test('il marcatore dentro una parola composta non dichiara niente', () => {
+  // "Please reserve an allergy-friendly room" proponeva "Friendly room": il
+  // trattino veniva letto come separatore invece che come parte della parola.
+  assert.deepStrictEqual(termini('Please reserve an allergy-friendly room'), []);
+  // Ma il trattino con lo spazio davanti resta un separatore vero.
+  assert.deepStrictEqual(termini('ALLERGIE - CROSTACEI'), ['Crostacei']);
+});
+
+test('"questa allergia" richiama, non dichiara', () => {
+  assert.deepStrictEqual(termini('Si prega di comunicare questa allergia ai ristoranti prenotati per nostro conto'), []);
+  // La cortesia da sola non basta a scartare: qui l'allergia c'e' davvero.
+  // (nota vera: prima veniva persa da una regola troppo grossolana)
+  assert.deepStrictEqual(
+    termini('please provide twin beds in both rooms, we are strictly non smokers and allergic to feather pillow'),
+    ['Feather pillow']
+  );
+});
+
+test('la negazione vale anche in inglese', () => {
+  assert.deepStrictEqual(termini("Please note that they do not have allergies but the couple doesn't eat pork"), []);
+  assert.deepStrictEqual(termini('no known allergies'), []);
+});
+
+test('note che annunciano allergie senza dirle: niente proposta', () => {
+  assert.deepStrictEqual(termini('INTOLLERANZE NON COMUNICATE, Julie e peschetarian'), []);
+  assert.deepStrictEqual(termini('ALLERGIE DA COMUNICARE'), []);
+  assert.deepStrictEqual(termini('allergie non segnalate'), []);
+});

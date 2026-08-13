@@ -77,7 +77,7 @@ const AUTONOMI = [
 // L'aggettivo in mezzo ("non hanno ALTRE allergie", "non ha PARTICOLARI
 // intolleranze") è frequente nel parlato della reception: senza, la frase
 // scivolerebbe oltre il filtro e finirebbe nel ramo "sostanza fuori elenco".
-const NEGAZIONE = /\bnon\s+(?:è|e|ha|sono|hanno|risulta|risultano)?\s*(?:altre?\s+|particolari\s+|alcun\w*\s+|nessun\w*\s+)?(?:allergic|allergi|intolleran|celiac)|\bnessun\w*\s+(?:allergi|intolleran)|\bniente\s+allergi|\bno\s+allergi|\bnon\s+ci\s+sono\s+allergi/i;
+const NEGAZIONE = /\bnon\s+(?:è|e|ha|sono|hanno|risulta|risultano)?\s*(?:altre?\s+|particolari\s+|alcun\w*\s+|nessun\w*\s+)?(?:allergic|allergi|intolleran|celiac)|\bnessun\w*\s+(?:allergi|intolleran)|\bniente\s+allergi|\bno\s+allergi|\bnon\s+ci\s+sono\s+allergi|\b(?:do\s+not|don'?t|does\s+not|doesn'?t)\s+have\s+(?:any\s+)?allerg|\bno\s+known\s+allerg|\bwithout\s+allerg/i;
 
 // Coda dopo il marcatore, per i casi non in elenco: "allergica ai pollini".
 // ATTENZIONE all'ordine delle alternative: in una regex vince la PRIMA che
@@ -100,8 +100,14 @@ const PREPOSIZIONI = "all'|dell'|dall'|nell'|sull'|della|delle|degli|dello|alla|
 // rosso, su un canale che deve restare credibile. Con il \b il ripiegamento a metà
 // parola è impossibile: o c'è una sostanza dopo il marcatore, o non si propone nulla.
 // `allerg\w*` invece di `allergi\w*`: prende anche l'inglese (allergic, allergy).
+// Il trattino conta come separatore solo se ha uno spazio davanti ("allergie -
+// crostacei"). Senza il controllo, in "allergy-friendly room" il trattino veniva
+// mangiato come separatore e restava un allergene chiamato "Friendly room":
+// il marcatore invece era solo metà di una parola composta.
+// Il punto esclamativo e quello interrogativo chiudono la cattura come il punto:
+// "allergia agli animali! cercare di…" lasciava "Animali!" con la lama attaccata.
 const DOPO_MARCATORE = new RegExp(
-  `\\b(?:allerg\\w*|intolleran\\w*|unverträglich\\w*)\\b\\s*(?:(?:${PREPOSIZIONI})\\b)?\\s*[:\\-—]?\\s*([^.;,:\\n]{2,40})`,
+  `\\b(?:allerg\\w*|intolleran\\w*|unverträglich\\w*)\\b\\s*(?:(?:${PREPOSIZIONI})\\b)?\\s*(?:[:—]|(?<=\\s)-)?\\s*([^.;,:!?\\n]{2,40})`,
   'i'
 );
 const CODA_MAX = 40;
@@ -117,7 +123,7 @@ const CODA_AMMINISTRATIVA = /\s+OK\b.*$/i;
 // Le voci dopo `inserir` vengono dalle note vere del 13/08: "chiedere rooming e
 // intolleranze - inserire prenotazioni al ristorante per il 26" proponeva
 // "Inserire prenotazioni al ristorante per" come se fosse un allergene.
-const VERBI_ISTRUZIONE = 'verificar|avvisar|avvertir|controllar|segnalar|informar|chieder|contattar|comunicar|ricordar|prepar|servir|evitar|eliminar|rimuover|escluder|confermar|inserir|prenotar|assegnar';
+const VERBI_ISTRUZIONE = 'verificar|avvisar|avvertir|controllar|segnalar|informar|chieder|contattar|comunicar|ricordar|prepar|servir|evitar|eliminar|rimuover|escluder|confermar|inserir|prenotar|prenotat|assegnar|cercar|richieder';
 const ISTRUZIONE = new RegExp(`^(?:${VERBI_ISTRUZIONE}|vedi\\b|come\\b|da\\s|please\\b|pls\\b|ok\\b)`, 'i');
 
 // Lo stesso verbo può comparire DENTRO la coda, non solo all'inizio: da lì in
@@ -128,16 +134,36 @@ const ISTRUZIONE = new RegExp(`^(?:${VERBI_ISTRUZIONE}|vedi\\b|come\\b|da\\s|ple
 // nella nota della prenotazione, quindi la stessa allergia usciva due volte.
 const CODA_ISTRUZIONE = new RegExp(`\\s+(?:${VERBI_ISTRUZIONE})\\w*\\b.*$`, 'i');
 
-// Frasi che si rivolgono al personale invece di dichiarare un'allergia: "si
-// prega di comunicare questa allergia ai ristoranti prenotati" parla di
-// un'allergia già detta altrove, e la coda dopo il marcatore ("ai ristoranti…")
-// non è una sostanza. Vale solo per le sostanze FUORI elenco: se la frase
-// nomina il glutine, il glutine resta buono anche dentro una cortesia.
-const FRASE_DIRETTIVA = /^\s*(?:si\s+prega|si\s+ricorda|vi\s+preghiam|preghiam|please|kindly|pls\b)/i;
+// Un verbo coniugato apre un'altra frase: quello che segue non è più la
+// sostanza. Da "allergici agli animali e volevano una camera pet-free garantita"
+// (arrivo del 07/09/2026) usciva un allergene chiamato "Animali e volevano una
+// camera pet-free". La lista è volutamente corta e fatta di forme intere: un
+// elenco più largo comincerebbe a tagliare nomi di sostanze.
+const CODA_ALTRA_FRASE = /\s+(?:e\s+)?(?:volev\w+|vogliono|vuole|chiedon?o|preferisc\w+|desider\w+|necessit\w+|richiedon?o|gradisc\w+)\b.*$/i;
+
+// Congiunzione o preposizione rimasta appesa dopo un taglio: "animali e" → "animali".
+const CONGIUNZIONE_FINALE = /\s+(?:e|ed|o|con|per|che|ma|piu|più)$/i;
+
+// Un dimostrativo davanti al marcatore rimanda a un'allergia già detta altrove:
+// "comunicare QUESTA allergia ai ristoranti prenotati per nostro conto" non ne
+// dichiara una nuova, e la coda ("ai ristoranti…") non è una sostanza.
+// Il primo tentativo era più grosso — saltare le frasi che si aprono con una
+// cortesia ("si prega", "please") — e buttava via una nota vera: "please
+// provide twin beds…, we are strictly non smokers and allergic to feather
+// pillow" comincia con una cortesia ma un'allergia la dichiara eccome.
+const MARCATORE_ANAFORICO = /\b(?:questa|questo|quest'|tale|the|this|his|her|their|la\s+sua|il\s+suo)\s+(?:allerg|intolleran)/i;
+
+// Marcatore incollato a un'altra parola con il trattino: "allergy-friendly
+// room" non dichiara un'allergia, chiede una camera. La coda comincia col
+// trattino proprio perché il marcatore è metà di una parola composta.
+const CODA_COMPOSTA = /^\s*-/;
 
 // Code che dicono "ci sono allergie" senza dire QUALI: proporle come allergene
 // significherebbe mettere in cucina una voce chiamata "Alimentari".
-const GENERICO = /^(?:[/\\|]|alimentar\w*|food\b|alimentaires?\b|varie\b|vari\b|multiple\b|several\b|note\b|notes\b|in\s+nota|nelle\s+note)/i;
+// "INTOLLERANZE NON COMUNICATE" dice che non si sa niente, non che l'ospite è
+// intollerante a una cosa chiamata "Non comunicate". Stessa famiglia di
+// "ALLERGIE ALIMENTARI": la nota annuncia allergie senza dire quali.
+const GENERICO = /^(?:[/\\|]|alimentar\w*|food\b|alimentaires?\b|varie\b|vari\b|multiple\b|several\b|note\b|notes\b|in\s+nota|nelle\s+note|non\s+comunicat\w*|non\s+segnalat\w*|non\s+specificat\w*|da\s+comunicar\w*|da\s+chieder\w*|da\s+verificar\w*|sconosciut\w*)/i;
 
 // La nota è testo libero scritto a mano: si spezza su punti, punti e virgola e
 // a capo. Ogni pezzo si valuta da solo, così una negazione non "contagia" il
@@ -196,7 +222,11 @@ function ritaglia(frase, max = 120) {
 
 // Ripulisce la coda catturata ("ai pollini di betulla" → "Pollini di betulla").
 function ripulisci(t) {
-  const grezzo = String(t || '').replace(CODA_AMMINISTRATIVA, '').replace(CODA_ISTRUZIONE, '');
+  const grezzo = String(t || '')
+    .replace(CODA_AMMINISTRATIVA, '')
+    .replace(CODA_ISTRUZIONE, '')
+    .replace(CODA_ALTRA_FRASE, '')
+    .replace(CONGIUNZIONE_FINALE, '');
   let s = grezzo.replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|i|il|lo|la|le|gli|un|una)\\b\\s+`, 'i'), '');
   // Se la cattura è arrivata al limite, l'ultima parola è quasi certamente
   // tagliata a metà ("fiori fresch"): si butta invece di salvarla monca.
@@ -204,7 +234,11 @@ function ripulisci(t) {
   if (grezzo.length >= CODA_MAX && String(t || '').trim().length >= CODA_MAX && s.includes(' ')) {
     s = s.slice(0, s.lastIndexOf(' ')).trim();
   }
-  if (!s || ISTRUZIONE.test(s) || GENERICO.test(s)) return null;
+  // Anche dopo aver buttato l'ultima parola può restare appesa una congiunzione.
+  s = s.replace(CONGIUNZIONE_FINALE, '').trim();
+  // Meno di tre lettere non è una sostanza: è un pezzo di frase rimasto dopo un
+  // taglio. Da "ALLERGIE DA COMUNICARE" restava "Da".
+  if (s.length < 3 || ISTRUZIONE.test(s) || GENERICO.test(s)) return null;
   // Le note del gestionale sono spesso scritte tutte in maiuscolo ("ALLERGIA AL
   // MAIALE"): ricopiandole si finiva con proposte che urlano in mezzo a termini
   // scritti normalmente. Se non c'è nemmeno una minuscola, il testo è del tutto
@@ -240,11 +274,11 @@ function estraiAllergie(nota) {
     }
     // Marcatore esplicito ma sostanza fuori elenco: si propone comunque il testo
     // che segue, perché "allergica ai pollini" è un'informazione da non perdere.
-    // Non però quando la frase è rivolta al personale: lì il marcatore richiama
-    // un'allergia detta altrove e la coda è tutt'altro (i ristoranti, la cucina).
-    if (!trovata && !FRASE_DIRETTIVA.test(frase) && /\ballerg\w*|\bintolleran\w*/i.test(frase)) {
+    // Non però quando il marcatore richiama un'allergia detta altrove ("questa
+    // allergia"), o quando è metà di una parola composta ("allergy-friendly").
+    if (!trovata && !MARCATORE_ANAFORICO.test(frase) && /\ballerg\w*|\bintolleran\w*/i.test(frase)) {
       const m = frase.match(DOPO_MARCATORE);
-      if (m) aggiungi(ripulisci(m[1]), frase);
+      if (m && !CODA_COMPOSTA.test(m[1])) aggiungi(ripulisci(m[1]), frase);
     }
   }
   return out;
