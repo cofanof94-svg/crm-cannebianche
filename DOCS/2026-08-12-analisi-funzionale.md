@@ -748,40 +748,33 @@ Esiste un import che copia lo storico prenotazioni dal gestionale in tabelle del
 
 La prima stesura di questo documento si chiudeva con **16 domande**: contraddizioni fra codice e documenti, comportamenti che potevano non essere quelli voluti, regole applicate in un punto e non in un altro simile.
 
-Il **12/08/2026 sono state discusse una per una con Mik.** Tredici sono state decise e implementate: le decisioni sono scritte nelle sezioni delle rispettive funzionalità, con la marca `[DECISO]`, e ognuna ha almeno un test che riproduce il caso originale. Tre restano aperte perché **richiedono i dati veri dell'hotel**: nessuno può rispondere da fuori.
+Il **12/08/2026 sono state discusse una per una con Mik.** Tredici sono state decise e implementate: le decisioni sono scritte nelle sezioni delle rispettive funzionalità, con la marca `[DECISO]`, e ognuna ha almeno un test che riproduce il caso originale. Tre restavano aperte perché richiedevano i dati veri dell'hotel.
 
-### Le tre che restano
+Il **13/08/2026, in hotel, sono state chiuse due delle tre** (A e B). Resta aperta solo la C, che ha bisogno di giorni di uso reale e non di una interrogazione.
 
-#### A — Lo stato di check-out è deciso da una riga scelta senza criterio
+### Le tre
 
-**Dove.** `src/pms/prenotazioni.js:109`: `SELECT TOP 1 al.flgpar FROM Alberg al WHERE al.codpratica = p.codpratica`, senza ordinamento.
+#### A — Lo stato di check-out era deciso da una riga scelta senza criterio — CHIUSA il 13/08/2026
 
-Il conto alberghiero ha **una riga per occupante** (`HANDOFF.md` §6.2). Con quattro persone, o con due camere di cui una già chiusa, quale riga risponda dipende dal piano di esecuzione del database. Da quel valore dipendono la pastiglia "Check-out effettuato", la posizione in fondo alla lista, il conteggio degli usciti, il filtro "Partono oggi" e una voce dell'export.
+**Dov'era.** `src/pms/prenotazioni.js`: `SELECT TOP 1 al.flgpar FROM Alberg al WHERE al.codpratica = p.codpratica`, senza ordinamento. Il conto alberghiero ha **una riga per occupante** (`HANDOFF.md` §6.2), quindi con righe discordi la risposta la sceglieva il piano di esecuzione del database.
 
-**Perché non si chiude da qui.** Le risposte possibili portano a tre correzioni diverse e opposte:
-1. nel gestionale il flag è identico su tutte le righe della pratica → la scelta è irrilevante e non si tocca niente;
-2. basta **una** riga chiusa perché la prenotazione conti come uscita → va scritto `EXISTS`;
-3. servono **tutte** chiuse → la condizione è l'opposto, e oggi la lista starebbe nascondendo ospiti ancora in casa.
+**Cosa dicono i dati.** Misurato sul database dell'hotel: nella tabella corrente **nessuna** delle 82 pratiche con più righe è discorde; nello storico lo sono **171 su 25.183** (0,68%), e la discordanza è vera, non fra i due codici che il CRM tratta già allo stesso modo. Non era quindi un difetto attivo ma un rischio latente: una volta su centocinquanta.
 
-**Cosa serve.** La conferma della software house del PMS, oppure l'osservazione di una pratica reale con più camere in fase di check-out parziale.
+**Decisione di Mik.** La prenotazione risulta uscita **solo quando tutte le righe sono chiuse**. Se in camera resta anche una persona sola, la card resta in lista come una presenza normale: far sparire dalla lista qualcuno che è ancora in albergo è peggio che tenerci qualcuno già uscito, perché housekeeping e F&B smettono di vederlo.
+
+Implementato con `EXISTS` + `NOT EXISTS` (serve anche il controllo di esistenza: senza, una pratica **senza** righe di conto risulterebbe uscita). Due test lo tengono fermo. Verificato dal vivo: la lista del 13/08 non cambia di una riga.
 
 ---
 
-#### B — La tabella delle "Note CRM" esiste e non la usa più nessuno
+#### B — La tabella delle "Note CRM" — CHIUSA il 13/08/2026
 
-**Dove.** `scripts/crm-schema.sql` crea `customer_notes` (note interne del team, con autore e data). Nessuna riga di `src/` o `web/` la legge o la scrive.
+`customer_notes` conteneva **due righe**, entrambe scritte da `admin` durante una sessione di prova di luglio: `"test"` sulla cliente 78602 e `"apprezza il polpo arrosto"` sulla 81304, quest'ultima a un minuto di distanza da una preferenza e da una lingua inserite sullo stesso ospite.
 
-Le specifiche di Fase 2 la definivano come uno dei cinque blocchi della scheda ospite, e `HANDOFF.md` §5 la elenca ancora fra le tabelle in uso. Le sue funzioni sembrano assorbite dalle note personali (che però sono una riga per persona, non un diario) e dai reclami.
+**Decisione di Mik:** si elimina tutto; la scheda resta con **preferenze, nota personale e reclami**. Il diario non si ricostruisce.
 
-**Perché non si chiude da qui.** Dipende da cosa c'è dentro nel database dell'hotel. Se contiene righe, sono **dati che qualcuno ha scritto e che oggi nessuno vede**.
+La ragione non è che il diario sia inutile, ma che è il posto dove l'informazione si ferma: *"apprezza il polpo arrosto"* scritto in una nota resta visibile solo a chi apre quella scheda, mentre la stessa frase come preferenza F&B finisce sul foglio che si stampa per il ristorante. Che qualcuno l'abbia scritta lì trenta secondi dopo aver inserito una preferenza dice però una cosa da tenere a mente: **scrivere una frase è più veloce che scegliere reparto e categoria**. Se in futuro le preferenze risultassero scomode, la risposta è renderle più rapide, non aggiungere un secondo posto dove scrivere.
 
-**Cosa serve.** Una interrogazione, da fare al primo accesso:
-
-```bash
-sqlcmd -S CB-DH -d HolidayCanneBianche_CRM -Q "SELECT COUNT(*) AS note_orfane FROM customer_notes"
-```
-
-Zero → si elimina la tabella e si aggiornano i due documenti. Diverso da zero → si decide se recuperarle in sola lettura o rimettere in piedi il blocco note.
+Eseguito: `scripts/crm-drop-note.sql` (che trascrive le due righe eliminate), tabella tolta anche da `crm-schema.sql` e da `HANDOFF.md` §5.
 
 ---
 
@@ -797,6 +790,8 @@ Zero → si elimina la tabella e si aggiornano i due documenti. Diverso da zero 
 3. tanti → il problema non è "Ignora" ma il vocabolario, e si corregge quello.
 
 **Cosa serve.** Qualche giorno di uso reale, annotando le proposte sbagliate che si ripresentano.
+
+**Primo dato, 13/08/2026.** Il vocabolario è stato passato sulle **214 prenotazioni con note fra oggi e i sette giorni successivi**: escono **7 proposte, corrette tutte e sette** (due celiachie, soia, lattosio, cetriolo, glutine da *"gluten free"*, crostacei). Zero falsi positivi. Con questi numeri l'ipotesi 1 è la più probabile, ma una settimana non fa una regola: la verifica resta aperta.
 
 ---
 

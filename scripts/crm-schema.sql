@@ -9,20 +9,12 @@ CREATE TABLE users (
 );
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'customer_notes')
-CREATE TABLE customer_notes (
-  id              INT IDENTITY(1,1) PRIMARY KEY,
-  pms_customer_id INT           NOT NULL,   -- riferimento logico ad Anagra.CodCli
-  autore_user_id  INT           NOT NULL,
-  testo           NVARCHAR(MAX) NOT NULL,
-  created_at      DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
-  CONSTRAINT FK_notes_user FOREIGN KEY (autore_user_id) REFERENCES users(id)
-);
-GO
-
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_notes_customer')
-CREATE INDEX IX_notes_customer ON customer_notes(pms_customer_id);
-GO
+-- Qui c'era customer_notes, il "diario" interno previsto dalle prime specifiche
+-- di Fase 2. Non è mai stata usata da nessuna riga di src/ o web/: le sue
+-- funzioni sono finite nelle preferenze, nella nota personale e nei reclami.
+-- Eliminata il 13/08/2026 (scripts/crm-drop-note.sql), che contiene anche le
+-- due righe che c'erano dentro. Non ricrearla qui: uno schema che descrive una
+-- tabella che nessuno usa fa perdere tempo a chi lo legge.
 
 -- Reclami cliente (Complaints). stato: 'aperto' | 'risolto'.
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'customer_complaints')

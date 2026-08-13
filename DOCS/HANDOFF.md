@@ -56,7 +56,7 @@ CRM_PASSWORD=<password>
 ```
 
 **Schema DB CRM:** eseguire in ordine sul database CRM (tutti idempotenti):
-1. `scripts/crm-schema.sql` (tabelle `users`, `customer_notes`, `customer_complaints`)
+1. `scripts/crm-schema.sql` (tabelle `users`, `customer_complaints`)
 2. `scripts/crm-users-anagrafica.sql`, `scripts/crm-complaints.sql` (migrazioni base)
 3. `scripts/crm-anagrafica-v2.sql` (dati manuali: `customer_profile`, `customer_intolerances`, `customer_preferences`, `customer_travel_party` + colonna `periodo` su complaints) — **già applicato**
 4. `scripts/crm-booking-snapshot.sql` (import: `booking_snapshot`, `customer_cumulativi`) — **da applicare in hotel** (vedi §11)
@@ -107,7 +107,6 @@ Tabelle chiave usate: `Anagra` (clienti, PK `CodCli`), `Prenota`/`StorPrenota` (
 
 ### CRM (`HolidayCanneBianche_CRM`) — READ/WRITE
 - `users` (id, username, password_hash bcrypt, role admin|reception|marketing, attivo, nome/cognome/email)
-- `customer_notes` (id, pms_customer_id=CodCli, autore_user_id, testo, created_at)
 - `customer_complaints` (id, pms_customer_id, autore_user_id, testo, stato 'aperto'|'risolto', **periodo**, created_at, resolved_at)
 - `customer_profile` (1:1, pms_customer_id, **lingua** preferita) — dato manuale
 - `customer_intolerances` (id, pms_customer_id, testo) — dato di sicurezza, multiplo
