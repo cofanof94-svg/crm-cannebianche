@@ -47,7 +47,7 @@ async function makeApp(opts = {}) {
   const preferenze = [];
   const nucleo = [];
   const merges = []; // { pms_customer_id, canonical_id }
-  const nucleoInit = new Set();
+  const nucleoScartati = new Set(); // 'pms_customer_id|pms_occupant_id'
   let profilo = null;
   const crmDb = {
     async query(text, params) {
@@ -55,8 +55,11 @@ async function makeApp(opts = {}) {
       const ids = (() => { const m = String(text).match(/IN \(([\d,\s]+)\)/); return m ? m[1].split(',').map((s) => Number(s.trim())) : []; })();
       if (/FROM users WHERE username/.test(text)) return params.username === 'admin' ? [admin] : [];
       if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) return Number(params.id) === admin.id ? [admin] : [];
-      if (/INSERT INTO customer_nucleo_init/.test(text)) { nucleoInit.add(params.pmsCustomerId); return []; }
-      if (/FROM customer_nucleo_init/.test(text)) return nucleoInit.has(params.pmsCustomerId) ? [{ x: 1 }] : [];
+      if (/INSERT INTO customer_nucleo_scartati/.test(text)) { nucleoScartati.add(`${params.pmsCustomerId}|${params.pmsOccupantId}`); return []; }
+      if (/FROM customer_nucleo_scartati/.test(text)) {
+        return [...nucleoScartati].map((k) => k.split('|').map(Number))
+          .filter(([c]) => ids.includes(c)).map(([, o]) => ({ pms_occupant_id: o }));
+      }
       if (/customer_merge/.test(text)) {
         if (/MERGE customer_merge/.test(text)) { const ex = merges.find((m) => m.pms_customer_id === params.memberId); if (ex) ex.canonical_id = params.principale; else merges.push({ pms_customer_id: params.memberId, canonical_id: params.principale }); return []; }
         if (/UPDATE customer_merge SET canonical_id/.test(text)) { merges.forEach((m) => { if (m.canonical_id === params.memberId) m.canonical_id = params.principale; }); return []; }
@@ -85,6 +88,10 @@ async function makeApp(opts = {}) {
       if (/INSERT INTO customer_travel_party/.test(text)) { const n = { id: nucleo.length + 1, ...params }; nucleo.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_travel_party/.test(text)) { const n = nucleo.find((x) => x.id === params.id); if (n) { if (params.tipoRelazione !== undefined) n.tipoRelazione = params.tipoRelazione; if (params.nome !== undefined) n.nome = params.nome; if (params.cognome !== undefined) n.cognome = params.cognome; if (params.nota !== undefined) n.nota = params.nota; return [{ id: n.id }]; } return []; }
       if (/DELETE FROM customer_travel_party/.test(text)) { const i = nucleo.findIndex((x) => x.id === params.id); if (i >= 0) { const id = nucleo[i].id; nucleo.splice(i, 1); return [{ id }]; } return []; }
+      if (/SELECT TOP 1 id, pms_customer_id, pms_occupant_id FROM customer_travel_party/.test(text)) {
+        const n = nucleo.find((x) => x.id === params.id && ids.includes(x.pmsCustomerId));
+        return n ? [{ id: n.id, pms_customer_id: n.pmsCustomerId, pms_occupant_id: n.pmsOccupantId != null ? n.pmsOccupantId : null }] : [];
+      }
       if (/pms_occupant_id AS c/.test(text)) { const s = new Set(); nucleo.forEach((n) => { if (n.pmsCustomerId === params.codCli && n.pmsOccupantId != null) s.add(n.pmsOccupantId); if (n.pmsOccupantId === params.codCli) s.add(n.pmsCustomerId); }); return [...s].map((c) => ({ c })); }
       if (/FROM customer_travel_party/.test(text)) return nucleo.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, tipo_relazione: n.tipoRelazione, nome: n.nome, cognome: n.cognome, nota: n.nota, pms_occupant_id: n.pmsOccupantId != null ? n.pmsOccupantId : null, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_complaints/.test(text)) { const n = { id: complaints.length + 1, stato: 'aperto', ...params }; complaints.push(n); return [{ id: n.id }]; }
@@ -571,16 +578,79 @@ test('nucleo: crea/elenca/elimina + validazioni', async () => {
   assert.strictEqual(del.status, 200);
 });
 
-test('nucleo: auto-popolamento one-shot dai co-occupanti; badge auto; non si ripete', async () => {
+test('nucleo: precompilazione dai co-occupanti; badge auto; non raddoppia', async () => {
   const app = await makeApp({ coOcc: [{ codCli: 900, Cognome: 'BEBIE', Nome: 'ADRIAN', nShared: 1, totPrat: 2 }] });
   const ag = await agente(app);
-  const l = await ag.get('/api/clienti/47186/nucleo'); // prima apertura → auto-popola
+  const l = await ag.get('/api/clienti/47186/nucleo'); // prima apertura → precompila
   assert.strictEqual(l.body.nucleo.length, 1);
   assert.strictEqual(l.body.nucleo[0].nome, 'ADRIAN');
   assert.strictEqual(l.body.nucleo[0].tipo_relazione, 'Altro');
   assert.strictEqual(l.body.nucleo[0].pms_occupant_id, 900); // provenienza PMS → badge "auto"
   const l2 = await ag.get('/api/clienti/47186/nucleo'); // seconda apertura → NON raddoppia
   assert.strictEqual(l2.body.nucleo.length, 1);
+});
+
+test('nucleo: chi arriva dopo la prima apertura entra comunque', async () => {
+  // Il caso vero del 14/08: la scheda 81866 è stata aperta il 07/08 preparando
+  // l'arrivo, e i tre accompagnatori registrati al check-in poche ore dopo non
+  // vi erano mai entrati, perché il controllo girava una volta sola.
+  const app = await makeApp({ coOcc: [{ codCli: 900, Cognome: 'GINSBERG', Nome: 'NICOLA', nShared: 1, totPrat: 2 }] });
+  const ag = await agente(app);
+  const prima = await ag.get('/api/clienti/47186/nucleo');
+  assert.strictEqual(prima.body.nucleo.length, 1);
+  // Il check-in registra gli altri due occupanti: da qui in poi il gestionale
+  // ne restituisce tre.
+  const app2 = await makeApp({ coOcc: [
+    { codCli: 900, Cognome: 'GINSBERG', Nome: 'NICOLA', nShared: 1, totPrat: 2 },
+    { codCli: 901, Cognome: 'KEIDAN', Nome: 'ELIZABETH', nShared: 1, totPrat: 2 },
+    { codCli: 902, Cognome: 'CONTRERAS', Nome: 'MARIA ELENA', nShared: 1, totPrat: 2 },
+  ] });
+  const ag2 = await agente(app2);
+  await ag2.get('/api/clienti/47186/nucleo');
+  const dopo = await ag2.get('/api/clienti/47186/nucleo');
+  assert.strictEqual(dopo.body.nucleo.length, 3);
+  assert.deepStrictEqual(dopo.body.nucleo.map((m) => m.cognome).sort(), ['CONTRERAS', 'GINSBERG', 'KEIDAN']);
+});
+
+test('nucleo: chi è stato tolto a mano non torna alla riapertura', async () => {
+  // È il prezzo del controllo continuo: senza memoria delle esclusioni,
+  // correggere il nucleo sarebbe una fatica che si disfa da sola.
+  const app = await makeApp({ coOcc: [
+    { codCli: 900, Cognome: 'BEBIE', Nome: 'ADRIAN', nShared: 1, totPrat: 2 },
+    { codCli: 901, Cognome: 'GYGAX', Nome: 'MARKUS', nShared: 1, totPrat: 2 },
+  ] });
+  const ag = await agente(app);
+  const l = await ag.get('/api/clienti/47186/nucleo');
+  assert.strictEqual(l.body.nucleo.length, 2);
+  const gygax = l.body.nucleo.find((m) => m.cognome === 'GYGAX');
+  assert.strictEqual((await ag.delete(`/api/clienti/47186/nucleo/${gygax.id}`)).status, 200);
+  const dopo = await ag.get('/api/clienti/47186/nucleo'); // riapertura: non deve tornare
+  assert.deepStrictEqual(dopo.body.nucleo.map((m) => m.cognome), ['BEBIE']);
+});
+
+test('nucleo: le correzioni a mano non vengono sovrascritte dal controllo', async () => {
+  // Chi è già in elenco non si tocca: relazione, nome e nota restano quelli
+  // scritti da chi accoglie, anche se il gestionale continua a proporlo.
+  const app = await makeApp({ coOcc: [{ codCli: 900, Cognome: 'BEBIE', Nome: 'ADRIAN', nShared: 1, totPrat: 2 }] });
+  const ag = await agente(app);
+  const l = await ag.get('/api/clienti/47186/nucleo');
+  const id = l.body.nucleo[0].id;
+  await ag.patch(`/api/clienti/47186/nucleo/${id}`).send({ tipoRelazione: 'Figlio-a', nota: 'Celiaco' });
+  const dopo = await ag.get('/api/clienti/47186/nucleo');
+  assert.strictEqual(dopo.body.nucleo.length, 1);
+  assert.strictEqual(dopo.body.nucleo[0].tipo_relazione, 'Figlio-a');
+  assert.strictEqual(dopo.body.nucleo[0].nota, 'Celiaco');
+});
+
+test('nucleo: togliere un accompagnatore scritto a mano non annota nessuna esclusione', async () => {
+  // Non è agganciato al gestionale: non può tornare da solo, e ricordarselo
+  // sarebbe una riga inutile in una tabella che deve restare piccola.
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/nucleo').send({ tipoRelazione: 'Amico-a', nome: 'Luca' });
+  assert.strictEqual((await ag.delete(`/api/clienti/47186/nucleo/${c.body.membro.id}`)).status, 200);
+  const l = await ag.get('/api/clienti/47186/nucleo');
+  assert.strictEqual(l.body.nucleo.length, 0);
 });
 
 test('nucleo: ogni riga dice quante volte e quando hanno soggiornato insieme', async () => {

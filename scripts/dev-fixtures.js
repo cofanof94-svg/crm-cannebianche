@@ -316,10 +316,9 @@ const CRM_INIZIALE = {
     },
   ],
   merge: [], // { pms_customer_id, canonical_id }
-  // Marker one-shot dell'auto-popolamento del nucleo: per chi ha già un nucleo
-  // compilato qui sopra è "già fatto", altrimenti l'app lo ri-popolerebbe con
-  // relazioni 'Altro' duplicate alla prima apertura della scheda.
-  nucleoInit: [1001, 1004],
+  // Componenti del nucleo tolti a mano: il controllo dei co-occupanti si rifà a
+  // ogni apertura della scheda, e senza questa memoria li rimetterebbe.
+  nucleoScartati: [], // 'pms_customer_id|pms_occupant_id'
 };
 
 module.exports = {

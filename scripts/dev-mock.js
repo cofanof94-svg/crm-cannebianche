@@ -303,7 +303,7 @@ const store = {
   nucleo: F.CRM_INIZIALE.nucleo.map((p) => ({ ...p, autore_user_id: 1, created_at: new Date().toISOString() })),
   profili: F.CRM_INIZIALE.profili.map((p) => ({ ...p, autore_user_id: 1, updated_at: new Date().toISOString() })),
   merge: [...F.CRM_INIZIALE.merge],
-  nucleoInit: new Set(F.CRM_INIZIALE.nucleoInit),
+  nucleoScartati: new Set(F.CRM_INIZIALE.nucleoScartati),
 };
 const prossimoId = (arr) => (arr.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1);
 const conAutore = (r) => ({ ...r, autore: (store.users.find((u) => u.id === r.autore_user_id) || {}).username || 'admin' });
@@ -491,9 +491,14 @@ const crmDb = {
         .sort((a, b) => (a.stato === 'aperto' ? 0 : 1) - (b.stato === 'aperto' ? 0 : 1));
     }
 
-    // --- customer_travel_party + marker auto-popolamento ---
-    if (/INSERT INTO customer_nucleo_init/.test(t)) { store.nucleoInit.add(params.pmsCustomerId); return []; }
-    if (/FROM customer_nucleo_init/.test(t)) return store.nucleoInit.has(params.pmsCustomerId) ? [{ x: 1 }] : [];
+    // --- customer_travel_party + memoria delle esclusioni ---
+    if (/INSERT INTO customer_nucleo_scartati/.test(t)) { store.nucleoScartati.add(`${params.pmsCustomerId}|${params.pmsOccupantId}`); return []; }
+    if (/FROM customer_nucleo_scartati/.test(t)) {
+      return [...store.nucleoScartati]
+        .map((k) => k.split('|').map(Number))
+        .filter(([c]) => ids.includes(c))
+        .map(([, o]) => ({ pms_occupant_id: o }));
+    }
     if (/INSERT INTO customer_travel_party/.test(t)) {
       const r = { id: prossimoId(store.nucleo), pms_customer_id: params.pmsCustomerId, autore_user_id: params.autoreUserId, tipo_relazione: params.tipoRelazione, nome: params.nome, cognome: params.cognome, nota: params.nota, pms_occupant_id: params.pmsOccupantId, created_at: new Date().toISOString() };
       store.nucleo.unshift(r);
@@ -514,6 +519,12 @@ const crmDb = {
         if (n.pms_occupant_id === params.codCli) s.add(n.pms_customer_id);
       });
       return [...s].map((c) => ({ c }));
+    }
+    // Il singolo membro che si sta per cancellare (serve a sapere se era
+    // agganciato al gestionale, e quindi se potrebbe tornare da solo).
+    if (/SELECT TOP 1 id, pms_customer_id, pms_occupant_id FROM customer_travel_party/.test(t)) {
+      const r = store.nucleo.find((x) => x.id === params.id && ids.includes(x.pms_customer_id));
+      return r ? [{ id: r.id, pms_customer_id: r.pms_customer_id, pms_occupant_id: r.pms_occupant_id }] : [];
     }
     if (/FROM customer_travel_party/.test(t)) {
       const righe = store.nucleo.filter((r) => ids.includes(r.pms_customer_id));

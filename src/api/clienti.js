@@ -10,7 +10,7 @@ const { listIntolleranze, createIntolleranza, deleteIntolleranza } = require('..
 const { getProfilo, upsertLingua, upsertNotePersonali, cancellaLingua, cancellaNotePersonali } = require('../crm/profilo');
 const { sintetizzaNota } = require('../crm/arrivi-brief');
 const { listPreferenze, listCondivise, createPreferenza, updatePreferenza, deletePreferenza, REPARTI, CATEGORIE, AMBITI } = require('../crm/preferenze');
-const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, nucleoInizializzato, markNucleoInit, RELAZIONI } = require('../crm/nucleo');
+const { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, scartatiDelNucleo, scartaDalNucleo, membroById, RELAZIONI } = require('../crm/nucleo');
 const { getCoOccupanti, filtraCoOccupanti } = require('../pms/nucleo');
 const { aggregaCumulativi } = require('../stats');
 const { getAiClient, guastoAi } = require('../ai/client');
@@ -579,12 +579,23 @@ function createClientiRouter(pmsDb, crmDb) {
   // --- Nucleo di viaggio / accompagnatori ---
   // Auto-popolamento iniziale (one-shot): alla prima apertura precompila il nucleo
   // con i co-occupanti delle prenotazioni (ricorrenti, o tutti se poche; no aziende).
-  async function autoPopulaNucleo(canonicalId, autoreUserId, coOcc) {
-    if (await nucleoInizializzato(crmDb, canonicalId)) return;
+  // Il controllo si rifà a OGNI apertura e aggiunge solo chi non c'è ancora.
+  //
+  // Prima girava una volta sola, alla primissima apertura, e questo fotografava
+  // il nucleo troppo presto: la scheda si apre preparando l'arrivo, gli
+  // occupanti entrano nel gestionale al check-in. Sui dati veri del 14/08 la
+  // scheda 81866 era stata aperta il 07/08 e i tre accompagnatori registrati
+  // poche ore dopo non vi erano mai entrati.
+  //
+  // Chi è già in elenco non si tocca (nome, relazione e nota corretti a mano
+  // restano), e chi è stato tolto non torna.
+  async function aggiornaNucleo(canonicalId, membri, autoreUserId, coOcc) {
+    const presenti = new Set((await listNucleo(crmDb, membri)).map((m) => m.pms_occupant_id).filter((x) => x != null));
+    const scartati = await scartatiDelNucleo(crmDb, membri);
     for (const o of filtraCoOccupanti(coOcc.total, coOcc.items)) {
+      if (presenti.has(o.codCli) || scartati.has(o.codCli)) continue;
       await createMembro(crmDb, { pmsCustomerId: canonicalId, autoreUserId, tipoRelazione: 'Altro', nome: o.nome, cognome: o.cognome, nota: null, pmsOccupantId: o.codCli });
     }
-    await markNucleoInit(crmDb, canonicalId);
   }
 
   // Da quante volte e da quanto tempo si conoscono: la riga del nucleo dice solo
@@ -614,7 +625,7 @@ function createClientiRouter(pmsDb, crmDb) {
     // a comportarsi in modo diverso da come si presenta.
     // Il nucleo resta vuoto finché non lo apre qualcuno che può scrivere.
     if (coOcc && puo(req.session.user, PERMESSI.SCRIVI)) {
-      await autoPopulaNucleo(canonicalId, req.session.user.id, coOcc);
+      await aggiornaNucleo(canonicalId, membri, req.session.user.id, coOcc);
     }
     const insieme = new Map((coOcc ? coOcc.items : []).map((o) => [o.codCli, o]));
     const nucleo = (await listNucleo(crmDb, membri)).map((m) => {
@@ -677,7 +688,27 @@ function createClientiRouter(pmsDb, crmDb) {
     res.json({ ok: true });
   });
 
-  delRoute('nucleo', deleteMembro, 'Membro non trovato');
+  // Togliere un componente dal nucleo non è come cancellare una preferenza: se
+  // quella persona ha davvero soggiornato con l'ospite, il controllo automatico
+  // la rimetterebbe alla prossima apertura. Si annota l'esclusione, così la
+  // correzione fatta a mano resta fatta.
+  router.delete('/clienti/:codCli/nucleo/:id', async (req, res) => {
+    const codCli = intParam(req.params.codCli);
+    const id = intParam(req.params.id);
+    if (codCli === null || id === null) return res.status(400).json({ error: 'ID non valido' });
+    const { canonicalId, membri } = await getGruppo(crmDb, codCli);
+    const membro = await membroById(crmDb, id, membri);
+    if (!membro) return res.status(404).json({ error: 'Membro non trovato' });
+    if (!(await deleteMembro(crmDb, id, membri))) return res.status(404).json({ error: 'Membro non trovato' });
+    // Solo chi è agganciato a un'anagrafica del gestionale può tornare da solo:
+    // un accompagnatore scritto a mano, una volta tolto, non lo riporta nessuno.
+    if (membro.pms_occupant_id != null) {
+      await scartaDalNucleo(crmDb, {
+        pmsCustomerId: canonicalId, pmsOccupantId: membro.pms_occupant_id, autoreUserId: req.session.user.id,
+      });
+    }
+    res.json({ ok: true });
+  });
 
   return router;
 }

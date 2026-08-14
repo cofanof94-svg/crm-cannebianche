@@ -65,20 +65,43 @@ async function getRelazioniByIds(db, ids) {
   );
 }
 
-// Marker one-shot dell'auto-popolamento (evita di rifarlo ad ogni apertura).
-async function nucleoInizializzato(db, pmsCustomerId) {
-  const rows = await db.query('SELECT 1 AS x FROM customer_nucleo_init WHERE pms_customer_id = @pmsCustomerId', { pmsCustomerId });
-  return rows.length > 0;
-}
-async function markNucleoInit(db, pmsCustomerId) {
-  await db.query(
-    `IF NOT EXISTS (SELECT 1 FROM customer_nucleo_init WHERE pms_customer_id = @pmsCustomerId)
-     INSERT INTO customer_nucleo_init (pms_customer_id) VALUES (@pmsCustomerId)`,
-    { pmsCustomerId }
+// --- Memoria delle esclusioni ------------------------------------------------
+// Il controllo dei co-occupanti si rifà a ogni apertura della scheda, così un
+// accompagnatore registrato dopo la prima volta entra comunque. Il prezzo è che
+// chi è stato TOLTO a mano tornerebbe: qui si tiene traccia delle esclusioni,
+// altrimenti correggere il nucleo sarebbe una fatica che si disfa da sola.
+
+async function scartatiDelNucleo(db, ids) {
+  const rows = await db.query(
+    `SELECT pms_occupant_id FROM customer_nucleo_scartati WHERE pms_customer_id IN ${inClause(ids)}`
   );
+  return new Set(rows.map((r) => r.pms_occupant_id));
+}
+
+async function scartaDalNucleo(db, { pmsCustomerId, pmsOccupantId, autoreUserId = null }) {
+  await db.query(
+    `IF NOT EXISTS (SELECT 1 FROM customer_nucleo_scartati WHERE pms_customer_id = @pmsCustomerId AND pms_occupant_id = @pmsOccupantId)
+     INSERT INTO customer_nucleo_scartati (pms_customer_id, pms_occupant_id, autore_user_id)
+     VALUES (@pmsCustomerId, @pmsOccupantId, @autoreUserId)`,
+    { pmsCustomerId, pmsOccupantId, autoreUserId }
+  );
+}
+
+// Chi si sta per cancellare: serve a sapere se era agganciato a un'anagrafica
+// del gestionale, perché solo quelli possono tornare da soli.
+async function membroById(db, id, membri) {
+  const rows = await db.query(
+    `SELECT TOP 1 id, pms_customer_id, pms_occupant_id FROM customer_travel_party
+     WHERE id = @id AND pms_customer_id IN ${inClause(membri)}`,
+    { id }
+  );
+  return rows[0] || null;
 }
 
 const { deleteById } = require('./helpers');
 const deleteMembro = (db, id, membri) => deleteById(db, 'customer_travel_party', id, membri);
 
-module.exports = { listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, getRelazioniByIds, nucleoInizializzato, markNucleoInit, RELAZIONI };
+module.exports = {
+  listNucleo, createMembro, updateMembro, deleteMembro, getNucleoGroup, getRelazioniByIds,
+  scartatiDelNucleo, scartaDalNucleo, membroById, RELAZIONI,
+};

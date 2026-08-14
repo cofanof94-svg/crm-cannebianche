@@ -602,7 +602,14 @@ Alla **prima apertura della scheda** il nucleo viene precompilato con i co-occup
 - **Se l'ospite ha al massimo 3 prenotazioni** entrano tutti i co-occupanti; **se ne ha di più** entrano solo quelli ricorrenti, cioè con almeno 2 soggiorni condivisi `[CODICE][TEST]` (`test/pms-nucleo.test.js`).
 - **Le aziende sono escluse**, riconosciute dalla forma societaria nel nome (srl, spa, snc, sas, ltd, gmbh, inc) `[CODICE][TEST]`.
 - I nomi precompilati arrivano con relazione **"Altro"**, da correggere a mano. Nelle schede di Arrivi e In casa la relazione "Altro" **non viene mostrata**: è il valore predefinito, quindi sarebbe rumore `[CODICE]`.
-- La precompilazione avviene **una sola volta**: un marcatore evita che si ripeta a ogni apertura, anche se nel frattempo i membri sono stati cancellati `[CODICE][TEST]`.
+- **Il controllo si rifà a ogni apertura** e aggiunge chi è comparso nel frattempo — dal 14/08/2026 `[DECISO][TEST]`. Chi è già in elenco **non viene toccato**: relazione, nome e nota corretti a mano restano. Chi è stato **tolto non torna**: l'esclusione viene annotata in `customer_nucleo_scartati`, altrimenti correggere il nucleo sarebbe una fatica che si disfa da sola.
+
+**Perché è cambiato.** Fino al 13/08 la precompilazione girava **una volta sola**, alla prima apertura. Il timore era che una composizione di anni prima restasse valida per sempre; misurando il database dell'hotel il 14/08 il difetto è risultato **l'opposto, e più immediato**: la scheda si apre preparando l'arrivo, gli occupanti entrano nel gestionale **al check-in**, e il nucleo veniva fotografato **prima che esistesse**.
+
+Il caso: la scheda **81866 GINSBERG** è stata aperta il **07/08** con un solo accompagnatore noto; **KEIDAN ELIZABETH**, **GINSBERG SUMHA** e **CONTRERAS MARIA ELENA**, registrati lo stesso giorno al check-in, non vi sarebbero mai entrati. Su 33 schede inizializzate ne risultavano sbagliate **2**, per **4 persone** in tutto — numeri piccoli solo perché il CRM ha due settimane di vita: è un difetto che si ripete a **ogni arrivo preparato prima del check-in**.
+
+- Un accompagnatore **scritto a mano** non è agganciato al gestionale: togliendolo non si annota nessuna esclusione, perché non può tornare da solo `[DECISO][TEST]`.
+- **Le cancellazioni fatte prima del 14/08 non sono state registrate**: quelle persone, se il gestionale le propone ancora, rientreranno una volta e andranno tolte di nuovo `[DOC]`.
 
 ### Da quanto tempo viaggiano insieme — dal 14/08/2026
 

@@ -161,7 +161,7 @@ test('chi consulta non lascia righe: nessuna scrittura durante una lettura', asy
   // Qui si usa il server finto, che ha davvero i dati per la precompilazione.
   const { creaApp, store } = require('../scripts/dev-mock');
   store.nucleo.length = 0;
-  store.nucleoInit.clear();
+  store.nucleoScartati.clear();
   const app = await creaApp();
 
   const lettore = request.agent(app);
