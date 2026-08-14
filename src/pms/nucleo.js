@@ -5,6 +5,9 @@
 
 const { inClause } = require('../db/query');
 
+// `ultima` = arrivo del soggiorno più recente fatto INSIEME. Senza questa data
+// un legame di dieci anni fa e uno di ieri sono indistinguibili sulla scheda, e
+// il CRM continuerebbe a proporre per sempre una compagnia che non c'è più.
 const sqlCoOcc = (inl) => `
 WITH prat AS (
   SELECT codpratica FROM Alberg WHERE codcli IN ${inl}
@@ -15,11 +18,18 @@ WITH prat AS (
 occ AS (
   SELECT al.codcli, al.codpratica FROM Alberg al JOIN prat ON prat.codpratica = al.codpratica WHERE ISNULL(al.codcli,0) <> 0
   UNION SELECT al.codcli, al.codpratica FROM StorAlberg al JOIN prat ON prat.codpratica = al.codpratica WHERE ISNULL(al.codcli,0) <> 0
+),
+dt AS (
+  SELECT p.codpratica, p.dtarrivo FROM Prenota p JOIN prat ON prat.codpratica = p.codpratica
+  UNION SELECT sp.codpratica, sp.dtarrivo FROM StorPrenota sp JOIN prat ON prat.codpratica = sp.codpratica
 )
 SELECT a.CodCli AS codCli, a.Cognome, a.Nome,
   COUNT(DISTINCT o.codpratica) AS nShared,
+  CONVERT(varchar(10), MAX(dt.dtarrivo), 23) AS ultima,
   (SELECT COUNT(*) FROM prat) AS totPrat
-FROM occ o JOIN Anagra a ON a.CodCli = o.codcli
+FROM occ o
+JOIN Anagra a ON a.CodCli = o.codcli
+LEFT JOIN dt ON dt.codpratica = o.codpratica
 WHERE o.codcli NOT IN ${inl}
 GROUP BY a.CodCli, a.Cognome, a.Nome`;
 
@@ -45,6 +55,7 @@ async function getCoOccupanti(pmsDb, ids) {
     cognome: (r.Cognome == null ? '' : String(r.Cognome)).trim() || null,
     nome: (r.Nome == null ? '' : String(r.Nome)).trim() || null,
     nShared: Number(r.nShared) || 0,
+    ultima: r.ultima || null,
   }));
   const total = rows.length ? Number(rows[0].totPrat) || 0 : 0;
   return { total, items };

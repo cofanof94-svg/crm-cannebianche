@@ -604,6 +604,21 @@ Alla **prima apertura della scheda** il nucleo viene precompilato con i co-occup
 - I nomi precompilati arrivano con relazione **"Altro"**, da correggere a mano. Nelle schede di Arrivi e In casa la relazione "Altro" **non viene mostrata**: è il valore predefinito, quindi sarebbe rumore `[CODICE]`.
 - La precompilazione avviene **una sola volta**: un marcatore evita che si ripeta a ogni apertura, anche se nel frattempo i membri sono stati cancellati `[CODICE][TEST]`.
 
+### Da quanto tempo viaggiano insieme — dal 14/08/2026
+
+Ogni membro agganciato a un'anagrafica del gestionale porta in riga **quante volte ha soggiornato insieme all'ospite e il mese dell'ultima volta** — *"insieme 10 volte · ultima ago 2026"*; la data intera è nel suggerimento del mouse. Oltre i **tre anni** la riga si colora, senza essere un allarme `[DECISO][TEST]`.
+
+**Perché.** Misurato sul database dell'hotel il 14/08: delle **80 righe di nucleo** (32 ospiti), **78 sono state rilevate in automatico** e **75 portano ancora "Altro"**, cioè nessuno ha mai dichiarato la relazione. Con la stessa etichetta su quasi tutte le righe, un accompagnatore di ieri e uno di dieci anni fa erano indistinguibili: TRANQUILLI ↔ TOSTI (10 soggiorni, l'ultimo ieri) e COLLEONI ↔ DESIATI (4 soggiorni, l'ultimo nel **giugno 2016**) apparivano identici. **12 legami su 78** hanno l'ultimo soggiorno insieme da oltre tre anni, fra cui DE IACO ↔ MANIGLIA: 36 soggiorni condivisi, nessuno dal novembre 2022.
+
+**Perché solo questo.** Si era valutato di togliere la condivisione delle preferenze ai legami non dichiarati, ma i dati veri non lo giustificano: **33 legami su 78 hanno lo stesso cognome** e i restanti sono in larga parte coppie evidenti (36, 30, 28, 16, 10 soggiorni insieme). Il rilevamento automatico funziona; quello che mancava era il **contesto per giudicarlo**, non una regola nuova `[DECISO]`.
+
+- Chi è stato **scritto a mano** non è agganciato a nessun codice del gestionale: di lui non risultano soggiorni e **non si scrive nulla**, perché uno "0 volte" sembrerebbe un giudizio invece di un dato che manca `[DECISO][TEST]`.
+- La lettura costa **130–340 ms** sulle schede più popolate (misurato). Se il gestionale non risponde, **il nucleo si mostra ugualmente senza le date** `[CODICE][TEST]`.
+
+### Un'asimmetria nota
+
+Dichiarare una relazione la scrive **da un lato solo**: nella scheda di De Iaco, Bebie Nevio è "Figlio-a"; nella scheda di Bebie Nevio, De Iaco è ancora "Altro". La stessa relazione porta due etichette diverse a seconda di dove si guarda `[CODICE]`. Non è stato corretto: con 5 relazioni dichiarate su 80 righe, oggi il caso è raro.
+
 ### Il "gruppo nucleo"
 
 Per decidere con chi condividere le preferenze si considera: l'ospite, i membri del suo nucleo agganciati a un'anagrafica, e chi elenca lui nel proprio nucleo. **Un solo livello, in entrambe le direzioni**: il coniuge del coniuge non entra `[CODICE]`.

@@ -579,29 +579,51 @@ function createClientiRouter(pmsDb, crmDb) {
   // --- Nucleo di viaggio / accompagnatori ---
   // Auto-popolamento iniziale (one-shot): alla prima apertura precompila il nucleo
   // con i co-occupanti delle prenotazioni (ricorrenti, o tutti se poche; no aziende).
-  async function autoPopulaNucleo(canonicalId, membri, autoreUserId) {
+  async function autoPopulaNucleo(canonicalId, autoreUserId, coOcc) {
     if (await nucleoInizializzato(crmDb, canonicalId)) return;
-    const { total, items } = await getCoOccupanti(pmsDb, membri);
-    for (const o of filtraCoOccupanti(total, items)) {
+    for (const o of filtraCoOccupanti(coOcc.total, coOcc.items)) {
       await createMembro(crmDb, { pmsCustomerId: canonicalId, autoreUserId, tipoRelazione: 'Altro', nome: o.nome, cognome: o.cognome, nota: null, pmsOccupantId: o.codCli });
     }
     await markNucleoInit(crmDb, canonicalId);
   }
 
+  // Da quante volte e da quanto tempo si conoscono: la riga del nucleo dice solo
+  // un nome e una relazione, e quasi sempre la relazione è quella predefinita.
+  // Senza questa lettura, sulla scheda un accompagnatore di ieri e uno del 2016
+  // sono identici, e chi accoglie non ha modo di accorgersi che quel legame è
+  // vecchio. Se il gestionale non risponde si mostrano le righe senza date:
+  // meglio il nucleo senza il contorno che nessun nucleo.
+  const frequentazione = async (membri) => {
+    try {
+      return await getCoOccupanti(pmsDb, membri);
+    } catch (err) {
+      console.warn(`[nucleo] co-occupanti non leggibili: ${err.message}`);
+      return null;
+    }
+  };
+
   router.get('/clienti/:codCli/nucleo', async (req, res) => {
     const codCli = intParam(req.params.codCli);
     if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
     const { canonicalId, membri } = await getGruppo(crmDb, codCli);
+    const coOcc = await frequentazione(membri);
     // Questa GET, la prima volta, SCRIVE: precompila il nucleo con i co-occupanti.
     // Chi ha solo il permesso di consultare non deve lasciare righe a suo nome
     // aprendo una scheda. La guardia dei permessi qui non basta, perché ragiona sul
     // metodo HTTP e una GET la considera — giustamente — una lettura: è questa rotta
     // a comportarsi in modo diverso da come si presenta.
     // Il nucleo resta vuoto finché non lo apre qualcuno che può scrivere.
-    if (puo(req.session.user, PERMESSI.SCRIVI)) {
-      await autoPopulaNucleo(canonicalId, membri, req.session.user.id);
+    if (coOcc && puo(req.session.user, PERMESSI.SCRIVI)) {
+      await autoPopulaNucleo(canonicalId, req.session.user.id, coOcc);
     }
-    res.json({ nucleo: await listNucleo(crmDb, membri) });
+    const insieme = new Map((coOcc ? coOcc.items : []).map((o) => [o.codCli, o]));
+    const nucleo = (await listNucleo(crmDb, membri)).map((m) => {
+      const o = m.pms_occupant_id != null ? insieme.get(m.pms_occupant_id) : null;
+      // Un accompagnatore scritto a mano non è agganciato a nessun codice del
+      // gestionale: di lui non si sa quando abbia soggiornato, e non si inventa.
+      return { ...m, insieme: o ? o.nShared : null, ultimaInsieme: o ? o.ultima : null };
+    });
+    res.json({ nucleo });
   });
 
   router.post('/clienti/:codCli/nucleo', async (req, res) => {

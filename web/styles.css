@@ -696,6 +696,10 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .nucleo-nota { flex: 2 1 150px; }
 .nucleo-view { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 0; }
 .nucleo-nome { font-weight: 600; }
+/* Da quanto si conoscono: contorno, non dato principale. Oltre i tre anni si
+   accende, perché una compagnia vecchia va notata ma non è un allarme. */
+.nucleo-freq { font-size: 12px; color: var(--muted); }
+.nucleo-freq-vecchia { color: #9a6a1c; font-weight: 600; }
 .nucleo-az { display: inline-flex; gap: 4px; margin-left: auto; }
 
 /* --- Badge ambito: personale vs del soggiorno/nucleo --- */

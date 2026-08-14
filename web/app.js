@@ -1852,6 +1852,26 @@ $('#cli-suggerimenti').addEventListener('click', async (e) => {
 // server → conferma del salvataggio). Come i membri siano stati aggiunti (a mano
 // o dalle prenotazioni) non cambia nulla per chi li legge: nessun badge in riga,
 // la spiegazione sta nella (i) della sezione.
+// Da quanto si conoscono: "insieme 10 volte · ultima ago 2026". Il 94% delle
+// righe porta la relazione predefinita "Altro", quindi l'etichetta da sola non
+// dice niente; questa riga sì. Chi non è agganciato a un'anagrafica del
+// gestionale (scritto a mano) non ha soggiorni da contare e non mostra nulla:
+// meglio il silenzio di uno zero che sembrerebbe un giudizio.
+// Oltre i tre anni il grigio diventa un avviso: non per sconsigliare, per far
+// notare che quella compagnia potrebbe non esserci più.
+const TRE_ANNI = 3 * 365 * 86400000;
+function frequentazioneNucleo(m) {
+  const n = m.insieme;
+  if (!n) return '';
+  const volte = `insieme ${n} ${n === 1 ? 'volta' : 'volte'}`;
+  if (!m.ultimaInsieme) return `<span class="nucleo-freq">${volte}</span>`;
+  const d = new Date(`${m.ultimaInsieme}T00:00:00`);
+  const mese = d.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
+  const lontana = Date.now() - d.getTime() > TRE_ANNI;
+  return `<span class="nucleo-freq${lontana ? ' nucleo-freq-vecchia' : ''}"`
+    + ` title="Ultimo soggiorno fatto insieme: ${esc(fmtData(m.ultimaInsieme))}">${volte} · ultima ${esc(mese)}</span>`;
+}
+
 let nucleoEditId = null;
 async function caricaNucleo(codCli) {
   $('#cli-nucleo').innerHTML = loaderRiga('Carico il nucleo di viaggio…');
@@ -1874,6 +1894,7 @@ async function caricaNucleo(codCli) {
       <div class="nucleo-view">
         <span class="pref-tag">${esc(m.tipo_relazione)}</span>
         ${linkCliente(m.pms_occupant_id, nomeCompl, { classe: 'nucleo-nome' })}
+        ${frequentazioneNucleo(m)}
         ${m.nota ? `<span class="cell-muted">— ${esc(m.nota)}</span>` : ''}
       </div>
       <span class="nucleo-az">

@@ -106,7 +106,12 @@ async function makeApp(opts = {}) {
       if (/FROM Anagra a\b/.test(text)) { if (params && params.codCli === 999) return []; return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', Telefono: '', Cellulare: '', email: 'a@b.it', Citta: 'TRANI', CodNaz: 'I', dtNascita: '1964-10-17', CodFis: 'X', CodVip: '', DesVip: null, Annotazioni: '', Privacy: 'S', Privacy2: 'S', PrivacyConservaDati: 'N', PrivacyCessioneDati: 'N' }]; }
       if (/StorAddebitiComanda/.test(text)) return [{ codArt: 'COCAZ', nome: 'COCA COLA ZERO', fb: 'B', grp: 'BEV.BI', volte: 5, qta: 5, eur: 30 }];
       if (/codgrpmerCAT LIKE 'SPA/.test(text)) return [{ nome: 'SERENITY', grp: 'SPA', volte: 12, qta: 12, eur: 1200 }];
-      if (/AS nShared/.test(text)) return opts.coOcc || []; // co-occupanti nucleo (auto-popolamento)
+      // co-occupanti del nucleo: servono all'auto-popolamento e, da lì in poi, a
+      // dire da quanto tempo quelle persone viaggiano insieme
+      if (/AS nShared/.test(text)) {
+        if (opts.coOccRotto) throw new Error('co-occupanti non disponibili');
+        return opts.coOcc || [];
+      }
       // soggiorni (arrangiamento/extra da camereJson)
       // Due soggiorni avvenuti più una prenotazione futura: quest'ultima ha importi
       // a zero, come nella realtà, e dal 12/08 non conta nelle statistiche (D5).
@@ -576,6 +581,42 @@ test('nucleo: auto-popolamento one-shot dai co-occupanti; badge auto; non si rip
   assert.strictEqual(l.body.nucleo[0].pms_occupant_id, 900); // provenienza PMS → badge "auto"
   const l2 = await ag.get('/api/clienti/47186/nucleo'); // seconda apertura → NON raddoppia
   assert.strictEqual(l2.body.nucleo.length, 1);
+});
+
+test('nucleo: ogni riga dice quante volte e quando hanno soggiornato insieme', async () => {
+  // Sui dati veri il 94% delle righe porta la relazione predefinita "Altro":
+  // l'etichetta da sola non distingue un accompagnatore di ieri da uno del 2016.
+  const app = await makeApp({ coOcc: [{ codCli: 900, Cognome: 'DESIATI', Nome: 'RAFFAELLA', nShared: 2, ultima: '2016-06-03', totPrat: 2 }] });
+  const ag = await agente(app);
+  const l = await ag.get('/api/clienti/47186/nucleo');
+  assert.strictEqual(l.body.nucleo[0].insieme, 2);
+  assert.strictEqual(l.body.nucleo[0].ultimaInsieme, '2016-06-03');
+});
+
+test('nucleo: un accompagnatore scritto a mano non porta date inventate', async () => {
+  // Non è agganciato a nessun codice del gestionale: di lui non risultano
+  // soggiorni, e uno zero al posto del silenzio sembrerebbe un giudizio.
+  const app = await makeApp();
+  const ag = await agente(app);
+  await ag.post('/api/clienti/47186/nucleo').send({ tipoRelazione: 'Amico-a', nome: 'Luca' });
+  const l = await ag.get('/api/clienti/47186/nucleo');
+  const luca = l.body.nucleo.find((m) => m.nome === 'Luca');
+  assert.strictEqual(luca.insieme, null);
+  assert.strictEqual(luca.ultimaInsieme, null);
+});
+
+test('nucleo: se il gestionale non risponde, la sezione si apre lo stesso', async () => {
+  // Le date sono un contorno: perdere l'intero nucleo per non poterle calcolare
+  // sarebbe sproporzionato. Senza co-occupanti non si auto-popola nemmeno, ma
+  // ciò che è già scritto nel CRM si continua a leggere.
+  const app = await makeApp({ coOccRotto: true });
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/nucleo').send({ tipoRelazione: 'Coniuge', nome: 'Maria' });
+  assert.strictEqual(c.status, 201);
+  const l = await ag.get('/api/clienti/47186/nucleo');
+  assert.strictEqual(l.status, 200);
+  assert.strictEqual(l.body.nucleo.length, 1);
+  assert.strictEqual(l.body.nucleo[0].insieme, null);
 });
 
 test('nucleo: PATCH modifica la relazione (e 404 su id inesistente)', async () => {
