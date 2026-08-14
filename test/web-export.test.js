@@ -42,6 +42,7 @@ const AMBIENTE = [
   estraiDa(SRC, 'accorcia'),
   estraiDa(SRC, 'rigaExport'),
   estraiDa(SRC, 'ordinaPerCamera'),
+  estraiConstDa(SRC, 'daEsportare'),
   estraiDa(SRC, 'costruisciExport'),
   estraiConstDa(SRC, 'INIZIO_FORMULA'), // usata da campoCsv
   estraiDa(SRC, 'campoCsv'),
@@ -51,7 +52,7 @@ const AMBIENTE = [
 
 // eslint-disable-next-line no-new-func
 const E = new Function(`${AMBIENTE}
-  return { COLONNE_EXPORT, VISTE_EXPORT, testoVisite, attenzioniDi, accorcia, rigaExport, ordinaPerCamera, costruisciExport, campoCsv, toCsv, tabellaStampa };`)();
+  return { COLONNE_EXPORT, VISTE_EXPORT, testoVisite, attenzioniDi, accorcia, rigaExport, ordinaPerCamera, daEsportare, costruisciExport, campoCsv, toCsv, tabellaStampa };`)();
 
 const arrivo = {
   codpratica: 70104,
@@ -121,8 +122,8 @@ test('attenzioniDi: del reclamo si legge il TESTO e il reparto, non il numero', 
   const a = E.attenzioniDi(arrivo);
   assert.ok(a.some((x) => /Reclamo aperto: \[Rooms\/Pulizia\] Ritardo nella pulizia camera/.test(x)));
   assert.ok(a.some((x) => /Compleanno 12\/08\/2026 — PAGLIUSO NATALIA/.test(x)));
-  const b = E.attenzioniDi({ snapshot: { indesiderato: true, reclami: { aperti: 0 } }, statoPartenza: 'checkout' });
-  assert.deepStrictEqual(b, ['Ospite indesiderato', 'Check-out effettuato']);
+  const b = E.attenzioniDi({ snapshot: { indesiderato: true, reclami: { aperti: 0 } }, statoPartenza: 'partenza' });
+  assert.deepStrictEqual(b, ['Ospite indesiderato', 'Parte oggi']);
   assert.deepStrictEqual(E.attenzioniDi({}), []); // nessun allarme inventato
 });
 
@@ -182,6 +183,43 @@ test('accorcia: taglia a parola intera, lascia intatto ciò che ci sta', () => {
 test('ordinaPerCamera: ordine da rack, non alfabetico', () => {
   const r = E.ordinaPerCamera([{ camere: '218' }, { camere: '109' }, { camere: '—' }, { camere: '9' }]);
   assert.deepStrictEqual(r.map((x) => x.camere), ['9', '109', '218', '—']);
+});
+
+// --- Chi non va sul foglio dei reparti ----------------------------------------
+
+test('chi ha già fatto il check-out non finisce nel foglio', () => {
+  // Alla reception serve ancora (conti da chiudere, pratiche da ritrovare), ma
+  // per cucina, housekeeping e SPA è una persona che non c'è più: un nome in
+  // più da leggere per poi scoprire che non c'è niente da fare.
+  const righe = E.costruisciExport([
+    { ...arrivo, camere: '104', statoPartenza: 'incasa' },
+    { ...arrivo, camere: '106', statoPartenza: 'checkout' },
+    { ...arrivo, camere: '108', statoPartenza: 'partenza' },
+    { ...arrivo, camere: '', statoPartenza: 'dayuse' },
+  ]);
+  assert.deepStrictEqual(righe.map((r) => r.camere), ['104', '108', 'DAY USE']);
+});
+
+test('chi parte oggi ma è ancora in camera resta sul foglio', () => {
+  // Fino al check-out va servito: toglierlo vorrebbe dire non preparargli la
+  // colazione la mattina della partenza.
+  const righe = E.costruisciExport([{ ...arrivo, camere: '108', statoPartenza: 'partenza' }]);
+  assert.strictEqual(righe.length, 1);
+  assert.ok(righe[0].attenzioni.includes('Parte oggi'));
+});
+
+test("negli Arrivi non c'è stato di partenza: non si esclude nessuno", () => {
+  // Le righe degli arrivi non portano statoPartenza (è un concetto di "In
+  // casa"): il filtro non deve svuotare il foglio degli arrivi.
+  const righe = E.costruisciExport([{ ...arrivo, camere: '109' }, { ...arrivo, camere: '110' }]);
+  assert.strictEqual(righe.length, 2);
+});
+
+test('daEsportare non tocca la lista che riceve', () => {
+  const orig = [{ statoPartenza: 'checkout' }, { statoPartenza: 'incasa' }];
+  E.daEsportare(orig);
+  assert.strictEqual(orig.length, 2);
+  assert.deepStrictEqual(E.daEsportare(null), []);
 });
 
 // --- Ospiti del giorno (day use) ---------------------------------------------

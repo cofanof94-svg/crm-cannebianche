@@ -728,9 +728,10 @@ Dare a un reparto il foglio della giornata: chi arriva o chi è in casa, con que
 - **Ogni allergia porta il nome di chi la ha, una per riga** `[DECISO][TEST]`: è il foglio che va in cucina, e chi cucina non può cliccare per scoprire a quale commensale serve il piatto senza glutine.
 - La riga di un ospite con allergie è marcata per intero `[CODICE][TEST]`.
 - **Fuori dall'export, di proposito: importi, tariffe ed extra.** Non servono a nessun reparto per servire meglio un ospite e non devono girare su carta `[CODICE][TEST]`.
-- Ordine per numero di camera, come il rack `[CODICE][TEST]`.
+- Ordine per numero di camera, come il rack; gli ospiti del giorno in coda `[CODICE][TEST]`.
+- **Chi ha già fatto il check-out non finisce sul foglio** — dal 14/08/2026 `[DECISO][TEST]`. Alla reception serve ancora (conti da chiudere, pratiche da ritrovare) e resta nella pagina "In casa", ma per cucina, housekeeping e SPA è una persona che non c'è più: un nome in più da leggere per scoprire che non c'è niente da fare. **Chi parte oggi ma è ancora in camera resta**: fino al check-out va servito, e toglierlo vorrebbe dire non preparargli la colazione. Sul foglio del 14/08 sono 5 righe su 51.
+- Il foglio dice quante prenotazioni contiene, **quante hanno allergie** e **quante sono state escluse perché già uscite**, e porta in fondo l'avvertenza che contiene dati personali `[CODICE]`. L'anteprima nella finestra di export conta le stesse righe del foglio: annunciarne cinquanta e stamparne quarantacinque farebbe pensare a un dato perso.
 - Delle attenzioni si legge il **testo** del reclamo aperto (primi due, poi il conteggio), non il numero `[CODICE][TEST]`.
-- Il foglio dice quante prenotazioni contiene e **quante hanno allergie**, e porta in fondo l'avvertenza che contiene dati personali `[CODICE]`.
 - Le note della prenotazione sono tagliate a 180 caratteri sul foglio e **integrali nel CSV** `[CODICE][TEST]`; stessa regola per la nota personale (sintesi sul foglio, testo intero nel CSV).
 - **CSV**: separatore `;` e marcatore di codifica, perché è ciò che si apre correttamente in Excel italiano con un doppio clic `[CODICE][TEST]`.
 - **Un valore che comincia per `=` `+` `-` `@` non diventa una formula**: viene preceduto da un apostrofo. Le note arrivano dal gestionale, cioè da testo che scrive chiunque `[DOC][TEST]`.

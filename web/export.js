@@ -102,7 +102,8 @@ function attenzioniDi(x) {
   }
   if (s.compleanno) out.push(`Compleanno ${fmtData(s.compleanno.data)}${s.compleanno.nome ? ' — ' + s.compleanno.nome : ''}`);
   if (x.statoPartenza === 'partenza') out.push('Parte oggi');
-  if (x.statoPartenza === 'checkout') out.push('Check-out effettuato');
+  // "Check-out effettuato" non c'è più: chi è uscito non finisce nel foglio
+  // (vedi daEsportare), quindi una riga che lo annuncia non può esistere.
   // Il day use NON sta qui: questa colonna è per ciò che richiede attenzione
   // (allergie, reclami, indesiderati). "Day use" è la modalità di soggiorno, e
   // sta accanto alla sistemazione, nella colonna Camera.
@@ -181,8 +182,17 @@ function ordinaPerCamera(righe) {
     || String(a.camere).localeCompare(String(b.camere)));
 }
 
+// Chi ha già fatto il check-out NON va sul foglio dei reparti. La pagina "In
+// casa" lo tiene in lista perché alla reception serve ancora — conti da chiudere,
+// pratiche da ritrovare — ma per cucina, housekeeping e SPA è una persona che non
+// c'è più: un nome in più da leggere per poi scoprire che non c'è niente da fare.
+// (Decisione di Mik, 14/08/2026.)
+//
+// Chi parte oggi ma è ancora in camera resta: fino al check-out va servito.
+const daEsportare = (lista) => (lista || []).filter((x) => x.statoPartenza !== 'checkout');
+
 function costruisciExport(lista, opts = {}) {
-  return ordinaPerCamera((lista || []).map((x) => rigaExport(x, opts)));
+  return ordinaPerCamera(daEsportare(lista).map((x) => rigaExport(x, opts)));
 }
 
 // --- CSV ---------------------------------------------------------------------
@@ -254,7 +264,7 @@ function fogliostampabile(righe, meta) {
         <div>Stampato il ${esc(quando)}</div>
       </div>
     </div>
-    <div class="st-riepilogo">${righe.length} ${righe.length === 1 ? 'prenotazione' : 'prenotazioni'}${conAllergie ? ` · <b class="st-allergie">${conAllergie} con allergie o intolleranze</b>` : ''}</div>
+    <div class="st-riepilogo">${righe.length} ${righe.length === 1 ? 'prenotazione' : 'prenotazioni'}${conAllergie ? ` · <b class="st-allergie">${conAllergie} con allergie o intolleranze</b>` : ''}${meta.esclusi ? ` · ${meta.esclusi} già ${meta.esclusi === 1 ? 'uscito' : 'usciti'}, non ${meta.esclusi === 1 ? 'elencato' : 'elencati'}` : ''}</div>
     ${righe.length ? tabellaStampa(righe, meta.colonne) : '<p>Nessun ospite per questa selezione.</p>'}
     <div class="st-piede">Documento interno. Contiene dati personali degli ospiti: non lasciarlo in aree accessibili al pubblico.</div>`;
 }
@@ -305,22 +315,28 @@ async function listaDaEsportare(popolazione) {
   return exportDati.arrivi;
 }
 
+// L'anteprima conta ciò che finirà davvero sul foglio, non le righe della
+// pagina: altrimenti annuncerebbe cinquanta prenotazioni e ne stamperebbe
+// quarantacinque, e chi stampa penserebbe a un dato perso.
 function aggiornaAnteprimaExport() {
   const p = popolazioneScelta();
   const d = exportDati[p];
-  const n = d ? d.lista.length : null;
+  const n = d ? daEsportare(d.lista).length : null;
+  const fuori = d ? d.lista.length - n : 0;
   $('#export-anteprima').textContent = n == null
     ? 'I dati verranno letti al momento dell\'export.'
-    : `${n} ${n === 1 ? 'prenotazione' : 'prenotazioni'} · ${p === 'incasa' ? 'in casa al' : 'in arrivo il'} ${fmtData(d.data)}`;
+    : `${n} ${n === 1 ? 'prenotazione' : 'prenotazioni'} · ${p === 'incasa' ? 'in casa al' : 'in arrivo il'} ${fmtData(d.data)}`
+      + (fuori ? ` · ${fuori} già ${fuori === 1 ? 'uscito' : 'usciti'}, ${fuori === 1 ? 'escluso' : 'esclusi'}` : '');
 }
 
-function metaExport(popolazione, data, formato) {
+function metaExport(popolazione, data, formato, esclusi = 0) {
   const vista = VISTE_EXPORT.generale;
   return {
     titolo: popolazione === 'incasa' ? 'Ospiti in casa' : 'Ospiti in arrivo',
     sottotitolo: `${vista.nome} · ${popolazione === 'incasa' ? 'situazione al' : 'arrivi del'} ${fmtData(data)}`,
     colonne: formato === 'csv' ? vista.csv : vista.foglio,
     nomeFile: `${popolazione === 'incasa' ? 'in-casa' : 'arrivi'}-${data || 'oggi'}`,
+    esclusi,
   };
 }
 
@@ -333,7 +349,7 @@ async function eseguiExport() {
   const dati = await listaDaEsportare(popolazione);
   btn.disabled = false;
   if (!dati) { $('#export-msg').textContent = 'Non riesco a leggere i dati da esportare.'; return; }
-  const meta = metaExport(popolazione, dati.data, formato);
+  const meta = metaExport(popolazione, dati.data, formato, dati.lista.length - daEsportare(dati.lista).length);
   $('#export-msg').textContent = '';
 
   if (formato === 'csv') {
