@@ -73,13 +73,13 @@ const VISTE_EXPORT = {
 // "Quante volte è già stato qui": storico.n conta i soggiorni CONCLUSI, quindi
 // quello in corso è l'(n+1)-esimo. Serve a chi accoglie: si tratta diversamente
 // chi torna per la quarta volta da chi entra per la prima.
-// Le giornate (SPA, piscina, cene per esterni) non sono soggiorni e non si
+// I day use (SPA, piscina, cene per esterni) non sono soggiorni e non si
 // sommano: chi ha dormito qui una volta e poi è tornato sei volte per la SPA è
 // al secondo soggiorno. Ma va detto anche al reparto che lo vede spesso.
+// Si chiamano "day use" anche qui, come nelle card e come nella colonna Camera
+// dello stesso foglio: un solo nome per una cosa sola.
 function testoVisite(storico) {
-  const giornate = storico && storico.visite
-    ? `${storico.visite} ${storico.visite === 1 ? 'visita' : 'visite'} in giornata`
-    : '';
+  const giornate = storico && storico.visite ? `${storico.visite} day use` : '';
   if (!storico || !storico.n) return giornate || 'Prima volta in hotel';
   const mese = storico.ultima ? ` · ultima ${storico.ultima.slice(0, 7).split('-').reverse().join('/')}` : '';
   return `${storico.n + 1}ª volta${mese}${giornate ? ` · ${giornate}` : ''}`;

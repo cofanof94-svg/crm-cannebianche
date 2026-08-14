@@ -1080,8 +1080,11 @@ function badgeStorico(s) {
   // volte per la SPA è al secondo soggiorno, non all'ottavo. Ma il fatto che
   // lo vediamo spesso è un'informazione che serve, non da nascondere.
   if (s.visite) {
-    const tip = `${s.visite} ${s.visite === 1 ? 'visita' : 'visite'} in giornata (SPA, piscina, ristorante)`;
-    out.push(`<span class="badge-visite" title="${tip}">${s.visite} in giornata</span>`);
+    // "Day use" e non "in giornata": è il nome che l'hotel usa per questi
+    // ospiti, ed è già quello della pastiglia in "In casa" e della colonna
+    // Camera sul foglio dei reparti. Un solo nome per una cosa sola.
+    const tip = `${s.visite} ${s.visite === 1 ? 'presenza' : 'presenze'} in day use (SPA, piscina, ristorante)`;
+    out.push(`<span class="badge-visite" title="${tip}">${s.visite} day use</span>`);
   }
   return out.join('');
 }
