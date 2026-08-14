@@ -193,14 +193,14 @@ Per ogni prenotazione si raccolgono i codici del referente **e di tutti gli occu
 | VIP | PMS (classificazione decodificata) | Vale quella del referente; se manca, quella di un occupante `[CODICE]` |
 | Ospite indesiderato | PMS | Se **almeno uno** del gruppo è classificato indesiderato `[CODICE]`. Riconosciuto dalla descrizione, non da un elenco fisso di codici |
 | Allergie | CRM | Tutte quelle del gruppo, **ciascuna col nome di chi la ha** `[DECISO][TEST]`. Doppioni tolti per coppia persona+allergia: due occupanti celiaci restano due voci, perché sono due piatti da preparare |
-| Preferenze | CRM | Solo quelle di ambito **nucleo**, senza doppioni, **massimo 3** `[CODICE][TEST]` |
+| Preferenze | CRM | **Personali e di nucleo**, senza doppioni, **massimo 5**; le personali col nome di chi le ha (§9) `[DECISO][TEST]` |
 | Reclami | CRM | Conteggio di tutti + testo di quelli aperti (i risolti restano solo numero) `[CODICE][TEST]` |
-| Compleanno | PMS (data di nascita) | Il primo membro che compie gli anni fra arrivo e partenza compresi; gestisce il soggiorno a cavallo di capodanno `[CODICE][TEST]` |
+| Compleanno | PMS (data di nascita) | **Solo il primo** membro che compie gli anni fra arrivo e partenza compresi; gestisce il soggiorno a cavallo di capodanno `[CODICE][TEST]`. Vedi il limite noto qui sotto |
 | Nota personale | CRM | Solo quella del **referente** (e delle sue anagrafiche fuse), mai quella di un occupante `[CODICE][TEST]` |
 | Nª volta | PMS | Soggiorni **già conclusi**: quello in corso è l'(n+1)-esimo `[CODICE]` |
 
-- Le preferenze **personali non compaiono mai nelle schede** di Arrivi e In casa, né nell'export `[CODICE]`.
 - Senza data di nascita in anagrafica non c'è compleanno: il CRM non ha una propria copia del dato `[CODICE][TEST]`.
+- **Di una prenotazione si segnala un compleanno solo** — il primo trovato scorrendo referente e poi occupanti `[CODICE]`. Misurato sul database dell'hotel il 14/08/2026: delle **1.482 prenotazioni** con almeno un compleanno durante il soggiorno, **41 ne hanno più di uno** (2,8%) e una ne ha tre. Sono casi veri e proprio quelli che contano: coniugi che festeggiano nella stessa vacanza, gemelle nate lo stesso giorno (pratica 51908), madre e figlia entrambe il 3 luglio (pratica 47381, 1954 e 2017). Oggi l'hotel ne vedrebbe una e preparerebbe una torta sola.
 
 ### Barra di riepilogo e filtri
 
