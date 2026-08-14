@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "crm-mock",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set PORT=3210 && node scripts/dev-mock.js"],
+      "port": 3210
+    }
+  ]
+}

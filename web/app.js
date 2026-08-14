@@ -150,6 +150,10 @@ function route() {
   const hash = (location.hash || '#home').slice(1);
   const cameFrom = hashRoutePrec;
   hashRoutePrec = hash;
+  // Ogni sezione si apre dall'inizio. Da quando la barra laterale resta
+  // ancorata si può cambiare pagina restando a metà di una lista lunga: senza
+  // questo, la sezione nuova si aprirebbe già scrollata, in un punto qualunque.
+  if (hash !== cameFrom) window.scrollTo(0, 0);
   // Scheda ospite: #cliente/<CodCli>
   if (hash.startsWith('cliente/')) {
     // Senza un codice valido la scheda restava ferma su "Carico…" per sempre: la
