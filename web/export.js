@@ -103,10 +103,9 @@ function attenzioniDi(x) {
   if (s.compleanno) out.push(`Compleanno ${fmtData(s.compleanno.data)}${s.compleanno.nome ? ' — ' + s.compleanno.nome : ''}`);
   if (x.statoPartenza === 'partenza') out.push('Parte oggi');
   if (x.statoPartenza === 'checkout') out.push('Check-out effettuato');
-  // Sul foglio dei reparti va detto: chi legge vede una riga senza camera e
-  // senza notti, e deve capire che è un esterno in giornata, non un dato
-  // mancante. Per la cucina è la stessa cosa di un ospite in camera.
-  if (x.statoPartenza === 'dayuse') out.push('Day use');
+  // Il day use NON sta qui: questa colonna è per ciò che richiede attenzione
+  // (allergie, reclami, indesiderati). "Day use" è la modalità di soggiorno, e
+  // sta accanto alla sistemazione, nella colonna Camera.
   return out;
 }
 
@@ -122,12 +121,21 @@ function accorcia(testo, max) {
 
 function rigaExport(x, opts = {}) {
   const s = x.snapshot || {};
-  const camere = x.camere || '—';
+  const dayUse = x.statoPartenza === 'dayuse';
+  const assegnate = String(x.camere || '').split(',').map((c) => c.trim()).filter(Boolean);
+  // La modalità di soggiorno si legge dove si cerca la sistemazione. Un ospite
+  // del giorno di norma non ha camera: scrivere "—" farebbe pensare a un dato
+  // mancante, "DAY USE" dice cos'è. Se il gestionale una camera gliel'ha
+  // assegnata (uso diurno) resta scritta accanto: non si butta via un dato.
+  const camere = dayUse
+    ? ['DAY USE', ...assegnate].join(' · ')
+    : (assegnate.join(', ') || '—');
   return {
     camere,
+    dayUse,
     // Sul foglio una camera per riga: la colonna si stringe e lo spazio va alle
     // note, che sono la parte che serve leggere davvero.
-    camereRighe: camere.split(',').map((c) => c.trim()).filter(Boolean).join('\n') || '—',
+    camereRighe: dayUse ? ['DAY USE', ...assegnate].join('\n') : (assegnate.join('\n') || '—'),
     ospite: x.nominativo || '(senza nominativo)',
     visite: testoVisite(x.storico),
     inCamera: (x.ospiti || []).map((o) => o.nominativo).filter(Boolean).join(', '),
@@ -154,12 +162,16 @@ function rigaExport(x, opts = {}) {
 }
 
 // Ordine da reparto: per numero di camera, come il rack della reception.
+// Gli ospiti del giorno restano sempre in coda: non stanno nel giro delle
+// camere, e chi legge il foglio prima finisce il piano e poi guarda loro.
 function ordinaPerCamera(righe) {
   const n = (r) => {
     const primo = parseInt(String(r.camere || '').split(',')[0].trim(), 10);
     return Number.isInteger(primo) ? primo : Number.MAX_SAFE_INTEGER;
   };
-  return righe.slice().sort((a, b) => n(a) - n(b) || String(a.camere).localeCompare(String(b.camere)));
+  return righe.slice().sort((a, b) => (a.dayUse ? 1 : 0) - (b.dayUse ? 1 : 0)
+    || n(a) - n(b)
+    || String(a.camere).localeCompare(String(b.camere)));
 }
 
 function costruisciExport(lista, opts = {}) {
@@ -212,7 +224,11 @@ function tabellaStampa(righe, colonne) {
       const sotto = c.valoreSotto ? c.valoreSotto(r) : '';
       return `<td class="${c.classe || ''}">${esc(v)}${sotto ? `<span class="st-sotto">${esc(sotto)}</span>` : ''}</td>`;
     }).join('');
-    return `<tr${r.allergie ? ' class="st-riga-allergia"' : ''}>${celle}</tr>`;
+    // L'allergia colora la riga; il day use la marca soltanto nella colonna
+    // Camera: è un'informazione di sistemazione, non un allarme, e non deve
+    // competere visivamente con le allergie.
+    const classi = [r.allergie ? 'st-riga-allergia' : '', r.dayUse ? 'st-riga-dayuse' : ''].filter(Boolean);
+    return `<tr${classi.length ? ` class="${classi.join(' ')}"` : ''}>${celle}</tr>`;
   }).join('');
   return `<table class="st-tab"><thead><tr>${testata}</tr></thead><tbody>${corpo}</tbody></table>`;
 }

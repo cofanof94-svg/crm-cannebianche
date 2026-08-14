@@ -916,6 +916,10 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
 .st-allergie { color: #a4231a; white-space: pre-line; }
 .st-riga-allergia td { border-left: 0; background: #fdf2f0; }
 .st-riga-allergia td:first-child { border-left: 3px solid #a4231a; }
+/* Day use: si distingue nella colonna Camera, non fra gli alert. Riquadro
+   grigio e non colore d'allarme — è la sistemazione dell'ospite, non un
+   problema. Resta leggibile anche stampato in bianco e nero. */
+.st-riga-dayuse .st-camera { font-size: 8pt; letter-spacing: .04em; border: 1px solid #666; border-radius: 3px; padding: 2px 4px; display: inline-block; }
 .st-piede { margin-top: 12px; padding-top: 6px; border-top: 1px solid #999; font-size: 8pt; color: #444; }
 
 /* ===== Ruoli e permessi ===== */

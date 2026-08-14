@@ -167,6 +167,61 @@ test('ordinaPerCamera: ordine da rack, non alfabetico', () => {
   assert.deepStrictEqual(r.map((x) => x.camere), ['9', '109', '218', '—']);
 });
 
+// --- Ospiti del giorno (day use) ---------------------------------------------
+// La modalità di soggiorno sta nella colonna Camera. La colonna Attenzioni resta
+// per ciò che richiede davvero attenzione: allergie, reclami, indesiderati.
+
+const giornata = {
+  nominativo: 'MENGA DANIELA',
+  camere: '',
+  statoPartenza: 'dayuse',
+  dtarrivo: '2026-08-13',
+  dtpartenza: '2026-08-13',
+  notti: 0,
+  snapshot: {},
+};
+
+test('day use: si legge nella colonna Camera, non fra le attenzioni', () => {
+  const r = E.rigaExport(giornata);
+  assert.strictEqual(r.camere, 'DAY USE');
+  assert.strictEqual(E.COLONNE_EXPORT.camera.valore(r), 'DAY USE');
+  assert.strictEqual(E.COLONNE_EXPORT.camereCsv.valore(r), 'DAY USE'); // filtrabile in Excel
+  assert.deepStrictEqual(r.attenzioni, []);
+  assert.deepStrictEqual(E.attenzioniDi(giornata), []);
+});
+
+test('day use: se una camera c\'è davvero, non si perde', () => {
+  // Uso diurno con camera assegnata: il numero serve a chi deve pulirla.
+  const r = E.rigaExport({ ...giornata, camere: '304' });
+  assert.strictEqual(r.camere, 'DAY USE · 304');
+  assert.strictEqual(E.COLONNE_EXPORT.camera.valore(r), 'DAY USE\n304');
+});
+
+test('day use: un ospite in camera continua a mostrare solo il numero', () => {
+  const r = E.rigaExport(arrivo);
+  assert.strictEqual(r.camere, '109, 218');
+  assert.doesNotMatch(JSON.stringify(r), /DAY USE/);
+});
+
+test('day use: sempre in coda alla lista, dopo tutte le camere', () => {
+  const righe = E.costruisciExport([
+    giornata,
+    { ...arrivo, camere: '218' },
+    { ...arrivo, camere: '' }, // prenotazione senza camera assegnata: non è day use
+    { ...giornata, nominativo: 'ALTRO ESTERNO' },
+    { ...arrivo, camere: '109' },
+  ]);
+  assert.deepStrictEqual(righe.map((r) => r.camere), ['109', '218', '—', 'DAY USE', 'DAY USE']);
+});
+
+test('tabellaStampa: il day use marca la riga ma non la colora come un allarme', () => {
+  const html = E.tabellaStampa(E.costruisciExport([giornata, arrivo]), ['camera', 'allergie']);
+  assert.match(html, /<tr class="st-riga-dayuse">/);
+  assert.match(html, /<td class="st-camera">DAY USE<\/td>/);
+  // La riga del day use non deve prendere l'evidenziazione delle allergie.
+  assert.doesNotMatch(html, /st-riga-allergia st-riga-dayuse/);
+});
+
 test('toCsv: intestazioni, separatore ; e BOM per Excel', () => {
   const righe = E.costruisciExport([arrivo]);
   const csv = E.toCsv(righe, ['camereCsv', 'ospiteCsv', 'allergie', 'preferenze']);

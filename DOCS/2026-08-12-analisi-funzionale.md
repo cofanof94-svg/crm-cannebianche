@@ -252,6 +252,7 @@ Sono circa **1.200 l'anno**, stabili dal 2023, e fra loro ci sono ospiti che l'h
 - **In pagina**: pastiglia "Day use", nessuna camera, nessuna notte, nessun importo di soggiorno; in coda alla lista. Restano allergie, preferenze, VIP, reclami, "Nª volta" e note `[DECISO]`.
 - **I tre numeri della Home non cambiano**: un ospite del giorno non fa check-in, non occupa una camera la notte, non è una partenza da gestire `[DECISO]`.
 - **Sul foglio dei reparti ci vanno**, con l'etichetta: per la cucina un celiaco a cena è un celiaco a cena, che dorma qui o no `[DECISO]`.
+- **Nell'export l'etichetta sta nella colonna Camera**, come `DAY USE`, e in coda alla lista — dal 14/08/2026 `[DECISO][TEST]`. Prima stava fra le *Attenzioni*, che però è la colonna degli allarmi (allergie, reclami, indesiderati): il day use non è un problema da gestire, è dove sta l'ospite. Nella cella un trattino avrebbe fatto pensare a un dato mancante. Se il gestionale ha assegnato una camera per uso diurno, il numero resta scritto accanto (`DAY USE · 304`): serve a chi la deve pulire.
 
 ### Casi limite
 
