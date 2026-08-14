@@ -2,6 +2,8 @@ const express = require('express');
 const { getKpiPeriodo, getDettagliPeriodo, getQualitaAnagrafica } = require('../pms/analytics');
 const { getAnalyticsCrm } = require('../crm/analytics');
 const { getDataLavoro } = require('../pms/prenotazioni');
+const { getTuttiGruppiDuplicati } = require('../pms/duplicati');
+const { listMappature, separaGruppiDuplicati } = require('../crm/merge');
 
 // Periodi predefiniti del ticket, in giorni. Il periodo personalizzato arriva
 // come coppia di date e non passa di qui.
@@ -66,6 +68,24 @@ function createAnalyticsRouter(pmsDb, crmDb) {
     return giorno(new Date());
   };
 
+  // Duplicati ancora da gestire: è il numero della coda di lavoro della pagina
+  // Duplicati, e il ticket lo chiede fra gli indicatori di qualità. Costa una
+  // lettura di mezzo secondo su tutte le anagrafiche, quindi se fallisce la
+  // pagina si apre lo stesso senza quel riquadro: non vale una schermata bianca.
+  const contaDuplicati = async () => {
+    try {
+      const [gruppi, mappature] = await Promise.all([
+        getTuttiGruppiDuplicati(pmsDb),
+        listMappature(crmDb),
+      ]);
+      const { daGestire, gestiti } = separaGruppiDuplicati(gruppi, mappature);
+      return { daGestire: daGestire.length, gestiti: gestiti.length };
+    } catch (err) {
+      console.warn(`[analytics] duplicati non calcolabili: ${err.message}`);
+      return null;
+    }
+  };
+
   // Una sola chiamata per tutta la pagina: sono una decina di interrogazioni
   // brevi, e servirle insieme evita che i riquadri compaiano a scaglioni.
   router.get('/analytics', async (req, res) => {
@@ -73,12 +93,13 @@ function createAnalyticsRouter(pmsDb, crmDb) {
     if (p.errore) return res.status(400).json({ error: p.errore });
     const soloVip = String(req.query.vip || '') === '1';
 
-    const [kpi, kpiPrec, dettagli, qualita, crm] = await Promise.all([
+    const [kpi, kpiPrec, dettagli, qualita, crm, duplicati] = await Promise.all([
       getKpiPeriodo(pmsDb, p),
       getKpiPeriodo(pmsDb, p.precedente),
       getDettagliPeriodo(pmsDb, { ...p, soloVip }),
       getQualitaAnagrafica(pmsDb, p),
       getAnalyticsCrm(crmDb, p),
+      contaDuplicati(),
     ]);
 
     // Il confronto viaggia accanto al numero, non al posto suo: chi guarda deve
@@ -91,7 +112,7 @@ function createAnalyticsRouter(pmsDb, crmDb) {
       ospiti: { ...kpi, confronto, precedente: kpiPrec },
       ...dettagli,
       qualitaAnagrafica: qualita,
-      crm,
+      crm: { ...crm, duplicati },
       soloVip,
     });
   });

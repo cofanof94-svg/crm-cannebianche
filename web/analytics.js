@@ -86,6 +86,9 @@ function renderAnalytics(d) {
   const q = d.qualitaAnagrafica || {};
   const acc = crm.accessi || {};
   const rec = crm.reclami || {};
+  // Nullo quando il conteggio non e' stato possibile: il riquadro sparisce
+  // invece di mostrare uno zero che sembrerebbe "nessun duplicato".
+  const dup = crm.duplicati || null;
   const conf = o.confronto || {};
 
   // La copertura si legge come frazione degli ospiti del periodo: "14" da solo
@@ -134,8 +137,11 @@ function renderAnalytics(d) {
       ${anSezione('Chi usa l\'applicazione', anBarre(acc.perUtente, { suffisso: ' accessi', vuoto: 'Nessun accesso registrato nel periodo.' }))}
     </div>
     <div class="an-minori">
-      <a class="an-minore" href="#duplicati"><b>${anNum(rec.aperti)}</b> reclami aperti
-        <small>${anNum(rec.totali)} in tutto · ${anNum(rec.daClassificare)} da classificare</small></a>
+      ${dup ? `<a class="an-minore" href="#duplicati" title="Apri la coda di lavoro dei duplicati">
+        <b>${anNum(dup.daGestire)}</b> duplicati da gestire
+        <small>${anNum(dup.gestiti)} già associati · apri la pagina</small></a>` : ''}
+      <div class="an-minore"><b>${anNum(rec.aperti)}</b> reclami aperti
+        <small>${anNum(rec.totali)} in tutto · ${anNum(rec.daClassificare)} da classificare</small></div>
       <div class="an-minore"><b>${anNum(acc.riusciti)}</b> accessi
         <small>${anNum(acc.utentiAttivi)} utenti in ${anNum(acc.giorniConAccessi)} giorni</small></div>
       ${aiRighe || '<div class="an-minore an-minore-vuoto"><b>—</b> uso dell\'AI<small>si raccoglie dal 13/08/2026</small></div>'}

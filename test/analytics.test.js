@@ -172,3 +172,40 @@ test('sola lettura e reception non entrano in Analytics', async () => {
     assert.strictEqual(res.status, 403, `${nome} non deve entrare`);
   }
 });
+
+test('i duplicati da gestire arrivano nel blocco CRM', async () => {
+  // E' la coda di lavoro della pagina Duplicati, ed e' l'esempio che il ticket
+  // fa di riquadro navigabile: sui dati veri sono 305.
+  const app = await appAnalytics();
+  const ag = await entra(app);
+  const res = await ag.get('/api/analytics?periodo=7g');
+  assert.strictEqual(res.status, 200);
+  assert.ok(res.body.crm.duplicati, 'il conteggio dev\'essere presente');
+  assert.strictEqual(typeof res.body.crm.duplicati.daGestire, 'number');
+});
+
+test('se i duplicati non si contano, la pagina si apre lo stesso', async () => {
+  // Costa mezzo secondo su tutte le anagrafiche: se fallisce, un riquadro in
+  // meno e' meglio di una schermata bianca.
+  const admin = { id: 1, username: 'admin', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
+  const crmDb = {
+    async query(text, params) {
+      if (/FROM users WHERE username/.test(text)) return params.username === 'admin' ? [admin] : [];
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) return Number(params.id) === 1 ? [admin] : [];
+      return [];
+    },
+  };
+  const pmsDb = {
+    async query(text) {
+      if (/FROM Persona/.test(text)) return [{ data: '2026-08-13' }];
+      if (/CodFis/.test(text)) throw new Error('interrogazione duplicati non disponibile');
+      return [];
+    },
+  };
+  const app = createApp({ crmDb, pmsDb, sessionSecret: 'test' });
+  const ag = request.agent(app);
+  await ag.post('/api/auth/login').send({ username: 'admin', password: 'pw' });
+  const res = await ag.get('/api/analytics?periodo=7g');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.crm.duplicati, null);
+});
