@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   arricchisciArrivi, raccogliIds, costruisciSnapshot, calcolaBriefing,
-  compleannoNelSoggiorno, idsPrenotazione, sintetizzaNota,
+  compleannoNelSoggiorno, idsPrenotazione, sintetizzaNota, MAX_PREF_CARD,
 } = require('../src/crm/arrivi-brief');
 
 test('raccogliIds: referenti + occupanti, deduplicati, solo interi', () => {
@@ -157,13 +157,14 @@ test('costruisciSnapshot: senza note personali il campo è null (card senza riga
   assert.strictEqual(costruisciSnapshot({ codCliente: 100, ospiti: [] }, ctx).notaPersonale, null);
 });
 
-test('costruisciSnapshot: preferenzeTop limitato a 3', () => {
+test('costruisciSnapshot: la card ne mostra al massimo cinque e conta le altre', () => {
   const ctx = {
     gruppi: new Map(), anagra: new Map(), complBy: new Map(), intolBy: new Map(), relBy: new Map(),
-    prefBy: new Map([[100, [1, 2, 3, 4, 5].map((n) => ({ ambito: 'nucleo', reparto: 'F&B', categoria: 'F&B', testo: `Pref ${n}` }))]]),
+    prefBy: new Map([[100, [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ ambito: 'nucleo', reparto: 'F&B', categoria: 'F&B', testo: `Pref ${n}` }))]]),
   };
   const s = costruisciSnapshot({ codCliente: 100, ospiti: [] }, ctx);
-  assert.strictEqual(s.preferenzeTop.length, 3);
+  assert.strictEqual(s.preferenzeTop.length, MAX_PREF_CARD);
+  assert.strictEqual(s.preferenzeAltre, 3); // le altre non spariscono: si contano
 });
 
 test('calcolaBriefing: conta VIP, compleanni, reclami, alert', () => {

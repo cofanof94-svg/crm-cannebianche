@@ -131,7 +131,12 @@ function idsPrenotazione(a, gruppi) {
 //    finché ci sono alternative.
 //
 // A parità di tutto, la più recente.
-const MAX_PREF_CARD = 3;
+//
+// QUANTE. Cinque, alzato da tre il 14/08/2026. Con tre, chi ha otto preferenze
+// ne mostrava meno di metà; con cinque restano fuori solo le code lunghe, e la
+// riga resta leggibile perché i testi sono corti (45 caratteri di media, 87 il
+// più lungo, misurati sulle 64 preferenze vere).
+const MAX_PREF_CARD = 5;
 
 function scegliPreferenze(righe, nomeDi, max = MAX_PREF_CARD) {
   const cand = (righe || [])

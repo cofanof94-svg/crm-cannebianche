@@ -40,27 +40,30 @@ test('la preferenza personale porta il nome, quella di nucleo no', () => {
   assert.strictEqual(cola.ambito, 'nucleo');
 });
 
-test('non si mostrano tre volte le bevande: si varia il reparto', () => {
-  // Caso reale 2117 DE IACO: cinque preferenze, tre di camera. Prendendo le
-  // prime tre si otterrebbero tre righe di cucina e si seppellirebbe l'unica
-  // istruzione da eseguire al check-in.
+test('non si mostrano solo bevande: prima si gira su tutti i reparti', () => {
+  // Caso reale 2117 DE IACO: le preferenze di camera sono istruzioni da
+  // eseguire al check-in, e con la sola sequenza di inserimento restavano sotto
+  // le bevande. Le prime tre scelte devono toccare tre reparti diversi.
   const { mostrate, altre } = scegliPreferenze([
     p({ testo: 'Gradisce Coca Cola Zero' }),
     p({ testo: 'Predilige il caffè leccese' }),
     p({ testo: 'Gradisce la birra Nastro Azzurro' }),
+    p({ testo: 'Apprezza le orecchiette alla crudaiola' }),
     p({ testo: 'Se la camera dispone di divano letto, aggiungere topper', reparto: 'Rooms', categoria: 'Camera' }),
     p({ testo: 'Predilige il massaggio Serenity', reparto: 'SPA', categoria: 'Persona' }),
   ], nomeDi);
-  assert.deepStrictEqual(mostrate.map((x) => x.reparto), ['F&B', 'Rooms', 'SPA']);
-  assert.strictEqual(altre, 2);
+  assert.deepStrictEqual(mostrate.slice(0, 3).map((x) => x.reparto), ['F&B', 'Rooms', 'SPA']);
+  assert.strictEqual(mostrate.length, MAX_PREF_CARD);
+  assert.strictEqual(altre, 1);
 });
 
-test('se il reparto è uno solo si mostrano comunque tre preferenze', () => {
+test('se il reparto è uno solo si mostrano comunque cinque preferenze', () => {
   // 50 preferenze su 64 sono di F&B: il vincolo sulla varietà deve cedere,
   // altrimenti la card di chi ha solo preferenze di cucina resterebbe quasi vuota.
   const { mostrate, altre } = scegliPreferenze([
     p({ testo: 'Acqua naturale' }), p({ testo: 'Caffè leccese' }),
     p({ testo: 'Aperol Spritz' }), p({ testo: 'Gelato a fine pasto' }),
+    p({ testo: 'Birra Weiss' }), p({ testo: 'Focaccia come snack' }),
   ], nomeDi);
   assert.strictEqual(mostrate.length, MAX_PREF_CARD);
   assert.strictEqual(altre, 1);
