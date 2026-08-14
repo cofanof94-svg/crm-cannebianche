@@ -861,6 +861,7 @@ function schedaArrivo(a) {
       <div class="arr-stay">
         <span class="arr-rooms">${camere || '<span class="dash">—</span>'}${tipologie}</span>
         <span class="arr-dates">${fmtData(a.dtarrivo)} → ${fmtData(a.dtpartenza)}${notti}</span>
+        ${badgeStorico(a.storico)}
       </div>
       ${ospiti ? `<div class="arr-ospiti">${ospiti}</div>` : ''}
       <div class="arr-op">
@@ -1061,13 +1062,18 @@ function renderAvanzamento(c, data) {
 
 // "Ospite di ritorno". `storico.n` sono i soggiorni GIÀ CONCLUSI: quello in corso
 // è quindi l'(n+1)-esimo. Chi non è mai stato qui non ha badge.
+//
+// Lo usano ARRIVI e IN CASA con lo stesso aspetto — di qui le classi neutre,
+// senza il prefisso di una delle due pagine. Chi accoglie deve sapere che sta
+// per arrivare qualcuno alla quarta volta prima che entri dalla porta, non
+// scoprirlo il giorno dopo dalla lista dei presenti.
 function badgeStorico(s) {
   if (!s) return '';
   const out = [];
   if (s.n) {
     const ultima = s.ultima ? ` · ultima ${fmtData(s.ultima)}` : '';
     const tip = `${s.n} ${s.n === 1 ? 'soggiorno concluso' : 'soggiorni conclusi'} in hotel`;
-    out.push(`<span class="ic-ritorno" title="${tip}">${s.n + 1}ª volta${ultima}</span>`);
+    out.push(`<span class="badge-ritorno" title="${tip}">${s.n + 1}ª volta${ultima}</span>`);
   }
   // Le giornate (SPA, piscina, cene) stanno in un badge a parte e non si
   // sommano ai soggiorni: chi ha dormito qui una volta e poi è tornato sei
@@ -1075,7 +1081,7 @@ function badgeStorico(s) {
   // lo vediamo spesso è un'informazione che serve, non da nascondere.
   if (s.visite) {
     const tip = `${s.visite} ${s.visite === 1 ? 'visita' : 'visite'} in giornata (SPA, piscina, ristorante)`;
-    out.push(`<span class="ic-visite" title="${tip}">${s.visite} in giornata</span>`);
+    out.push(`<span class="badge-visite" title="${tip}">${s.visite} in giornata</span>`);
   }
   return out.join('');
 }

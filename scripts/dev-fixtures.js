@@ -240,6 +240,15 @@ const STORICO = [
   { codpratica: 60052, codCli: 1009, dtarrivo: '2024-07-14', dtpartenza: '2024-07-21', camere: '118', arrangiamento: 3050, extra: 520 },
   { codpratica: 60053, codCli: 1009, dtarrivo: '2023-07-15', dtpartenza: '2023-07-22', camere: '120', arrangiamento: 2900, extra: 480 },
   { codpratica: 60061, codCli: 1013, dtarrivo: '2024-09-02', dtpartenza: '2024-09-09', camere: '224', arrangiamento: 3600, extra: 720 },
+  // Due ospiti IN ARRIVO che sono già stati qui: dal 14/08 il badge "Nª volta"
+  // sta anche nella card degli Arrivi, e senza questi nessun arrivo di prova lo
+  // mostrerebbe. Haefliger torna per la terza volta; Farinetti ha dormito qui
+  // una volta sola ma viene spesso in giornata — le due cose restano separate.
+  { codpratica: 60071, codCli: 1003, dtarrivo: '2025-05-18', dtpartenza: '2025-05-22', camere: '215', arrangiamento: 1480, extra: 260 },
+  { codpratica: 60072, codCli: 1003, dtarrivo: '2023-09-03', dtpartenza: '2023-09-07', camere: '212', arrangiamento: 1350, extra: 190 },
+  { codpratica: 60081, codCli: 1017, dtarrivo: '2024-10-11', dtpartenza: '2024-10-13', camere: '301', arrangiamento: 900, extra: 340 },
+  { codpratica: 60082, codCli: 1017, dtarrivo: '2026-03-21', dtpartenza: '2026-03-21', camere: '', arrangiamento: 0, extra: 220 },
+  { codpratica: 60083, codCli: 1017, dtarrivo: '2026-06-06', dtpartenza: '2026-06-06', camere: '', arrangiamento: 0, extra: 190 },
   // 1013 è anche una cliente della SPA: tre giornate concluse, che NON devono
   // finire nel badge "Nª volta". In card deve leggersi "2ª volta" (un solo
   // soggiorno) accanto a "3 in giornata". Sui dati veri dell'hotel questo

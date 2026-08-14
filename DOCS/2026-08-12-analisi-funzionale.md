@@ -167,8 +167,8 @@ Preparare l'accoglienza: chi arriva oggi, in che camera, cosa serve sapere prima
 Una scheda per prenotazione, non per persona `[CODICE]`. Contiene:
 
 - **Referente** (cliccabile, apre la scheda ospite), stato *Atteso* / *In casa*, ora prevista di arrivo, badge VIP.
-- **Banda di accoglienza**: ospite indesiderato, compleanno durante il soggiorno, allergie *col nome di chi le ha*, reclami aperti con il loro testo, fino a 3 preferenze, nota personale accorciata.
-- **Camere e tipologie**, date, notti.
+- **Banda di accoglienza**: ospite indesiderato, compleanno durante il soggiorno, allergie *col nome di chi le ha*, reclami aperti con il loro testo, fino a **5 preferenze** (§9), nota personale accorciata.
+- **Camere e tipologie**, date, notti, e il badge **"Nª volta"** con le eventuali visite in giornata — dal 14/08/2026 `[DECISO]`. Era solo in "In casa": chi accoglie deve sapere che sta per arrivare qualcuno alla quarta volta **prima** che entri dalla porta, non scoprirlo il giorno dopo dalla lista dei presenti. È lo stesso pezzo di codice delle due pagine, quindi non possono divergere. Sugli arrivi del 14/08 riguarda 2 prenotazioni su 10.
 - **Ospiti in camera**: gli occupanti, con la relazione col referente quando è nota. Le camere senza occupanti assegnati compaiono lo stesso, con la dicitura "nessun ospite assegnato" `[CODICE]`.
 - **Dati operativi**: importo del soggiorno, extra maturati, trattamento e tariffa, numero pratica, data di creazione.
 - **Note della prenotazione** dal gestionale, in un blocco richiudibile.
@@ -381,8 +381,21 @@ Reparto e categoria sono **liste chiuse**, validate sia dall'applicazione sia da
 - Chi inserisce una preferenza davvero personale la marca dopo, con l'interruttore sulla riga.
 - L'ambito si cambia dopo, con un interruttore a due voci sulla riga `[CODICE]`.
 - Le preferenze di ambito `nucleo` **di un altro membro del nucleo** compaiono sulla scheda in un blocco separato, **in sola lettura**, con il nome di chi le possiede (cliccabile). Si correggono solo dalla sua scheda `[CODICE][TEST]`.
-- Le preferenze `personale` non escono mai dalla scheda del loro proprietario `[CODICE][TEST]`.
-- Nelle schede di Arrivi e In casa compaiono **solo le preferenze `nucleo`**, al massimo tre `[CODICE][TEST]`.
+- Le preferenze `personale` non compaiono sulla scheda degli altri membri del nucleo `[CODICE][TEST]`, ma **compaiono nelle card della loro prenotazione** (vedi sotto).
+
+### Quali finiscono nelle card — dal 14/08/2026
+
+Nelle card di Arrivi e In casa e nell'export compaiono **sia le personali sia quelle di nucleo**, al massimo **cinque** `[DECISO][TEST]`. Fino al 13/08 entravano solo le `nucleo`: una preferenza scritta sulla singola persona non arrivava a chi la doveva servire.
+
+- Una preferenza personale porta il **nome di chi la ha**; quelle di nucleo restano senza nome, perché sono di tutti `[DECISO][TEST]`. È lo stesso criterio delle allergie (D2): *"caffè decaffeinato"* su una prenotazione da quattro persone, senza dire per chi, non è servibile. Nessuna etichetta e nessun colore in più: la distinzione è il nome.
+- Le altre non spariscono: una **(i)** dice quante sono e rimanda alla scheda dell'ospite, che si apre dal nome in cima alla card `[DECISO]`.
+
+**Come si scelgono le cinque.** Il ticket proponeva di pesarle per affidabilità, frequenza e criticità. Misurando le 64 preferenze vere il 14/08, **nessuno di questi segnali esiste nei dati**: non c'è un contatore di conferme, non c'è una fonte da pesare, non c'è un campo "critica", tutte hanno la stessa forma («gradisce X», «predilige Y») e **50 su 64 sono dello stesso reparto**. Un punteggio costruito su questi dati sembrerebbe autorevole e sarebbe arbitrario, quindi non è stato scritto. Si sceglie sulle due cose che i dati dicono davvero `[DECISO]`:
+
+1. **Le personali prima**: riguardano una persona sola fra quelle presenti, ed erano quelle che si perdevano.
+2. **Poi si varia**: non due volte lo stesso reparto né la stessa persona, finché ci sono alternative. Serve perché **11 ospiti su 14 ne hanno più di tre** e chi ne ha otto le ha quasi tutte di cucina: prendendole in ordine, sull'ospite 2117 uscivano tre bevande e spariva *"aggiungere topper se c'è il divano letto"*, che va eseguito al check-in.
+
+A parità di tutto, la più recente. Il tetto è **un solo valore condiviso** dalle due pagine e dall'export, così non possono divergere.
 - Una preferenza si elimina, non si archivia. Si può correggere testo, reparto, categoria e ambito `[CODICE]`.
 - Ogni riga porta autore e data di inserimento `[CODICE]`.
 - **Dal 13/08/2026 ogni preferenza porta la propria origine** — scritta a mano o confermata da un suggerimento dell'AI `[CODICE][TEST]`. Prima passavano dalla stessa strada e diventavano indistinguibili (`DOCS/2026-08-10-analytics-dashboard-analisi.md` §3.2): senza questo dato non si sarebbe mai potuto dire se l'AI faccia risparmiare tempo o solo rumore.
