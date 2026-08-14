@@ -79,6 +79,23 @@ const arrivo = {
   },
 };
 
+test('export: la preferenza personale porta il nome, quella di nucleo no', () => {
+  // Il foglio va in cucina o in camera: "caffè decaffeinato" senza dire per chi,
+  // su una prenotazione da quattro persone, non si può servire. Stesso criterio
+  // delle allergie. Le preferenze di nucleo sono di tutti e restano nude.
+  const r = E.rigaExport({
+    ...arrivo,
+    snapshot: {
+      ...arrivo.snapshot,
+      preferenzeTop: [
+        { testo: 'Coca-Cola Zero', reparto: 'F&B', ambito: 'nucleo', chi: null },
+        { testo: 'Caffè decaffeinato', reparto: 'F&B', ambito: 'personale', chi: 'PAGLIUSO ROSEMARIE' },
+      ],
+    },
+  });
+  assert.strictEqual(r.preferenze, 'Coca-Cola Zero · PAGLIUSO ROSEMARIE: Caffè decaffeinato');
+});
+
 test('rigaExport: allergie e preferenze restano in campi DIVERSI', () => {
   const r = E.rigaExport(arrivo);
   // Una per riga: sul foglio che va in cucina un elenco su una riga sola non si legge.

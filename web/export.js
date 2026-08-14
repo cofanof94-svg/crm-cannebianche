@@ -152,7 +152,14 @@ function rigaExport(x, opts = {}) {
       .map((v) => (v.chi ? `${String(v.testo).trim()} — ${String(v.chi).trim()}` : String(v.testo).trim()))
       .join('\n'),
     attenzioni: attenzioniDi(x),
-    preferenze: (s.preferenzeTop || []).map((p) => p.testo).join(' · '),
+    // Le personali portano il nome di chi le ha, come le allergie: il foglio va
+    // in cucina o in camera, e "caffè decaffeinato" senza dire per chi, su una
+    // prenotazione da quattro persone, non si può servire. Le preferenze di
+    // nucleo restano nude, perché sono di tutti.
+    preferenze: (s.preferenzeTop || [])
+      .map((p) => (p && p.chi ? `${p.chi}: ${p.testo}` : (p && p.testo) || ''))
+      .filter(Boolean)
+      .join(' · '),
     notaOspite: s.notaPersonale ? s.notaPersonale.sintesi : '',
     notaOspiteIntera: s.notaPersonale ? (s.notaPersonale.testo || s.notaPersonale.sintesi) : '',
     trattamento: x.trattamento || '',

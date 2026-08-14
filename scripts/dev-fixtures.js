@@ -278,6 +278,10 @@ const CRM_INIZIALE = {
     { id: 3, pms_customer_id: 1001, reparto: 'F&B', categoria: 'F&B', testo: 'Caffè leccese al mattino', ambito: 'nucleo', autore: 'reception' },
     { id: 4, pms_customer_id: 1004, reparto: 'Rooms', categoria: 'Camera', testo: 'Cuscini extra e culla', ambito: 'nucleo', autore: 'admin' },
     { id: 5, pms_customer_id: 1007, reparto: 'SPA', categoria: 'Persona', testo: 'Prenota sempre percorso acqua', ambito: 'personale', autore: 'admin' },
+    // Preferenza PERSONALE della moglie, che sta nella stessa camera del 1001:
+    // è il caso del ticket del 14/08 — prima non compariva in nessuna card, e
+    // senza il nome non si saprebbe a chi servire il decaffeinato.
+    { id: 6, pms_customer_id: 1101, reparto: 'F&B', categoria: 'F&B', testo: 'Caffè decaffeinato dopo cena', ambito: 'personale', autore: 'reception' },
   ],
   intolleranze: [
     { id: 1, pms_customer_id: 1004, testo: 'Lattosio', autore: 'admin' },

@@ -106,6 +106,87 @@ function idsPrenotazione(a, gruppi) {
   return [...set];
 }
 
+// --- Quali preferenze finiscono in card ---------------------------------------
+//
+// La card deve rispondere a "cosa devo sapere di questa persona adesso", non
+// elencare tutto: il dettaglio sta nella scheda. Quindi poche, e scelte.
+//
+// COSA DICONO I DATI VERI (misurati il 14/08/2026 sulle 64 preferenze scritte).
+// Non esiste nessun segnale di importanza: non c'è un contatore di conferme, non
+// c'è una fonte da pesare, non c'è un campo "critica". Tutte le righe hanno la
+// stessa forma — "gradisce X", "predilige Y" — e 50 su 64 sono dello stesso
+// reparto (F&B). Un punteggio costruito su questi dati sembrerebbe autorevole e
+// sarebbe arbitrario: qui non si inventa una classifica che i dati non
+// sostengono. Si sceglie invece in base a due cose che i dati dicono davvero.
+//
+// 1. PERSONALE PRIMA DI NUCLEO. Una preferenza personale riguarda UNA persona
+//    presente, quindi dice più di una condivisa da tutti — ed è quella che fino
+//    a ieri si perdeva del tutto. Porta il nome di chi la ha, come le allergie
+//    (D2): "caffè decaffeinato" su una prenotazione da quattro persone, senza
+//    dire per chi, non è servibile.
+// 2. POI SI VARIA. 11 ospiti su 14 ne hanno più di tre, e chi ne ha otto le ha
+//    quasi tutte di F&B: prendendo le prime tre si ottengono tre bevande e si
+//    seppellisce l'unica riga di camera, che però va eseguita al check-in. A
+//    parità, quindi, si evita di ripetere lo stesso reparto e la stessa persona
+//    finché ci sono alternative.
+//
+// A parità di tutto, la più recente.
+const MAX_PREF_CARD = 3;
+
+function scegliPreferenze(righe, nomeDi, max = MAX_PREF_CARD) {
+  const cand = (righe || [])
+    .map((p) => {
+      const testo = String(p.testo || '').trim();
+      const personale = p.ambito === 'personale';
+      return {
+        testo,
+        reparto: p.reparto || null,
+        categoria: p.categoria || null,
+        ambito: personale ? 'personale' : 'nucleo',
+        // Solo le personali portano il nome: una preferenza di nucleo è di
+        // tutti, e attribuirla a qualcuno sarebbe un'informazione falsa.
+        chi: personale ? (nomeDi ? nomeDi(p.pms_customer_id) : null) : null,
+        codCli: personale ? p.pms_customer_id : null,
+        quando: p.created_at || null,
+      };
+    })
+    .filter((p) => p.testo)
+    // L'ordine va deciso PRIMA di togliere i doppioni: se lo stesso testo esiste
+    // sia come personale sia come nucleo, deve restare quello che dice di chi è.
+    .sort((a, b) => (a.ambito === 'personale' ? 0 : 1) - (b.ambito === 'personale' ? 0 : 1)
+      || String(b.quando || '').localeCompare(String(a.quando || '')));
+
+  const viste = new Set();
+  const unici = cand.filter((p) => {
+    const k = p.testo.toLowerCase();
+    if (viste.has(k)) return false;
+    viste.add(k);
+    return true;
+  });
+
+  // Scelta golosa: si prende la prima che non ripete né reparto né persona; se
+  // non ce n'è, si molla il vincolo sulla persona, e infine anche sul reparto.
+  // Così chi ha una sola preferenza per reparto le vede tutte, e chi ne ha otto
+  // di cucina ne vede una di cucina e le altre di qualcos'altro.
+  const scelte = [];
+  const reparti = new Set();
+  const persone = new Set();
+  const preso = new Set();
+  const libera = (p, i) => !preso.has(i) && p.testo;
+  while (scelte.length < max) {
+    let i = unici.findIndex((p, k) => libera(p, k) && !reparti.has(p.reparto) && !(p.codCli && persone.has(p.codCli)));
+    if (i < 0) i = unici.findIndex((p, k) => libera(p, k) && !reparti.has(p.reparto));
+    if (i < 0) i = unici.findIndex((p, k) => libera(p, k));
+    if (i < 0) break;
+    const p = unici[i];
+    preso.add(i);
+    reparti.add(p.reparto);
+    if (p.codCli) persone.add(p.codCli);
+    scelte.push({ testo: p.testo, reparto: p.reparto, categoria: p.categoria, ambito: p.ambito, chi: p.chi });
+  }
+  return { mostrate: scelte, altre: Math.max(0, unici.length - scelte.length) };
+}
+
 // Snapshot per un arrivo. ctx = { gruppi, anagra:Map, prefBy, complBy, intolBy, relBy:Map('ref|occ'→rel) }.
 function costruisciSnapshot(a, ctx) {
   const ids = idsPrenotazione(a, ctx.gruppi);
@@ -116,17 +197,13 @@ function costruisciSnapshot(a, ctx) {
   const vip = vipRef || vipList.find(Boolean) || null;
   const indesiderato = vipList.some((v) => v && v.indesiderato);
 
-  // Preferenze principali: solo 'nucleo' (condivise), dedup per testo, max 3.
-  const prefTop = [];
-  const vistiPref = new Set();
-  for (const p of raccogli(ctx.prefBy, ids)) {
-    if (p.ambito !== 'nucleo') continue;
-    const key = (p.testo || '').trim().toLowerCase();
-    if (!key || vistiPref.has(key)) continue;
-    vistiPref.add(key);
-    prefTop.push({ reparto: p.reparto, categoria: p.categoria, testo: (p.testo || '').trim() });
-    if (prefTop.length >= 3) break;
-  }
+  // Preferenze principali: personali E di nucleo, poche e assortite (vedi
+  // scegliPreferenze). Fino al 14/08 entravano solo le 'nucleo', e la preferenza
+  // scritta sulla singola persona non arrivava a chi la doveva servire.
+  const { mostrate: prefTop, altre: preferenzeAltre } = scegliPreferenze(
+    raccogli(ctx.prefBy, ids),
+    (cod) => { const a = ctx.anagra.get(cod); return a && a.nominativo ? String(a.nominativo).trim() : null; }
+  );
 
   // Intolleranze/allergie (sicurezza): ognuna porta il NOME di chi la ha.
   //
@@ -212,7 +289,7 @@ function costruisciSnapshot(a, ctx) {
     .map((an) => ({ codCli: an.codCli, nome: an.nominativo, testo: an.note }));
   const allergieProposte = proponiPerSoggiorno({ nota: a.note, annotazioni, giaPresenti: intoll });
 
-  return { vip, indesiderato, preferenzeTop: prefTop, intolleranze: intoll, reclami, relazioni, compleanno, notaPersonale, allergieProposte };
+  return { vip, indesiderato, preferenzeTop: prefTop, preferenzeAltre, intolleranze: intoll, reclami, relazioni, compleanno, notaPersonale, allergieProposte };
 }
 
 // Riepilogo giornata dai singoli snapshot.
@@ -283,4 +360,6 @@ module.exports = {
   compleannoNelSoggiorno,
   idsPrenotazione,
   sintetizzaNota,
+  scegliPreferenze,
+  MAX_PREF_CARD,
 };

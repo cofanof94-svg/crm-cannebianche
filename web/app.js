@@ -739,6 +739,36 @@ function rigaNotaPersonale(s, prefisso) {
     + `<span class="nota-sint" title="${esc(tip)}">${esc(n.sintesi)}${n.troncata ? ' <span class="nota-piu">…</span>' : ''}</span></div>`;
 }
 
+// Preferenze in card (Arrivi e In casa usano lo stesso pezzo, così non possono
+// divergere). Il server ne manda poche e già scelte: qui si decide solo come si
+// leggono.
+//
+// La distinzione fra personale e di nucleo si vede dal NOME davanti: una
+// preferenza personale riguarda una persona sola di quella prenotazione, e
+// "caffè decaffeinato" senza dire per chi non è servibile. È lo stesso modo in
+// cui si mostrano le allergie (D2), e non costa né un'etichetta né un colore.
+// Le preferenze di nucleo restano nude: sono di tutti.
+//
+// La (i) finale dice che ce ne sono altre e dove leggerle: il nome dell'ospite,
+// in cima alla card, è già il collegamento alla scheda.
+function rigaPreferenze(s, prefisso, classeChip) {
+  const pref = (s && s.preferenzeTop) || [];
+  if (!pref.length) return '';
+  const chips = pref.map((p) => {
+    const dove = [p.reparto, p.categoria].filter(Boolean).join(' · ');
+    const tip = p.chi ? `Preferenza di ${p.chi}${dove ? ` — ${dove}` : ''}` : `Preferenza del nucleo${dove ? ` — ${dove}` : ''}`;
+    // I due punti stanno nel testo, non in un ::after di stile: così restano
+    // anche copiando la riga o stampandola.
+    const nome = p.chi ? `<span class="pref-chi">${esc(p.chi)}:</span>` : '';
+    return `<span class="${classeChip}${p.chi ? ' pref-personale' : ''}" title="${esc(tip)}">${nome}${esc(p.testo)}</span>`;
+  }).join('');
+  const altre = (s && s.preferenzeAltre) || 0;
+  const piu = altre
+    ? `<span class="info" data-tip="${altre === 1 ? "C'è un'altra preferenza registrata" : `Ci sono altre ${altre} preferenze registrate`}: si leggono tutte nella scheda dell'ospite, aprendola dal nome qui sopra.">i</span>`
+    : '';
+  return `<div class="${prefisso}-prefs"><span class="${prefisso}-lbl">Preferenze</span>${chips}${piu}</div>`;
+}
+
 // Banda snapshot: le informazioni per l'accoglienza, in evidenza. Vuota → non renderizza.
 function snapshotBand(s) {
   if (!s) return '';
@@ -752,10 +782,7 @@ function snapshotBand(s) {
   if (allergie) flags.push(allergie);
   const reclami = flagReclami(s, 'arr-flag');
   if (reclami) flags.push(reclami);
-  const prefs = (s.preferenzeTop || [])
-    .map((p) => `<span class="arr-pref" title="${esc(p.reparto || '')}${p.categoria ? ' / ' + esc(p.categoria) : ''}">${esc(p.testo)}</span>`)
-    .join('');
-  const prefBlock = prefs ? `<div class="arr-prefs"><span class="arr-lbl">Preferenze</span>${prefs}</div>` : '';
+  const prefBlock = rigaPreferenze(s, 'arr', 'arr-pref');
   const notaBlock = rigaNotaPersonale(s, 'arr');
   if (!flags.length && !prefBlock && !notaBlock) return '';
   const flagBlock = flags.length ? `<div class="arr-flags">${flags.join('')}</div>` : '';
@@ -1101,10 +1128,7 @@ function schedaInCasa(c) {
   if (reclamiFlag) flags.push(reclamiFlag);
   const flagBlock = flags.length ? `<div class="ic-flags">${flags.join('')}</div>` : '';
 
-  const prefs = ((s && s.preferenzeTop) || [])
-    .map((p) => `<span class="pref" title="${esc(p.reparto || '')}${p.categoria ? ' / ' + esc(p.categoria) : ''}">${esc(p.testo)}</span>`)
-    .join('');
-  const prefBlock = prefs ? `<div class="ic-prefs"><span class="ic-lbl">Preferenze</span>${prefs}</div>` : '';
+  const prefBlock = rigaPreferenze(s, 'ic', 'pref');
   const notaBlock = rigaNotaPersonale(s, 'ic');
 
   const tratt = [c.trattamento, c.tariffa].filter(Boolean).map(esc).join(' / ');

@@ -80,7 +80,12 @@ function ctxDiProva() {
     ]),
     prefBy: new Map([
       [100, [{ ambito: 'nucleo', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè leccese' }]],
-      [101, [{ ambito: 'nucleo', reparto: 'F&B', categoria: 'F&B', testo: 'caffè leccese' }, { ambito: 'personale', testo: 'roba personale' }]], // dup semantico (case) + personale scartata
+      // Doppione semantico (cambia solo la maiuscola) + una preferenza PERSONALE
+      // di un'altra persona presente: dal 14/08 quest'ultima non si scarta più.
+      [101, [
+        { ambito: 'nucleo', reparto: 'F&B', categoria: 'F&B', testo: 'caffè leccese' },
+        { ambito: 'personale', reparto: 'F&B', categoria: 'F&B', testo: 'Caffè decaffeinato', pms_customer_id: 200 },
+      ]],
     ]),
     complBy: new Map([[100, [
       { stato: 'aperto', testo: 'Doccia fredda al terzo piano', reparto: 'Rooms', categoria: 'Manutenzione' },
@@ -104,13 +109,18 @@ function ctxDiProva() {
   };
 }
 
-test('costruisciSnapshot: VIP, indesiderato, preferenze nucleo dedup, intolleranze, reclami, relazioni, compleanno', () => {
+test('costruisciSnapshot: VIP, indesiderato, preferenze personali e di nucleo, intolleranze, reclami, relazioni, compleanno', () => {
   const arrivo = { codCliente: 100, dtarrivo: '2026-08-01', dtpartenza: '2026-08-10', ospiti: [{ codCli: 200 }, { codCli: 300 }] };
   const s = costruisciSnapshot(arrivo, ctxDiProva());
   assert.strictEqual(s.vip.descrizione, 'BOLLICINE'); // referente senza vip → primo vip del gruppo
   assert.strictEqual(s.indesiderato, true);           // un occupante è indesiderato
-  assert.strictEqual(s.preferenzeTop.length, 1);
-  assert.strictEqual(s.preferenzeTop[0].testo, 'Caffè leccese');
+  // Entrambe: la personale davanti e col nome di chi la ha, quella di nucleo
+  // nuda. Il doppione di sola maiuscola resta una riga.
+  assert.deepStrictEqual(s.preferenzeTop.map((p) => [p.testo, p.ambito, p.chi]), [
+    ['Caffè decaffeinato', 'personale', 'ROSSI ANNA'],
+    ['Caffè leccese', 'nucleo', null],
+  ]);
+  assert.strictEqual(s.preferenzeAltre, 0);
   // Ogni allergia con il nome di chi la ha (decisione del 12/08, D2): la nota è
   // della prenotazione, il piatto si prepara per una persona. La stessa allergia
   // ripetuta sulla stessa persona resta una sola voce.
