@@ -29,11 +29,18 @@ function numeroCamera(camere) {
   return Number.isInteger(n) ? n : Number.MAX_SAFE_INTEGER;
 }
 
-// Ordine di reception: prima i presenti per numero di camera, poi i check-out
-// fatti, in fondo gli ospiti del giorno. Questi ultimi vanno per ultimi perché
-// non hanno una camera: nel rack non saprebbero dove stare, e sono comunque la
-// parte meno urgente della giornata (decisione di Mik, 13/08/2026).
-const rango = (c) => (isDayUse(c) ? 2 : (c.statoPartenza === 'checkout' ? 1 : 0));
+// Ordine di reception: chi è in casa, poi gli ospiti del giorno, in fondo chi ha
+// già fatto il check-out.
+//
+// Il criterio è "chi è in hotel adesso". Un ospite del giorno non ha camera, ma
+// è una persona presente: può chiedere qualcosa, va servita, e sta davanti a chi
+// se n'è già andato. Chi ha fatto il check-out resta consultabile — serve a chi
+// deve chiudere conti e ritrovare una pratica — ma non toglie posto in cima.
+//
+// Cambiato il 14/08/2026: fino al giorno prima gli ospiti del giorno stavano in
+// fondo, sotto agli usciti, perché senza camera nel rack non saprebbero dove
+// stare. Vale ancora, ma dentro il gruppo: fra i presenti non ci sono più.
+const rango = (c) => (isDayUse(c) ? 1 : (c.statoPartenza === 'checkout' ? 2 : 0));
 
 function ordinaInCasa(clienti) {
   return (clienti || []).slice().sort((a, b) => {

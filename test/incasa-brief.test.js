@@ -19,6 +19,8 @@ test('numeroCamera: prima camera della lista, non numeriche in fondo', () => {
 });
 
 test('ordinaInCasa: per numero di camera, con i check-out in fondo', () => {
+  // Senza ospiti del giorno l'ordine è quello di sempre: rack della reception,
+  // usciti in coda.
   const ordinati = ordinaInCasa([
     { camere: '221', statoPartenza: 'incasa' },
     { camere: '106', statoPartenza: 'checkout' },
@@ -118,7 +120,9 @@ test('un ospite del giorno non è una partenza da gestire', () => {
   assert.strictEqual(parteOggi({ statoPartenza: 'dayuse' }), false);
 });
 
-test('ordinaInCasa: gli ospiti del giorno stanno in fondo, sotto agli usciti', () => {
+test('ordinaInCasa: chi è in hotel adesso viene prima di chi se n\'è andato', () => {
+  // In casa → day use → check-out. Un ospite del giorno non ha camera ma è una
+  // persona presente: sta davanti a chi ha già lasciato l'hotel (14/08/2026).
   const ordinati = ordinaInCasa([
     { camere: '', statoPartenza: 'dayuse' },
     { camere: '221', statoPartenza: 'incasa' },
@@ -126,7 +130,20 @@ test('ordinaInCasa: gli ospiti del giorno stanno in fondo, sotto agli usciti', (
     { camere: '104', statoPartenza: 'partenza' },
   ]);
   assert.deepStrictEqual(ordinati.map((c) => c.statoPartenza),
-    ['partenza', 'incasa', 'checkout', 'dayuse']);
+    ['partenza', 'incasa', 'dayuse', 'checkout']);
+});
+
+test('ordinaInCasa: dentro ogni gruppo resta l\'ordine per numero di camera', () => {
+  // Il raggruppamento per stato non deve disfare il rack della reception.
+  const ordinati = ordinaInCasa([
+    { camere: '221', statoPartenza: 'checkout' },
+    { camere: '104', statoPartenza: 'checkout' },
+    { camere: '312', statoPartenza: 'incasa' },
+    { camere: '108', statoPartenza: 'incasa' },
+    { camere: '', statoPartenza: 'dayuse' },
+  ]);
+  assert.deepStrictEqual(ordinati.map((c) => `${c.statoPartenza}:${c.camere}`),
+    ['incasa:108', 'incasa:312', 'dayuse:', 'checkout:104', 'checkout:221']);
 });
 
 test('calcolaBriefingInCasa: gli ospiti del giorno hanno un contatore loro', () => {
