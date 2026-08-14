@@ -1,6 +1,6 @@
 # Analisi funzionale — CRM Hotel Canne Bianche
 
-- **Data:** 2026-08-12, **aggiornato il 2026-08-13 in hotel**
+- **Data:** 2026-08-12, **aggiornato il 2026-08-13 in hotel** e il **2026-08-14**
 - **Oggetto:** che cosa fa l'applicazione e con quali regole, dal punto di vista di chi la usa.
 - **Metodo:** lettura dei documenti in `DOCS/`, del codice in `src/` e `web/`, dei test in `test/`. La prima stesura è stata scritta **senza il database dell'hotel**; il 13/08 tutto ciò che si poteva misurare è stato misurato sui dati veri, e dove i numeri contraddicevano il documento ha vinto il database.
 
@@ -119,7 +119,7 @@ Fissati da `[TEST]` (`test/permessi.test.js`, «i tre ruoli della Fase 1, e ness
 - L'applicazione non ragiona per ruolo ma per **permesso**: `leggi`, `scrivi`, `usa-ai`, `gestisci-utenti`, `vedi-analytics`. Il ruolo è solo un insieme di permessi `[CODICE][TEST]`.
 - **La regola di base è il metodo della richiesta**: leggere è lettura, tutto il resto è scrittura. Una funzione nuova nasce quindi già protetta, anche se chi la scrive non ci pensa `[CODICE][TEST]` (`test/permessi.test.js`, «una rotta nuova nasce protetta senza che nessuno la registri»).
 - Le eccezioni sono tre: le due funzioni AI richiedono `usa-ai` (non scrivono nel CRM ma costano e producono contenuto), l'area utenti richiede `gestisci-utenti`, l'area Analytics richiede `vedi-analytics` `[CODICE][TEST]`.
-- **Analytics non esiste ancora**: la regola di protezione c'è già, la pagina no `[CODICE]`.
+- **Analytics esiste dal 13/08/2026**: la regola di protezione c'era già da prima della pagina. Reception e sola lettura non vi accedono `[CODICE][TEST]`.
 - Un ruolo sconosciuto nel database (per esempio il vecchio `marketing`) vale **sola lettura**, non pieni poteri. L'utente resta operativo per consultare e nella pagina Utenti compare con un'etichetta gialla "non previsto" `[DOC][TEST]`.
 - Nascondere i pulsanti non è la difesa: chiamando le interfacce a mano si prende comunque un 403. La matrice ruoli × operazioni è verificata chiamando le API senza passare dall'interfaccia `[TEST]` (`test/permessi-api.test.js`).
 - **Le maiuscole nell'indirizzo non aggirano il controllo.** Era un buco reale — la reception poteva crearsi un amministratore — chiuso il 12/08 con un test che rifà l'attacco `[DOC][TEST]`.
@@ -385,7 +385,7 @@ Reparto e categoria sono **liste chiuse**, validate sia dall'applicazione sia da
 - Nelle schede di Arrivi e In casa compaiono **solo le preferenze `nucleo`**, al massimo tre `[CODICE][TEST]`.
 - Una preferenza si elimina, non si archivia. Si può correggere testo, reparto, categoria e ambito `[CODICE]`.
 - Ogni riga porta autore e data di inserimento `[CODICE]`.
-- **Non è registrato se una preferenza è stata scritta a mano o confermata da un suggerimento dell'AI**: passano dalla stessa strada `[DOC]` (`DOCS/2026-08-10-analytics-dashboard-analisi.md` §3.2).
+- **Dal 13/08/2026 ogni preferenza porta la propria origine** — scritta a mano o confermata da un suggerimento dell'AI `[CODICE][TEST]`. Prima passavano dalla stessa strada e diventavano indistinguibili (`DOCS/2026-08-10-analytics-dashboard-analisi.md` §3.2): senza questo dato non si sarebbe mai potuto dire se l'AI faccia risparmiare tempo o solo rumore.
 - Testo oltre i 400 caratteri → messaggio che dice quanto ci sta e quanto è stato scritto, e il testo resta nel campo `[DOC][TEST]`. **Lo stesso controllo vale in correzione**, non solo in inserimento: correggere una riga non è meno rischioso che crearla `[DECISO][TEST]`.
 - Una preferenza si corregge o si elimina **solo dalla scheda dell'ospite a cui appartiene** `[DECISO][TEST]`: il percorso della richiesta porta anche il codice ospite, e una riga di un altro risulta inesistente. Serve a rendere innocuo un errore di programmazione, non a difendersi dal personale.
 
@@ -785,7 +785,7 @@ Due funzioni, entrambe **solo su richiesta esplicita dell'operatore**, mai autom
 - I guasti sono tradotti in messaggi comprensibili: credito esaurito, chiave non valida, troppe richieste, servizio non disponibile. **Un errore non riconosciuto non viene mascherato**: diventa un errore interno nei log, invece di un messaggio rassicurante inventato `[DOC][CODICE][TEST]` (`test/ai-guasti.test.js`).
 - L'interfaccia mostra **il messaggio del server**, non una frase fissa: un credito esaurito arrivava a schermo come "Errore durante la generazione" e sarebbe partita una segnalazione di bug per un problema di fatturazione `[DOC][TEST]`.
 - Ogni pulsante di generazione si spegne dopo un successo, con la spiegazione, e si riattiva rientrando nella pagina o riaprendo la scheda `[CODICE][TEST]`.
-- **Nessuna delle due funzioni lascia traccia**: c'è solo una riga di registro nella console del server (chi, per quale ospite, quante proposte). Non esiste una tabella degli eventi, quindi **non si potrà mai sapere quante proposte sono state scartate** `[DOC]` (`DOCS/2026-08-10-analytics-dashboard-analisi.md` §3.1). Ogni giorno che passa è storico perso.
+- **Dal 13/08/2026 ogni generazione lascia traccia** nella tabella `ai_events`: chi, quando, per quale ospite, quante proposte sono uscite e quante ne sono state accettate `[CODICE][TEST]`. Fino al giorno prima esisteva solo una riga nella console del server, che nessuno rileggeva: non si sarebbe mai potuto sapere quante proposte venivano scartate (`DOCS/2026-08-10-analytics-dashboard-analisi.md` §3.1). **Registrare non deve mai far fallire l'azione registrata**: se la scrittura nel registro non riesce, la generazione va a buon fine lo stesso `[CODICE][TEST]`.
 
 ---
 
@@ -800,6 +800,22 @@ Esiste un import che copia lo storico prenotazioni dal gestionale in tabelle del
 - Gli stati usati dall'import sono **Confermata / Completata / Cancellata** `[DOC][TEST]` — tre, non i sette dello storico della scheda (§7).
 - **Oggi la scheda ospite non lo usa**: i cumulativi sono calcolati in tempo reale. Il collegamento è il passo successivo `[DOC]` (`HANDOFF.md` §7 e §11).
 - **L'estrazione non è mai stata eseguita sul database vero** `[DOC]`.
+
+### Che cosa comporta non collegarlo — deciso il 14/08/2026
+
+Poiché l'import resta scollegato, **tutto ciò che arriva dal gestionale è letto dal vivo e mostrato com'è adesso**. Vale la pena essere precisi su cosa questo faccia perdere, perché è molto meno di quanto la sezione sopra lasci temere.
+
+**Non si perde quasi nulla.** Date, camere, notti, trattamento, importi, canale di vendita, note: sono tutti dati **della singola prenotazione**, che il gestionale archivia e non riscrive. Un soggiorno del 2024 continuerà a dire quello che diceva.
+
+**Si perde una cosa sola: il VIP nel tempo.** Il codice VIP sta sull'**anagrafica**, cioè sulla persona, non sul soggiorno: esiste un solo valore, quello di adesso, e il precedente viene sovrascritto senza lasciare traccia `[CODICE]`. Conseguenze, tutte attive oggi:
+
+1. **La storia si riscrive all'indietro.** Tolto il VIP a un ospite, i suoi soggiorni passati diventano soggiorni di un non-VIP.
+2. **Vale anche per "ospite indesiderato"**, che nel gestionale è un codice VIP come gli altri (§7): segnalare qualcuno oggi fa risultare indesiderati anche i suoi soggiorni di tre anni fa, e riabilitarlo cancella quello in cui il fatto era successo.
+3. **Il conteggio VIP della dashboard misura il presente, non il periodo**: "VIP negli ultimi 12 mesi" dice quanti di quegli ospiti **sono VIP adesso**, non quanti lo erano allora. Quel numero può cambiare da solo quando qualcuno tocca un codice in anagrafica, senza che nessuno abbia sbagliato nulla.
+
+**Decisione di Mik (14/08/2026): si lascia com'è** `[DECISO]`. Quello che serve al lavoro di tutti i giorni è sapere che *Fabio è un nostro VIP adesso*, e quello funziona già. Ricostruire il VIP soggiorno per soggiorno vorrebbe dire collegare l'import, farlo girare ogni notte e reggere due fonti per lo stesso dato: complessità che oggi nessuna domanda del lavoro quotidiano giustifica.
+
+**Da sapere se un giorno si cambia idea:** il passato **non è recuperabile**. Il VIP di un ospite nel 2024 non è scritto da nessuna parte. Il giorno in cui si accendesse l'import, i soggiorni vecchi verrebbero fotografati con il VIP di **oggi** — cioè sbagliati esattamente come adesso, solo congelati — e la storia diventerebbe corretta **solo da lì in avanti**. È lo stesso meccanismo degli eventi AI (§18): non è un lavoro che si può recuperare dopo.
 
 ---
 
@@ -898,8 +914,9 @@ Non sono domande aperte da porre: sono cose già note e scritte, riportate qui p
 - ~~Tre migrazioni da lanciare sul database dell'hotel~~ — **eseguite e verificate il 13/08**. La terza (`crm-ruoli.sql`) è risultata inutile: nel database ci sono solo ruoli previsti.
 - ~~Sei interrogazioni mai eseguite su SQL Server vero~~ — **tutte eseguite il 13/08**, nessun errore. Il rischio segnalato sul badge "Nª volta" (doppio conteggio) **non c'era**; ce n'era un altro, più grosso, che nessuno aveva previsto: contava cose che non sono soggiorni (§7).
 - ~~Il vocabolario delle allergie è tarato su note inventate~~ — **misurato sulle 30.938 note vere** il 13/08, in due passate successive (§11).
-- **Nessun evento AI viene registrato**: ogni giorno di attesa è storico non recuperabile `[DOC]` (analisi analytics §3.1 e checklist §4).
-- **L'origine di una preferenza (manuale o AI) non è tracciata** `[DOC]` (analisi analytics §3.2).
+- ~~Nessun evento AI viene registrato~~ — **chiusa il 13/08**: la tabella `ai_events` esiste ed è popolata; da quel giorno si sa quante proposte vengono accettate e quante scartate.
+- ~~L'origine di una preferenza (manuale o AI) non è tracciata~~ — **chiusa il 13/08**: ogni preferenza porta l'origine.
+- ~~La dashboard Analytics non esiste~~ — **costruita il 13/08**, sei blocchi, in linea con l'analisi del 10/08.
 - **La memoria delle sessioni è in RAM**: da sostituire prima di far girare più di un processo `[DOC]` (`HANDOFF.md` §9).
 - **L'export copre una sola data** `[DOC]` (checklist §4).
-- **La dashboard Analytics non esiste**: l'analisi è fatta, l'implementazione è rimandata al rientro in hotel `[DOC]`.
+- **Il VIP è noto solo al presente**: la classificazione di un ospite non è storicizzata, e non lo sarà (§19, deciso il 14/08). Va tenuto a mente leggendo il conteggio VIP della dashboard.
