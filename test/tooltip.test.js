@@ -64,10 +64,13 @@ test('ogni pastiglia di filtro spiega che cosa comprende', () => {
   assert.ok(alert && /indesiderato/.test(alert[1]), 'la pastiglia Alert deve dire che comprende gli indesiderati');
 });
 
-test('la variazione in Analytics dice rispetto a cosa', () => {
-  // Un "+12%" senza termine di paragone non è un dato, è una decorazione.
-  assert.match(AN, /const CONFRONTO = '[^']*periodo precedente[^']*'/);
-  assert.match(AN, /an-delta-su[\s\S]*title="\$\{esc\(CONFRONTO\)\}"/);
+test('in Analytics non torna il confronto col periodo precedente', () => {
+  // Tolto il 18/08/2026: in un albergo stagionale confrontare agosto con luglio
+  // racconta la stagione, non l'hotel. Se un giorno si rifà, dev'essere con lo
+  // stesso periodo dell'anno prima — un altro calcolo, non questo.
+  assert.doesNotMatch(AN, /an-delta/);
+  assert.doesNotMatch(AN, /anDelta/);
+  assert.doesNotMatch(AN, /confronto con \$\{fmtData/);
 });
 
 // Le definizioni dei numeri di Analytics, estratte dall'oggetto T di
@@ -122,6 +125,21 @@ test('le definizioni di Analytics dicono che cosa contano', () => {
   // L'eccezione dentro il blocco complessivo va dichiarata, altrimenti si legge
   // con la regola del vicino.
   assert.match(t.qualita, /dipende dal periodo scelto/);
+});
+
+test('il blocco CRM dice anche quanto si è raccolto nel periodo', () => {
+  // I quattro numeri complessivi possono solo salire: da soli non distinguono un
+  // CRM che cresce piano da uno lasciato lì. La riga del ritmo è l'unica che
+  // risponde a "stiamo raccogliendo?", ed è il dato che il server calcolava e
+  // buttava via.
+  assert.match(AN, /crm\.scritteNelPeriodo/, 'il ritmo non è collegato al dato del server');
+  assert.match(AN, /\$\{anRitmo\(scritte\)\}/, 'la riga del ritmo non è disegnata');
+  const t = anTips().ritmo;
+  assert.ok(t, 'la riga del ritmo non ha la sua spiegazione');
+  assert.match(t, /nel periodo scelto/i);
+  // Il singolare esiste: "1 preferenze" è il genere di dettaglio che fa sembrare
+  // sciatta una pagina per il resto curata.
+  assert.match(AN, /n === 1 \? uno : molti/);
 });
 
 test('la copertura non mescola due popolazioni diverse', () => {

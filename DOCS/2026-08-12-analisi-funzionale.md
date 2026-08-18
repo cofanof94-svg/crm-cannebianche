@@ -894,10 +894,9 @@ Tenerli insieme farebbe sembrare inaffidabile anche la metà buona.
 
 Il periodo si sceglie fra quattro pulsanti (7 giorni, 30 giorni, 3 mesi, 12 mesi) o a mano con due date. "Oggi" è la **data di lavoro del gestionale**, non l'orologio del server: è la stessa regola di Arrivi e In casa, e serve perché in hotel la giornata contabile non finisce a mezzanotte `[CODICE]`.
 
-Due regole che valgono per tutta la pagina:
+La regola che vale per tutta la pagina: **un soggiorno cade nel periodo quando ci FINISCE**, non quando comincia. A quel punto è concluso e i consumi sono stati registrati tutti; contarlo dall'arrivo farebbe entrare soggiorni ancora in corso, con metà dei numeri a zero `[CODICE]`.
 
-- **Un soggiorno cade nel periodo quando ci FINISCE**, non quando comincia. A quel punto è concluso e i consumi sono stati registrati tutti; contarlo dall'arrivo farebbe entrare soggiorni ancora in corso, con metà dei numeri a zero `[CODICE]`.
-- **Il confronto è con il periodo precedente della stessa lunghezza**: sette giorni contro i sette prima, non contro il mese. Se prima il valore era zero la freccia **non compare**: una crescita percentuale calcolata su zero è un numero senza significato che sembra un risultato `[CODICE][TEST]`.
+**Non c'è nessun confronto fra periodi** — vedi §20.3.
 
 Che cos'è un **soggiorno**: una prenotazione da **1 a 200 notti**. Sotto c'è il day use (SPA, piscina, cene per esterni), sopra il voucher regalo, registrato come prenotazione lunga un anno perché quella è la sua validità. Contarli tutti è l'errore che faceva risultare "di ritorno" migliaia di ospiti che non avevano mai dormito qui `[CODICE]`.
 
@@ -919,6 +918,7 @@ Ogni numero della pagina porta la sua definizione addosso, con la **iconcina (i)
 | Consumi F&B | quante volte un articolo è stato ordinato | ordinazioni | sì, **per data dell'ordinazione** |
 | SPA | trattamenti addebitati | addebiti | sì, per data dell'addebito |
 | Con preferenze / allergie / note personali | clienti che hanno almeno quella cosa nel CRM | persone | **no, complessivo** |
+| Scritto nel periodo | preferenze, allergie e reclami **registrati** nel periodo | righe scritte | sì |
 | Anagrafiche collegate | anagrafiche doppie agganciate a una principale | collegamenti | **no, complessivo** |
 | Anagrafiche da completare | ospiti del periodo senza email, telefono o data di nascita | persone | sì |
 | Preferenze per reparto | **preferenze**, non persone | preferenze | **no, complessivo** |
@@ -953,7 +953,21 @@ Calcolare la copertura *sugli ospiti del periodo* — cioè quanti, fra chi ha s
 
 **Il grafico dell'andamento aveva un titolo solo per i lettori di schermo**: adesso si chiama "Soggiorni conclusi per mese" e dice che il mese è quello della partenza.
 
-### 20.4 Cosa resta aperto
+### 20.4 Il confronto fra periodi è stato tolto — deciso il 18/08/2026 `[DECISO]`
+
+Sotto ognuno dei cinque numeri degli ospiti c'era una pastiglia con il confronto sul **periodo immediatamente precedente, lungo uguale**: `▲ 12%`, `▼ 8%`, `= stabile`.
+
+**Obiezione di Mik:** in un CRM il cui unico obiettivo è sapere quanto conosciamo i nostri ospiti, quel confronto non serve. E ha ragione anche per una seconda ragione, più forte: in un albergo **stagionale** quel confronto non è soltanto superfluo, è **sbagliato**. Trenta giorni di agosto contro trenta di luglio danno un "+40%" che racconta la stagione, non l'hotel; ottobre contro settembre dà un "−60%" che non è un problema di nessuno. Il confronto che avrebbe senso per un albergo è con lo **stesso periodo dell'anno prima**, e quello non c'è.
+
+**Cosa è stato tolto** `[CODICE][TEST]`:
+- le cinque pastiglie sotto i numeri, e la scritta "confronto con …" nella riga del periodo in cima;
+- la **seconda esecuzione dell'interrogazione più pesante della pagina**, che veniva fatta solo per calcolarle: ogni caricamento la eseguiva due volte, una per il periodo e una per quello prima. C'è un test che conta le esecuzioni e fallisce se tornano a essere due.
+
+**Cosa è stato messo al suo posto.** Il blocco del CRM aveva quattro numeri complessivi che possono soltanto salire: da soli non distinguono un CRM che cresce piano da uno lasciato lì. Adesso c'è una riga che dice **quanto è stato registrato nel periodo scelto** — *"Scritto nel periodo: 12 preferenze · 3 allergie · 1 reclamo"* — e quando non c'è niente lo dice. Il dato **era già calcolato dal server e buttato via**: non è costata nessuna interrogazione in più.
+
+Se un giorno servirà un confronto temporale vero, va rifatto da capo con l'anno precedente: quello che è stato tolto non era un pezzo di quel lavoro, era la strada sbagliata.
+
+### 20.5 Cosa resta aperto
 
 - **Le nazionalità sono codici, non nomi.** Il riquadro mostra il codice dell'anagrafica (per esempio `I`, `GB`, `D`), non "Italia", "Regno Unito", "Germania". Il gestionale ha una tabella di decodifica, ma i nomi delle sue colonne non sono documentati: **serve una lettura sul database dell'hotel** per collegarla. Finché non è fatto, la iconcina avverte che il valore è un codice.
 - **Sugli schermi molto stretti** (telefono) l'intera applicazione scorre in orizzontale per via della barra laterale: è un limite del layout generale, non della dashboard.

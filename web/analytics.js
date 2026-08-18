@@ -28,26 +28,33 @@ const anNum = (n) => Number(n || 0).toLocaleString('it-IT');
 // la spiegazione si legge dove ci si aspetta di trovarla.
 const anInfo = (tip) => (tip ? ` <span class="info info-wide" data-tip="${esc(tip)}">i</span>` : '');
 
-// La freccia del confronto col periodo precedente. Quando prima non c'era nulla
-// il server manda null e qui non si disegna niente: una crescita percentuale
-// calcolata su zero è un numero senza significato che sembra un risultato.
-// La freccia da sola dice "+12%" senza dire rispetto a cosa: il confronto è con
-// il periodo PRECEDENTE della stessa lunghezza (sette giorni contro i sette
-// prima, non contro il mese).
-const CONFRONTO = 'Rispetto al periodo precedente, lungo uguale: sette giorni si confrontano con i sette prima, non con il mese.';
-
-function anDelta(v) {
-  if (v == null) return '';
-  if (v === 0) return `<span class="an-delta an-delta-fermo" title="${esc(CONFRONTO)}">= stabile</span>`;
-  const su = v > 0;
-  return `<span class="an-delta ${su ? 'an-delta-su' : 'an-delta-giu'}" title="${esc(CONFRONTO)}">${su ? '▲' : '▼'} ${Math.abs(v)}%</span>`;
-}
-
-function anKpi(etichetta, valore, delta, tip) {
+// Sotto ogni numero c'era una freccia ▲▼ col confronto sul periodo precedente,
+// della stessa lunghezza. Tolta il 18/08/2026, decisione di Mik: in un albergo
+// stagionale quel confronto è sbagliato e non solo inutile — trenta giorni di
+// agosto contro trenta di luglio danno un "+40%" che racconta la stagione, non
+// l'hotel. Il confronto che avrebbe senso è con lo stesso periodo dell'anno
+// prima, ed è un altro lavoro. Quello che questa pagina deve dire sul tempo è
+// un'altra cosa, e ora la dice: quanto si è raccolto nel periodo (anRitmo).
+function anKpi(etichetta, valore, tip) {
   return `<div class="an-kpi">
     <div class="an-kpi-n">${anNum(valore)}</div>
     <div class="an-kpi-l">${esc(etichetta)}${anInfo(tip)}</div>
-    ${anDelta(delta)}</div>`;
+  </div>`;
+}
+
+// "Scritto nel periodo": l'unico numero del blocco CRM che si muove. Gli altri
+// quattro sono cumulativi e possono solo salire, quindi da soli non distinguono
+// un CRM che cresce piano da uno abbandonato sei mesi fa.
+function anRitmo(s) {
+  const voci = [
+    [s.preferenze, 'preferenza', 'preferenze'],
+    [s.allergie, 'allergia', 'allergie'],
+    [s.reclami, 'reclamo', 'reclami'],
+  ].filter(([n]) => n > 0).map(([n, uno, molti]) => `<b>${anNum(n)}</b> ${n === 1 ? uno : molti}`);
+  const testo = voci.length
+    ? `Scritto nel periodo: ${voci.join(' · ')}.`
+    : 'Nel periodo scelto non è stato registrato niente.';
+  return `<p class="an-ritmo${voci.length ? '' : ' an-ritmo-fermo'}">${testo}${anInfo(T.ritmo)}</p>`;
 }
 
 // Classifica a barre. Niente libreria di grafici: la barra è la larghezza di un
@@ -113,6 +120,7 @@ const T = {
   spa: 'Trattamenti SPA addebitati nel periodo: quante volte ciascuno e quanto ha fatto. Sta in un riquadro a parte perché la SPA non passa dalle ordinazioni del ristorante, ed è esclusa dai consumi qui accanto per non contarla due volte.',
 
   crmSez: 'Qui non si misura l’andamento dell’hotel ma quanto il CRM ha imparato, e quanto viene usato. Salvo dove è scritto il contrario, questi numeri sono COMPLESSIVI: non cambiano cambiando il periodo scelto sopra.',
+  ritmo: 'Quante preferenze, allergie e reclami sono stati registrati nel periodo scelto. È l’unico numero di questo blocco che si muove: gli altri sono complessivi e possono solo salire, quindi da soli non distinguono un CRM che cresce piano da uno lasciato lì.',
   conPreferenze: 'Quanti clienti hanno almeno una preferenza registrata nel CRM. Si contano le persone, non le preferenze. È un totale complessivo e non dipende dal periodo scelto.',
   conAllergie: 'Quanti clienti hanno almeno un’allergia o un’intolleranza registrata nel CRM. Si contano le persone. È un totale complessivo e non dipende dal periodo scelto.',
   conNote: 'Quanti clienti hanno una nota personale scritta nella loro scheda. Si contano le persone. È un totale complessivo e non dipende dal periodo scelto.',
@@ -136,7 +144,7 @@ function renderAnalytics(d) {
   // Nullo quando il conteggio non e' stato possibile: il riquadro sparisce
   // invece di mostrare uno zero che sembrerebbe "nessun duplicato".
   const dup = crm.duplicati || null;
-  const conf = o.confronto || {};
+  const scritte = crm.scritteNelPeriodo || {};
 
   // Solo se ci sono almeno due mesi: altrimenti resterebbe l'intestazione di un
   // grafico che non c'è.
@@ -144,11 +152,11 @@ function renderAnalytics(d) {
 
   const blocA = `
     <div class="an-kpis">
-      ${anKpi('Ospiti unici', o.ospiti, conf.ospiti, T.ospiti)}
-      ${anKpi('Soggiorni', o.soggiorni, conf.soggiorni, T.soggiorni)}
-      ${anKpi('Di ritorno', o.diRitorno, conf.diRitorno, T.diRitorno)}
-      ${anKpi('VIP', o.vip, conf.vip, T.vip)}
-      ${anKpi('Notti medie', o.nottiMedie, conf.nottiMedie, T.nottiMedie)}
+      ${anKpi('Ospiti unici', o.ospiti, T.ospiti)}
+      ${anKpi('Soggiorni', o.soggiorni, T.soggiorni)}
+      ${anKpi('Di ritorno', o.diRitorno, T.diRitorno)}
+      ${anKpi('VIP', o.vip, T.vip)}
+      ${anKpi('Notti medie', o.nottiMedie, T.nottiMedie)}
     </div>
     ${trend ? anSezione('Soggiorni conclusi per mese', trend, null, T.andamento) : ''}
     <div class="an-griglia">
@@ -173,14 +181,15 @@ function renderAnalytics(d) {
 
   const blocB = `
     <div class="an-kpis">
-      ${anKpi('Con preferenze', c.conPreferenze, null, T.conPreferenze)}
-      ${anKpi('Con allergie', c.conAllergie, null, T.conAllergie)}
-      ${anKpi('Con note personali', c.conNotePersonali, null, T.conNote)}
-      ${anKpi('Anagrafiche collegate', c.anagraficheFuse, null, T.fuse)}
+      ${anKpi('Con preferenze', c.conPreferenze, T.conPreferenze)}
+      ${anKpi('Con allergie', c.conAllergie, T.conAllergie)}
+      ${anKpi('Con note personali', c.conNotePersonali, T.conNote)}
+      ${anKpi('Anagrafiche collegate', c.anagraficheFuse, T.fuse)}
     </div>
     <p class="an-cop">Clienti di cui conosciamo almeno una preferenza: <b>${anNum(c.conPreferenze)}</b>.
       È il numero da far salire: misura quanto il CRM sta diventando utile.
       <span class="an-su">Sono tutti i clienti conosciuti finora, non solo quelli del periodo.</span></p>
+    ${anRitmo(scritte)}
     <div class="an-griglia">
       ${anSezione('Anagrafiche da completare', anBarre([
     { voce: 'Senza email', n: q.senzaEmail },
@@ -202,7 +211,7 @@ function renderAnalytics(d) {
     </div>`;
 
   return `<div class="an-periodo-eco">Periodo <b>${fmtData(d.periodo.da)} → ${fmtData(d.periodo.a)}</b>
-      <span>${d.periodo.giorni} giorni · confronto con ${fmtData(d.periodo.precedente.da)} → ${fmtData(d.periodo.precedente.a)}</span></div>
+      <span>${d.periodo.giorni} giorni</span></div>
     ${anSezione('I nostri ospiti', blocA, 'dal gestionale', T.ospitiSez)}
     ${anSezione('Quanto conosciamo gli ospiti', blocB, 'dal CRM', T.crmSez)}`;
 }

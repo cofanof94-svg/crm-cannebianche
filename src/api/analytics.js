@@ -16,40 +16,34 @@ const giorno = (d) => d.toISOString().slice(0, 10);
 // l'anno è peggio di una che non c'è.
 const sposta = (iso, giorni) => giorno(new Date(new Date(`${iso}T00:00:00Z`).getTime() + giorni * 86400000));
 
-// Il periodo richiesto, e quello immediatamente precedente della STESSA
-// lunghezza. Confrontare luglio con giugno quando si guardano sette giorni non
-// direbbe niente: il confronto ha senso solo a parità di finestra.
+// Il periodo richiesto: due date e la sua durata in giorni.
+//
+// Fino al 18/08/2026 qui si calcolava anche il periodo IMMEDIATAMENTE
+// PRECEDENTE, della stessa lunghezza, per mettere una freccia ▲▼ sotto ogni
+// numero. È stato tolto per decisione di Mik, e la ragione vale la pena di
+// restare scritta: in un albergo stagionale quel confronto è sbagliato, non
+// soltanto inutile. Trenta giorni di agosto contro trenta di luglio danno un
+// "+40%" che racconta la stagione, non l'hotel. Il confronto che avrebbe senso è
+// con lo STESSO periodo dell'anno prima, e non è un pezzo di questo: è un altro
+// lavoro. Nel frattempo si risparmia la seconda esecuzione dell'interrogazione
+// più pesante della pagina, che veniva fatta solo per quelle frecce.
 function risolviPeriodo(query, oggi) {
   const { da, a, periodo } = query || {};
   if (ISO.test(da || '') && ISO.test(a || '')) {
     if (da > a) return { errore: 'La data iniziale è successiva alla finale' };
-    return conPrecedente(da, a);
+    return conDurata(da, a);
   }
   const giorni = PERIODI[periodo] || PERIODI['30g'];
   const fine = oggi;
   const inizio = sposta(fine, -(giorni - 1));
-  return conPrecedente(inizio, fine);
+  return conDurata(inizio, fine);
 }
 
-function conPrecedente(da, a) {
+function conDurata(da, a) {
   const durata = Math.round(
     (new Date(`${a}T00:00:00Z`) - new Date(`${da}T00:00:00Z`)) / 86400000
   ) + 1;
-  return {
-    da,
-    a,
-    durata,
-    precedente: { da: sposta(da, -durata), a: sposta(da, -1) },
-  };
-}
-
-// Variazione percentuale rispetto al periodo precedente. Quando prima non c'era
-// niente NON si scrive "+100%": si torna null e l'interfaccia non mostra la
-// freccia. Una crescita percentuale calcolata su zero è un numero senza
-// significato che sembra un risultato.
-function variazione(adesso, prima) {
-  if (!prima) return null;
-  return Math.round(((adesso - prima) / prima) * 100);
+  return { da, a, durata };
 }
 
 function createAnalyticsRouter(pmsDb, crmDb) {
@@ -93,23 +87,17 @@ function createAnalyticsRouter(pmsDb, crmDb) {
     if (p.errore) return res.status(400).json({ error: p.errore });
     const soloVip = String(req.query.vip || '') === '1';
 
-    const [kpi, kpiPrec, dettagli, qualita, crm, duplicati] = await Promise.all([
+    const [kpi, dettagli, qualita, crm, duplicati] = await Promise.all([
       getKpiPeriodo(pmsDb, p),
-      getKpiPeriodo(pmsDb, p.precedente),
       getDettagliPeriodo(pmsDb, { ...p, soloVip }),
       getQualitaAnagrafica(pmsDb, p),
       getAnalyticsCrm(crmDb, p),
       contaDuplicati(),
     ]);
 
-    // Il confronto viaggia accanto al numero, non al posto suo: chi guarda deve
-    // vedere prima quanti sono e poi se salgono o scendono.
-    const confronto = {};
-    for (const chiave of Object.keys(kpi)) confronto[chiave] = variazione(kpi[chiave], kpiPrec[chiave]);
-
     res.json({
-      periodo: { da: p.da, a: p.a, giorni: p.durata, precedente: p.precedente },
-      ospiti: { ...kpi, confronto, precedente: kpiPrec },
+      periodo: { da: p.da, a: p.a, giorni: p.durata },
+      ospiti: kpi,
       ...dettagli,
       qualitaAnagrafica: qualita,
       crm: { ...crm, duplicati },
@@ -120,4 +108,4 @@ function createAnalyticsRouter(pmsDb, crmDb) {
   return router;
 }
 
-module.exports = { createAnalyticsRouter, risolviPeriodo, variazione, PERIODI };
+module.exports = { createAnalyticsRouter, risolviPeriodo, PERIODI };

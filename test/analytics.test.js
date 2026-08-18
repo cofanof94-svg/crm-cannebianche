@@ -3,11 +3,9 @@ const assert = require('node:assert');
 const request = require('supertest');
 const { createApp } = require('../src/app');
 const { hashPassword } = require('../src/auth/password');
-const { risolviPeriodo, variazione } = require('../src/api/analytics');
+const { risolviPeriodo } = require('../src/api/analytics');
 
 // --- Periodi -----------------------------------------------------------------
-// Il confronto col periodo precedente ha senso solo a parita' di finestra:
-// mettere sette giorni contro un mese direbbe soltanto che un mese e' piu' lungo.
 
 test('periodo predefinito: la finestra comprende oggi e dura quanto dichiarato', () => {
   const p = risolviPeriodo({ periodo: '7g' }, '2026-08-13');
@@ -16,15 +14,20 @@ test('periodo predefinito: la finestra comprende oggi e dura quanto dichiarato',
   assert.strictEqual(p.durata, 7);
 });
 
-test('il periodo precedente e\' lungo uguale e finisce il giorno prima', () => {
-  const p = risolviPeriodo({ periodo: '7g' }, '2026-08-13');
-  assert.deepStrictEqual(p.precedente, { da: '2026-07-31', a: '2026-08-06' });
+test('periodo personalizzato: si usa quello, e la durata si ricalcola', () => {
+  const p = risolviPeriodo({ da: '2026-01-01', a: '2026-01-31' }, '2026-08-13');
+  assert.strictEqual(p.da, '2026-01-01');
+  assert.strictEqual(p.a, '2026-01-31');
+  assert.strictEqual(p.durata, 31);
 });
 
-test('periodo personalizzato: si usa quello, e il precedente si ricalcola', () => {
-  const p = risolviPeriodo({ da: '2026-01-01', a: '2026-01-31' }, '2026-08-13');
-  assert.strictEqual(p.durata, 31);
-  assert.deepStrictEqual(p.precedente, { da: '2025-12-01', a: '2025-12-31' });
+test('del periodo precedente non resta traccia', () => {
+  // Le frecce di confronto sono state tolte il 18/08/2026: in un albergo
+  // stagionale confrontare trenta giorni di agosto con trenta di luglio racconta
+  // la stagione, non l'hotel. Se un giorno tornera' un confronto dovra' essere
+  // con lo stesso periodo dell'anno prima, che e' un altro calcolo.
+  const p = risolviPeriodo({ periodo: '7g' }, '2026-08-13');
+  assert.strictEqual(p.precedente, undefined);
 });
 
 test('date invertite: si rifiuta invece di restituire un periodo vuoto', () => {
@@ -47,24 +50,11 @@ test("l'aritmetica sulle date non si sposta col cambio dell'ora", () => {
   assert.strictEqual(p.durata, 7);
 });
 
-// --- Variazione --------------------------------------------------------------
-
-test('variazione: percentuale sul periodo precedente', () => {
-  assert.strictEqual(variazione(120, 100), 20);
-  assert.strictEqual(variazione(80, 100), -20);
-  assert.strictEqual(variazione(100, 100), 0);
-});
-
-test('variazione: se prima non c\'era niente non si inventa un +100%', () => {
-  // Una crescita percentuale calcolata su zero e' un numero senza significato
-  // che pero' sembra un risultato: meglio non mostrare la freccia.
-  assert.strictEqual(variazione(50, 0), null);
-  assert.strictEqual(variazione(0, 0), null);
-});
-
 // --- La rotta ----------------------------------------------------------------
 
-async function appAnalytics({ pms = {}, crm = {} } = {}) {
+// `conta` (facoltativo) tiene il numero di esecuzioni per interrogazione: serve a
+// dimostrare che l'interrogazione piu' pesante della pagina viene fatta UNA volta.
+async function appAnalytics({ pms = {}, crm = {}, conta = {} } = {}) {
   const admin = { id: 1, username: 'admin', password_hash: await hashPassword('pw'), role: 'admin', attivo: 1 };
   const crmDb = {
     async query(text, params) {
@@ -72,7 +62,7 @@ async function appAnalytics({ pms = {}, crm = {} } = {}) {
       if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) return Number(params.id) === 1 ? [admin] : [];
       if (/INSERT INTO crm_accessi/.test(text)) return [];
       if (/conPreferenze/.test(text)) return [crm.copertura || {}];
-      if (/AS preferenze/.test(text)) return [{}];
+      if (/AS preferenze/.test(text)) return [crm.scritte || {}];
       if (/AS daClassificare/.test(text)) return [{}];
       if (/FROM customer_preferences GROUP BY reparto/.test(text)) return [];
       if (/FROM ai_events/.test(text)) return crm.ai || [];
@@ -83,7 +73,7 @@ async function appAnalytics({ pms = {}, crm = {} } = {}) {
   const pmsDb = {
     async query(text) {
       if (/FROM Persona/.test(text)) return [{ data: '2026-08-13' }];
-      if (/AS diRitorno/.test(text)) return [pms.kpi || {}];
+      if (/AS diRitorno/.test(text)) { conta.kpi = (conta.kpi || 0) + 1; return [pms.kpi || {}]; }
       if (/AS senzaEmail/.test(text)) return [pms.qualita || {}];
       if (/SourcePrenota/.test(text)) return pms.canali || [];
       if (/CodNaz/.test(text)) return pms.nazioni || [];
@@ -103,8 +93,10 @@ async function entra(app) {
   return ag;
 }
 
-test('GET /api/analytics: KPI, confronto e periodo risolto', async () => {
+test('GET /api/analytics: KPI e periodo risolto', async () => {
+  const conta = {};
   const app = await appAnalytics({
+    conta,
     pms: {
       kpi: { soggiorni: 100, ospiti: 90, notti: 400, vip: 20, diRitorno: 30 },
       qualita: { ospiti: 90, senzaEmail: 30, senzaTelefono: 25, senzaDataNascita: 10 },
@@ -118,10 +110,22 @@ test('GET /api/analytics: KPI, confronto e periodo risolto', async () => {
   assert.strictEqual(res.body.ospiti.ospiti, 90);
   // Notti medie a SOGGIORNO, non a ospite: e' la domanda che si fa in hotel.
   assert.strictEqual(res.body.ospiti.nottiMedie, 4);
-  // Il periodo precedente usa la stessa finta, quindi i numeri coincidono: la
-  // variazione dev'essere zero, non nulla.
-  assert.strictEqual(res.body.ospiti.confronto.ospiti, 0);
   assert.deepStrictEqual(res.body.canali.map((c) => c.voce), ['DIRETTI', 'OTA']);
+  // Niente piu' confronto col periodo precedente, ne' nella risposta ne' come
+  // seconda esecuzione dell'interrogazione piu' pesante della pagina.
+  assert.strictEqual(res.body.ospiti.confronto, undefined);
+  assert.strictEqual(res.body.periodo.precedente, undefined);
+  assert.strictEqual(conta.kpi, 1, 'la query dei KPI dev\'essere eseguita una volta sola');
+});
+
+test('GET /api/analytics: quanto e\' stato scritto nel periodo arriva alla pagina', async () => {
+  // Il dato veniva calcolato dal server e buttato via: e' l'unico numero del
+  // blocco CRM che si muove, e risponde a "stiamo raccogliendo o siamo fermi?".
+  const app = await appAnalytics({ crm: { scritte: { preferenze: 12, allergie: 3, reclami: 1 } } });
+  const ag = await entra(app);
+  const res = await ag.get('/api/analytics?periodo=30g');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body.crm.scritteNelPeriodo, { preferenze: 12, allergie: 3, reclami: 1 });
 });
 
 test('GET /api/analytics: date invertite → 400 con un messaggio leggibile', async () => {

@@ -1023,10 +1023,6 @@ body.sola-lettura :is(
 .an-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
 .an-kpi-n { font-family: var(--font-display); font-size: 26px; font-weight: 600; color: var(--brand); line-height: 1.1; }
 .an-kpi-l { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.an-delta { display: inline-block; margin-top: 7px; font-size: 11px; font-weight: 700; border-radius: 5px; padding: 1px 6px; }
-.an-delta-su { color: var(--st-presente-fg); background: var(--st-presente-bg); }
-.an-delta-giu { color: var(--st-partenza-fg); background: var(--st-partenza-bg); }
-.an-delta-fermo { color: var(--muted); background: var(--surface-2); }
 
 .an-barre { display: flex; flex-direction: column; gap: 7px; }
 .an-barra { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; align-items: center; gap: 10px; font-size: 12.5px; }
@@ -1043,8 +1039,13 @@ body.sola-lettura :is(
 .an-trend-area { fill: var(--accent-050); stroke: none; }
 .an-trend-x { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); margin-top: 3px; }
 
-.an-cop { font-size: 13px; color: var(--text); background: var(--sand-050); border-left: 3px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 10px 14px; margin: 0 0 20px; }
+.an-cop { font-size: 13px; color: var(--text); background: var(--sand-050); border-left: 3px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 10px 14px; margin: 0 0 8px; }
 .an-su { color: var(--muted); }
+/* Il ritmo di raccolta sta sotto la copertura e più in sordina: la copertura è
+   dove siamo, questo è se ci stiamo muovendo. */
+.an-ritmo { font-size: 12.5px; color: var(--muted); margin: 0 0 20px; padding: 0 14px; }
+.an-ritmo b { color: var(--brand); font-weight: 700; }
+.an-ritmo-fermo { color: var(--faint); }
 
 /* I numeri che oggi sono piccoli (reclami, AI) stanno qui, senza percentuali:
    su due casi una percentuale sembra precisa e non lo è. */
