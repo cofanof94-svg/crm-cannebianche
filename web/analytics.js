@@ -7,23 +7,33 @@
 //
 // Due blocchi con dati di qualità molto diversa, e il motivo per cui sono
 // separati: gli ospiti li racconta il gestionale (81.792 anagrafiche, ~2.400
-// soggiorni l'anno), la conoscenza che ne abbiamo la racconta il CRM, che al
-// 13/08/2026 conteneva 64 preferenze su 14 clienti. Il secondo blocco quindi non
-// misura il business ma la COPERTURA: "quanto ne stiamo raccogliendo" è una
-// domanda che ha senso anche partendo da zero, "cosa dicono i dati raccolti" no.
+// soggiorni l'anno), la conoscenza che ne abbiamo la racconta il CRM, che
+// contiene poche decine di preferenze. Il secondo blocco quindi non misura il
+// business ma la COPERTURA: "quanto ne stiamo raccogliendo" è una domanda che
+// ha senso anche partendo da zero, "cosa dicono i dati raccolti" no.
+//
+// OGNI numero di questa pagina porta la sua definizione addosso, con la
+// iconcina (i) usata nel resto dell'applicazione. Non è pignoleria: gli stessi
+// dati si contano in modi diversi da un riquadro all'altro — i canali contano
+// SOGGIORNI, le nazionalità contano PERSONE, il blocco del CRM è quasi tutto
+// complessivo e non risente del periodo — e senza dirlo due riquadri vicini
+// sembrano confrontabili quando non lo sono.
 
 let analyticsInited = false;
 let analyticsPeriodo = '12m';
 
 const anNum = (n) => Number(n || 0).toLocaleString('it-IT');
 
+// La iconcina (i): stessa classe e stesso meccanismo del resto dell'app, così
+// la spiegazione si legge dove ci si aspetta di trovarla.
+const anInfo = (tip) => (tip ? ` <span class="info info-wide" data-tip="${esc(tip)}">i</span>` : '');
+
 // La freccia del confronto col periodo precedente. Quando prima non c'era nulla
 // il server manda null e qui non si disegna niente: una crescita percentuale
 // calcolata su zero è un numero senza significato che sembra un risultato.
 // La freccia da sola dice "+12%" senza dire rispetto a cosa: il confronto è con
 // il periodo PRECEDENTE della stessa lunghezza (sette giorni contro i sette
-// prima, non contro il mese). Se prima il valore era zero non si mostra niente:
-// una crescita calcolata su zero è un numero senza significato.
+// prima, non contro il mese).
 const CONFRONTO = 'Rispetto al periodo precedente, lungo uguale: sette giorni si confrontano con i sette prima, non con il mese.';
 
 function anDelta(v) {
@@ -34,9 +44,9 @@ function anDelta(v) {
 }
 
 function anKpi(etichetta, valore, delta, tip) {
-  return `<div class="an-kpi"${tip ? ` title="${esc(tip)}"` : ''}>
+  return `<div class="an-kpi">
     <div class="an-kpi-n">${anNum(valore)}</div>
-    <div class="an-kpi-l">${esc(etichetta)}</div>
+    <div class="an-kpi-l">${esc(etichetta)}${anInfo(tip)}</div>
     ${anDelta(delta)}</div>`;
 }
 
@@ -71,7 +81,7 @@ function anAndamento(serie) {
   const punti = s.map((p, i) => `${x(i).toFixed(1)},${y(p.n).toFixed(1)}`).join(' ');
   const area = `${pad},${H - pad} ${punti} ${(L - pad).toFixed(1)},${H - pad}`;
   return `<div class="an-trend">
-    <svg viewBox="0 0 ${L} ${H}" preserveAspectRatio="none" role="img" aria-label="Soggiorni per mese">
+    <svg viewBox="0 0 ${L} ${H}" preserveAspectRatio="none" role="img" aria-label="Soggiorni conclusi per mese">
       <polygon class="an-trend-area" points="${area}"></polygon>
       <polyline class="an-trend-linea" points="${punti}"></polyline>
     </svg>
@@ -79,11 +89,42 @@ function anAndamento(serie) {
   </div>`;
 }
 
-function anSezione(titolo, corpo, nota) {
+function anSezione(titolo, corpo, nota, tip) {
   return `<section class="an-sez">
-    <h2 class="an-h">${esc(titolo)}${nota ? ` <span class="an-nota">${esc(nota)}</span>` : ''}</h2>
+    <h2 class="an-h">${esc(titolo)}${anInfo(tip)}${nota ? ` <span class="an-nota">${esc(nota)}</span>` : ''}</h2>
     ${corpo}</section>`;
 }
+
+// Le definizioni, in un posto solo. Stanno qui e non sparse nel disegno della
+// pagina perché sono la parte che va tenuta d'accordo con le interrogazioni:
+// quando cambia il modo di contare si cambia qui, accanto al nome del numero.
+const T = {
+  ospitiSez: 'Numeri presi dal gestionale, che li ha tutti. Un soggiorno entra nel periodo quando ci FINISCE, non quando comincia: a quel punto è concluso e i consumi sono stati registrati tutti.',
+  ospiti: 'Quante persone diverse hanno concluso un soggiorno nel periodo. Chi è tornato più volte conta una volta sola. Si conta l’ospite intestatario della prenotazione, non chi lo accompagna in camera. Due anagrafiche della stessa persona non ancora collegate contano due.',
+  soggiorni: 'Quante prenotazioni si sono concluse nel periodo, da 1 a 200 notti. Lo stesso ospite può contarne più d’una, quindi il numero non è mai minore di Ospiti unici. Fuori i day use, che non sono soggiorni, e i voucher regalo, registrati come prenotazioni lunghe un anno.',
+  diRitorno: 'Quanti, fra gli ospiti del periodo, avevano già dormito qui prima di questo soggiorno. Guarda tutta la loro storia e non solo il periodo scelto: allargare o stringere la finestra non cambia chi è di ritorno.',
+  vip: 'Quanti, fra gli ospiti del periodo, hanno OGGI una classificazione VIP in anagrafica. La classificazione non è storicizzata: chi lo è diventato dopo il soggiorno conta lo stesso, e chi non lo è più non conta.',
+  nottiMedie: 'Notti totali diviso soggiorni conclusi nel periodo: è la media di un soggiorno, non di un ospite. Chi è venuto due volte pesa due volte.',
+  andamento: 'Quanti soggiorni si sono conclusi in ciascun mese: serve a vedere la forma della stagione. Il mese è quello della partenza. Se il periodo scelto sta dentro un mese solo il grafico non compare, perché un punto isolato non dice niente.',
+  canali: 'Da dove è arrivata la prenotazione: diretto, portali, tour operator, agenzie. Si contano i SOGGIORNI, non le persone — al contrario delle nazionalità qui accanto. Solo i primi otto canali.',
+  nazioni: 'La nazione registrata in anagrafica, scritta con il codice del gestionale. Si contano le PERSONE, non i soggiorni — al contrario dei canali qui accanto. Chi non ce l’ha compare come «Non indicata»: si mostra apposta, nasconderla falserebbe le proporzioni.',
+  vipClass: 'Come sono classificati gli ospiti VIP del periodo. Ogni ospite ha una classificazione sola, quindi compare in una riga sola; chi non è VIP non compare affatto. Solo le prime otto.',
+  consumi: 'Quante volte ciascun articolo è stato ordinato, e quanto ha fatto in tutto. Si contano le ordinazioni e non i pezzi, perché dicono cosa viene chiesto più spesso. Qui il periodo è quello dell’ordinazione, non del soggiorno, e comprende anche chi non ha dormito qui.',
+  spa: 'Trattamenti SPA addebitati nel periodo: quante volte ciascuno e quanto ha fatto. Sta in un riquadro a parte perché la SPA non passa dalle ordinazioni del ristorante, ed è esclusa dai consumi qui accanto per non contarla due volte.',
+
+  crmSez: 'Qui non si misura l’andamento dell’hotel ma quanto il CRM ha imparato, e quanto viene usato. Salvo dove è scritto il contrario, questi numeri sono COMPLESSIVI: non cambiano cambiando il periodo scelto sopra.',
+  conPreferenze: 'Quanti clienti hanno almeno una preferenza registrata nel CRM. Si contano le persone, non le preferenze. È un totale complessivo e non dipende dal periodo scelto.',
+  conAllergie: 'Quanti clienti hanno almeno un’allergia o un’intolleranza registrata nel CRM. Si contano le persone. È un totale complessivo e non dipende dal periodo scelto.',
+  conNote: 'Quanti clienti hanno una nota personale scritta nella loro scheda. Si contano le persone. È un totale complessivo e non dipende dal periodo scelto.',
+  fuse: 'Quante anagrafiche doppie sono state collegate alla scheda principale della stessa persona. Se una persona aveva tre schede e sono state riunite, qui conta due. Il collegamento è reversibile e non cancella niente.',
+  qualita: 'Quanti ospiti del periodo hanno l’anagrafica incompleta: sono le persone da completare al prossimo contatto. Senza telefono vuol dire senza fisso e senza cellulare. A differenza del resto del blocco, questo riquadro dipende dal periodo scelto.',
+  prefReparto: 'Quante preferenze sono state registrate per ciascun reparto. Qui si contano le PREFERENZE e non le persone: uno stesso cliente può averne più d’una, anche nello stesso reparto. Totale complessivo, non del periodo.',
+  accessiUtente: 'Quante volte ciascuno è entrato nell’applicazione nel periodo scelto. Solo gli accessi riusciti. Dice chi la sta usando, non quanto ci lavora dentro. Solo i primi otto.',
+  duplicati: 'Gruppi di anagrafiche che sembrano la stessa persona e su cui nessuno ha ancora deciso. Un gruppo esce dalla coda quando tutti i suoi codici sono stati collegati fra loro. Totale complessivo, non del periodo.',
+  reclami: 'Reclami ancora aperti, cioè senza una risoluzione registrata. Accanto: quanti ne sono stati raccolti in tutto, e quanti aspettano ancora di essere assegnati a un reparto e a una categoria. Totali complessivi, non del periodo.',
+  accessi: 'Accessi riusciti nel periodo, con quante persone diverse sono entrate e in quanti giorni diversi. Risponde a «l’applicazione viene aperta?», non a che cosa ci si fa dentro. I tentativi falliti non compaiono qui.',
+  ai: 'Quante volte è stata chiesta una generazione all’AI nel periodo, quante proposte ha restituito e quante ne sono state accettate. Proposte e accettate insieme dicono quanto le proposte sono utili.',
+};
 
 function renderAnalytics(d) {
   const o = d.ospiti || {};
@@ -97,66 +138,73 @@ function renderAnalytics(d) {
   const dup = crm.duplicati || null;
   const conf = o.confronto || {};
 
-  // La copertura si legge come frazione degli ospiti del periodo: "14" da solo
-  // non dice niente, "14 su 2.400" dice tutto.
-  const suOspiti = (n) => (q.ospiti ? ` <span class="an-su">su ${anNum(q.ospiti)} ospiti del periodo</span>` : '');
+  // Solo se ci sono almeno due mesi: altrimenti resterebbe l'intestazione di un
+  // grafico che non c'è.
+  const trend = anAndamento(d.andamento);
 
   const blocA = `
     <div class="an-kpis">
-      ${anKpi('Ospiti unici', o.ospiti, conf.ospiti, 'Persone distinte che hanno soggiornato nel periodo: chi è tornato due volte conta una volta sola')}
-      ${anKpi('Soggiorni', o.soggiorni, conf.soggiorni, 'Da 1 a 200 notti. I day use e i voucher regalo non sono soggiorni e restano fuori')}
-      ${anKpi('Di ritorno', o.diRitorno, conf.diRitorno, 'Ospiti che erano già stati qui prima di questo soggiorno')}
-      ${anKpi('VIP', o.vip, conf.vip, 'Ospiti che sono VIP ADESSO. La classificazione non è storicizzata: chi lo è diventato dopo il soggiorno conta lo stesso, chi non lo è più non conta')}
-      ${anKpi('Notti medie', o.nottiMedie, conf.nottiMedie, 'Notti in media per soggiorno, non per ospite')}
+      ${anKpi('Ospiti unici', o.ospiti, conf.ospiti, T.ospiti)}
+      ${anKpi('Soggiorni', o.soggiorni, conf.soggiorni, T.soggiorni)}
+      ${anKpi('Di ritorno', o.diRitorno, conf.diRitorno, T.diRitorno)}
+      ${anKpi('VIP', o.vip, conf.vip, T.vip)}
+      ${anKpi('Notti medie', o.nottiMedie, conf.nottiMedie, T.nottiMedie)}
     </div>
-    ${anAndamento(d.andamento)}
+    ${trend ? anSezione('Soggiorni conclusi per mese', trend, null, T.andamento) : ''}
     <div class="an-griglia">
-      ${anSezione('Da dove arrivano', anBarre(d.canali))}
-      ${anSezione('Provenienza', anBarre(d.nazioni))}
-      ${anSezione('Classificazioni VIP', anBarre(d.vip))}
+      ${anSezione('Canali di prenotazione', anBarre(d.canali), 'soggiorni', T.canali)}
+      ${anSezione('Nazionalità degli ospiti', anBarre(d.nazioni), 'persone', T.nazioni)}
+      ${anSezione('Classificazioni VIP', anBarre(d.vip), 'persone', T.vipClass)}
     </div>
     <div class="an-griglia an-griglia-2">
-      ${anSezione('Consumi F&B', anBarre(d.consumi), d.soloVip ? 'solo ospiti VIP' : 'ordinazioni')}
-      ${anSezione('SPA', anBarre(d.spa), 'trattamenti')}
+      ${anSezione('Consumi F&B', anBarre(d.consumi), d.soloVip ? 'solo ospiti VIP' : 'ordinazioni', T.consumi)}
+      ${anSezione('SPA', anBarre(d.spa), 'trattamenti', T.spa)}
     </div>`;
 
   const aiRighe = (crm.ai || []).map((a) => `<div class="an-minore">
-      <b>${anNum(a.generati)}</b> ${esc(a.funzione)}
+      <b>${anNum(a.generati)}</b> ${esc(a.funzione)}${anInfo(T.ai)}
       <small>${anNum(a.proposte)} proposte · ${anNum(a.accettati)} accettate</small></div>`).join('');
+
+  // La nota del riquadro qualità porta il totale su cui è calcolato: "141 senza
+  // email" da solo non dice se sono tanti. Il numero è lo stesso di Ospiti
+  // unici, ed è l'unica frazione della pagina in cui numeratore e denominatore
+  // guardano la stessa popolazione.
+  const notaQualita = q.ospiti ? `su ${anNum(q.ospiti)} ospiti del periodo` : 'fra gli ospiti del periodo';
 
   const blocB = `
     <div class="an-kpis">
-      ${anKpi('Con preferenze', c.conPreferenze, null, 'Clienti con almeno una preferenza registrata nel CRM, di qualunque data')}
-      ${anKpi('Con allergie', c.conAllergie, null, 'Clienti con almeno un\'allergia registrata')}
-      ${anKpi('Con note personali', c.conNotePersonali, null, 'Clienti con una nota personale scritta nel CRM')}
-      ${anKpi('Anagrafiche fuse', c.anagraficheFuse, null, 'Anagrafiche diverse riconosciute come la stessa persona e collegate fra loro')}
+      ${anKpi('Con preferenze', c.conPreferenze, null, T.conPreferenze)}
+      ${anKpi('Con allergie', c.conAllergie, null, T.conAllergie)}
+      ${anKpi('Con note personali', c.conNotePersonali, null, T.conNote)}
+      ${anKpi('Anagrafiche collegate', c.anagraficheFuse, null, T.fuse)}
     </div>
-    <p class="an-cop">Clienti con almeno una preferenza: <b>${anNum(c.conPreferenze)}</b>${suOspiti(c.conPreferenze)}.
-      È il numero da far salire: misura quanto il CRM sta diventando utile.</p>
+    <p class="an-cop">Clienti di cui conosciamo almeno una preferenza: <b>${anNum(c.conPreferenze)}</b>.
+      È il numero da far salire: misura quanto il CRM sta diventando utile.
+      <span class="an-su">Sono tutti i clienti conosciuti finora, non solo quelli del periodo.</span></p>
     <div class="an-griglia">
       ${anSezione('Anagrafiche da completare', anBarre([
     { voce: 'Senza email', n: q.senzaEmail },
     { voce: 'Senza telefono', n: q.senzaTelefono },
     { voce: 'Senza data di nascita', n: q.senzaDataNascita },
-  ], { vuoto: 'Tutte complete.' }), 'fra gli ospiti del periodo')}
-      ${anSezione('Preferenze per reparto', anBarre(crm.preferenzePerReparto))}
-      ${anSezione('Chi usa l\'applicazione', anBarre(acc.perUtente, { suffisso: ' accessi', vuoto: 'Nessun accesso registrato nel periodo.' }))}
+  ], { vuoto: 'Tutte complete.' }), notaQualita, T.qualita)}
+      ${anSezione('Preferenze per reparto', anBarre(crm.preferenzePerReparto), 'in tutto', T.prefReparto)}
+      ${anSezione('Chi usa l\'applicazione', anBarre(acc.perUtente, { suffisso: ' accessi', vuoto: 'Nessun accesso registrato nel periodo.' }), 'nel periodo', T.accessiUtente)}
     </div>
     <div class="an-minori">
-      ${dup ? `<a class="an-minore" href="#duplicati" title="Gruppi di anagrafiche che sembrano la stessa persona e su cui nessuno ha ancora deciso. Un gruppo esce dalla coda quando tutti i suoi codici sono stati collegati fra loro.">
-        <b>${anNum(dup.daGestire)}</b> duplicati da gestire
+      ${dup ? `<a class="an-minore" href="#duplicati">
+        <b>${anNum(dup.daGestire)}</b> duplicati da gestire${anInfo(T.duplicati)}
         <small>${anNum(dup.gestiti)} già associati · apri la pagina</small></a>` : ''}
-      <div class="an-minore"><b>${anNum(rec.aperti)}</b> reclami aperti
+      <div class="an-minore"><b>${anNum(rec.aperti)}</b> reclami aperti${anInfo(T.reclami)}
         <small>${anNum(rec.totali)} in tutto · ${anNum(rec.daClassificare)} da classificare</small></div>
-      <div class="an-minore"><b>${anNum(acc.riusciti)}</b> accessi
+      <div class="an-minore"><b>${anNum(acc.riusciti)}</b> accessi${anInfo(T.accessi)}
         <small>${anNum(acc.utentiAttivi)} utenti in ${anNum(acc.giorniConAccessi)} giorni</small></div>
-      ${aiRighe || '<div class="an-minore an-minore-vuoto"><b>—</b> uso dell\'AI<small>nessuna generazione registrata finora</small></div>'}
+      ${aiRighe || `<div class="an-minore an-minore-vuoto"><b>—</b> uso dell’AI${anInfo(T.ai)}<small>nessuna generazione registrata finora</small></div>`}
     </div>`;
 
   return `<div class="an-periodo-eco">Periodo <b>${fmtData(d.periodo.da)} → ${fmtData(d.periodo.a)}</b>
       <span>${d.periodo.giorni} giorni · confronto con ${fmtData(d.periodo.precedente.da)} → ${fmtData(d.periodo.precedente.a)}</span></div>
-    ${anSezione('I nostri ospiti', blocA, 'dal gestionale')}
-    ${anSezione('Quanto conosciamo gli ospiti', blocB, 'dal CRM')}`;
+    ${anSezione('I nostri ospiti', blocA, 'dal gestionale', T.ospitiSez)}
+    ${anSezione('Quanto conosciamo gli ospiti', blocB, 'dal CRM', T.crmSez)}`;
 }
 
 async function loadAnalytics() {

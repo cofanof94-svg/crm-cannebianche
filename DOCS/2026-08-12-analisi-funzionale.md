@@ -24,7 +24,7 @@ Una regola può portare più marche: `[DOC][TEST]` significa che è richiesta ed
 |---|---|
 | `[DECISO]` | Regola discussa e decisa con il committente (12 o 13 agosto 2026). Non è più una deduzione: è un requisito. |
 
-Il documento è aggiornato alle decisioni prese. Delle tre domande che richiedevano i dati veri dell'hotel, **due sono state chiuse il 13/08** e una resta aperta perché ha bisogno di giorni d'uso, non di un'interrogazione: sono in §20.
+Il documento è aggiornato alle decisioni prese. Delle tre domande che richiedevano i dati veri dell'hotel, **due sono state chiuse il 13/08** e una resta aperta perché ha bisogno di giorni d'uso, non di un'interrogazione: sono in §21.
 
 **Cosa è cambiato il 13/08/2026, in hotel.** La giornata è servita a mettere l'applicazione davanti ai dati veri per la prima volta, e ha prodotto più correzioni della settimana precedente: gli **ospiti del giorno** che non comparivano da nessuna parte (§5), il badge **"Nª volta"** che contava come soggiorni le giornate e i voucher (§7), le allergie scritte in **anagrafica** che non arrivavano in cucina (§11), il **check-out** deciso da una riga presa a caso (§5), e un permesso revocato che **restava valido per ore** (§2). Nessuno di questi si vedeva sul server di sviluppo con dati inventati.
 
@@ -51,7 +51,8 @@ Il documento è aggiornato alle decisioni prese. Delle tre domande che richiedev
 17. [Gestione utenti](#17-gestione-utenti)
 18. [Funzioni AI](#18-funzioni-ai)
 19. [Import periodico (scritto, non collegato)](#19-import-periodico-scritto-non-collegato)
-20. [Decisioni prese e domande ancora aperte](#20-decisioni-prese-e-domande-ancora-aperte)
+20. [Analytics](#20-analytics)
+21. [Decisioni prese e domande ancora aperte](#21-decisioni-prese-e-domande-ancora-aperte)
 
 ---
 
@@ -880,7 +881,87 @@ Poiché l'import resta scollegato, **tutto ciò che arriva dal gestionale è let
 
 ---
 
-## 20. Decisioni prese e domande ancora aperte
+## 20. Analytics
+
+La dashboard risponde a due domande diverse, e per questo è divisa in due blocchi che **non vanno letti con lo stesso metro** `[CODICE]`:
+
+- **I nostri ospiti — dal gestionale.** Chi è venuto, da dove, cosa ha consumato. Il gestionale è pieno: decine di migliaia di anagrafiche e migliaia di soggiorni l'anno.
+- **Quanto conosciamo gli ospiti — dal CRM.** Quante persone hanno una preferenza, un'allergia, una nota; quanto l'applicazione viene aperta. Qui i numeri sono piccoli perché il CRM è appena nato, e infatti il blocco **non misura il business ma la copertura**: "quanto ne stiamo raccogliendo" è una domanda che ha senso anche partendo da zero, "cosa dicono i dati raccolti" no.
+
+Tenerli insieme farebbe sembrare inaffidabile anche la metà buona.
+
+### 20.1 Il periodo
+
+Il periodo si sceglie fra quattro pulsanti (7 giorni, 30 giorni, 3 mesi, 12 mesi) o a mano con due date. "Oggi" è la **data di lavoro del gestionale**, non l'orologio del server: è la stessa regola di Arrivi e In casa, e serve perché in hotel la giornata contabile non finisce a mezzanotte `[CODICE]`.
+
+Due regole che valgono per tutta la pagina:
+
+- **Un soggiorno cade nel periodo quando ci FINISCE**, non quando comincia. A quel punto è concluso e i consumi sono stati registrati tutti; contarlo dall'arrivo farebbe entrare soggiorni ancora in corso, con metà dei numeri a zero `[CODICE]`.
+- **Il confronto è con il periodo precedente della stessa lunghezza**: sette giorni contro i sette prima, non contro il mese. Se prima il valore era zero la freccia **non compare**: una crescita percentuale calcolata su zero è un numero senza significato che sembra un risultato `[CODICE][TEST]`.
+
+Che cos'è un **soggiorno**: una prenotazione da **1 a 200 notti**. Sotto c'è il day use (SPA, piscina, cene per esterni), sopra il voucher regalo, registrato come prenotazione lunga un anno perché quella è la sua validità. Contarli tutti è l'errore che faceva risultare "di ritorno" migliaia di ospiti che non avevano mai dormito qui `[CODICE]`.
+
+### 20.2 Che cosa conta ogni numero
+
+Ogni numero della pagina porta la sua definizione addosso, con la **iconcina (i)** usata nel resto dell'applicazione `[CODICE][TEST]`. Non è pignoleria: riquadri affiancati contano cose diverse, e senza dirlo sembrano confrontabili quando non lo sono.
+
+| Numero | Conta | Unità | Risente del periodo |
+|---|---|---|---|
+| Ospiti unici | persone diverse che hanno concluso un soggiorno | persone | sì |
+| Soggiorni | prenotazioni concluse (1–200 notti) | soggiorni | sì |
+| Di ritorno | ospiti del periodo che avevano già dormito qui prima di quel soggiorno | persone | sì (ma guarda tutta la storia) |
+| VIP | ospiti del periodo che hanno **oggi** una classificazione VIP | persone | sì |
+| Notti medie | notti totali ÷ soggiorni | media per soggiorno | sì |
+| Soggiorni conclusi per mese | soggiorni, raggruppati per mese di partenza | soggiorni | sì |
+| Canali di prenotazione | da dove è arrivata la prenotazione | **soggiorni** | sì |
+| Nazionalità degli ospiti | nazione dell'anagrafica | **persone** | sì |
+| Classificazioni VIP | come sono classificati i VIP del periodo | persone | sì |
+| Consumi F&B | quante volte un articolo è stato ordinato | ordinazioni | sì, **per data dell'ordinazione** |
+| SPA | trattamenti addebitati | addebiti | sì, per data dell'addebito |
+| Con preferenze / allergie / note personali | clienti che hanno almeno quella cosa nel CRM | persone | **no, complessivo** |
+| Anagrafiche collegate | anagrafiche doppie agganciate a una principale | collegamenti | **no, complessivo** |
+| Anagrafiche da completare | ospiti del periodo senza email, telefono o data di nascita | persone | sì |
+| Preferenze per reparto | **preferenze**, non persone | preferenze | **no, complessivo** |
+| Chi usa l'applicazione / Accessi | accessi **riusciti** | accessi | sì |
+| Duplicati da gestire | gruppi su cui nessuno ha ancora deciso | gruppi | **no, complessivo** |
+| Reclami | reclami aperti, in tutto, da classificare | reclami | **no, complessivo** |
+| Uso dell'AI | generazioni chieste, proposte tornate, proposte accettate | eventi | sì |
+
+Le cinque distinzioni che si sbagliano più facilmente:
+
+1. **Ospiti unici ≠ Soggiorni.** Chi torna conta una volta sola fra gli ospiti e due volte fra i soggiorni, quindi Soggiorni non è mai minore di Ospiti unici.
+2. **Canali conta soggiorni, Nazionalità conta persone**, e stanno affiancati. Sono i due riquadri più facili da confrontare per sbaglio.
+3. **Ospiti unici conta l'intestatario della prenotazione**, non chi lo accompagna in camera: gli accompagnatori sono nel nucleo (§14), non qui.
+4. **Due anagrafiche della stessa persona non ancora collegate contano due.** Sulla stessa pagina, poco più sotto, c'è il numero dei duplicati ancora da gestire (§15): è la misura di quanto questo pesi.
+5. **Il blocco del CRM è quasi tutto complessivo.** L'unica eccezione è "Anagrafiche da completare", che dipende dal periodo, e per questo lo dichiara.
+
+**Di ritorno** merita una riga a parte. Un ospite è "di ritorno" se il suo **primo soggiorno in assoluto** si era già concluso quando è arrivato: non "prima dell'inizio del periodo". La differenza non è accademica — con la seconda definizione chi veniva due volte nello stesso anno risultava nuovo tutte e due le volte, e su dodici mesi i clienti di ritorno crollavano a una frazione del vero, facendo credere all'hotel di non fidelizzare nessuno. Così invece il numero non dipende da dove si taglia la finestra, che è la proprietà che serve a un filtro temporale `[CODICE]`.
+
+### 20.3 Correzioni fatte il 18/08/2026 `[DECISO]`
+
+**Una frazione mescolava due popolazioni.** La riga della copertura diceva *"Clienti con almeno una preferenza: N su M ospiti del periodo"*, ma **N era complessivo** (tutti i clienti conosciuti, di qualunque data) e **M era del periodo**. Su una finestra corta la frazione poteva mostrare più clienti che ospiti, cioè una percentuale sopra il cento. Il denominatore è stato tolto e la riga ora dichiara di essere complessiva. C'è un test che impedisce di rimetterlo `[TEST]`.
+
+Calcolare la copertura *sugli ospiti del periodo* — cioè quanti, fra chi ha soggiornato, hanno almeno una preferenza — è possibile e sarebbe la misura più utile, ma richiede di incrociare le due banche dati passando migliaia di codici. Non è stato fatto: se un giorno servirà, è un lavoro a sé.
+
+**Tre nomi cambiati**, perché il nome vecchio non diceva cosa c'era dentro:
+
+| Prima | Adesso | Perché |
+|---|---|---|
+| Da dove arrivano | **Canali di prenotazione** | "da dove" e "provenienza" sembravano la stessa cosa e non lo erano |
+| Provenienza | **Nazionalità degli ospiti** | idem, e chiarisce che è la persona, non la prenotazione |
+| Anagrafiche fuse | **Anagrafiche collegate** | "fuse" fa pensare a qualcosa di distruttivo: il collegamento è reversibile e non cancella niente (§15) |
+
+**Il grafico dell'andamento aveva un titolo solo per i lettori di schermo**: adesso si chiama "Soggiorni conclusi per mese" e dice che il mese è quello della partenza.
+
+### 20.4 Cosa resta aperto
+
+- **Le nazionalità sono codici, non nomi.** Il riquadro mostra il codice dell'anagrafica (per esempio `I`, `GB`, `D`), non "Italia", "Regno Unito", "Germania". Il gestionale ha una tabella di decodifica, ma i nomi delle sue colonne non sono documentati: **serve una lettura sul database dell'hotel** per collegarla. Finché non è fatto, la iconcina avverte che il valore è un codice.
+- **Sugli schermi molto stretti** (telefono) l'intera applicazione scorre in orizzontale per via della barra laterale: è un limite del layout generale, non della dashboard.
+- **Analytics non applica le fusioni**: due anagrafiche collegate contano ancora due nei numeri del gestionale. Allinearle vorrebbe dire rileggere il CRM dentro ogni interrogazione del gestionale; per ora lo dice la iconcina.
+
+---
+
+## 21. Decisioni prese e domande ancora aperte
 
 La prima stesura di questo documento si chiudeva con **16 domande**: contraddizioni fra codice e documenti, comportamenti che potevano non essere quelli voluti, regole applicate in un punto e non in un altro simile.
 

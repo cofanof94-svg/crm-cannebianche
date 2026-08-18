@@ -1054,3 +1054,26 @@ body.sola-lettura :is(
 .an-minore small { display: block; color: var(--faint); font-size: 11.5px; margin-top: 3px; }
 a.an-minore:hover { background: var(--sand-050); }
 .an-minore-vuoto b { color: var(--faint); }
+
+/* Le iconcine (i) che spiegano ogni numero. Sull'ultimo riquadro di ogni fila
+   il fumetto centrato uscirebbe dal bordo destro della pagina: lì si ancora a
+   destra. Ancorarlo a destra non lo fa mai uscire a sinistra, perché i riquadri
+   sono sempre più larghi del fumetto. */
+/* Da nascosti i fumetti spariscono per davvero. Altrove nell'app sono pochi e
+   in mezzo alla pagina, qui sono ventiquattro e molti sfiorano il bordo: un
+   fumetto invisibile ma piazzato allarga comunque la pagina, e la barra di
+   scorrimento orizzontale compare senza che si veda perché. Si perde la
+   dissolvenza di 140 millesimi, che nessuno guarda. */
+#analytics-body .info::after { display: none; }
+#analytics-body .info:hover::after { display: block; }
+/* Sugli schermi stretti le colonne si ricompongono e l'ultimo riquadro della
+   fila non è più quello ancorato a destra: il fumetto si restringe, così sta
+   dentro comunque. */
+@media (max-width: 900px) { #analytics-body .info::after { max-width: 200px; } }
+
+.an-h .info { vertical-align: 2px; }
+.an-kpi-l .info { vertical-align: 0; }
+.an-kpi .info::after { max-width: 260px; }
+.an-kpis .an-kpi:last-child .info::after,
+.an-griglia > .an-sez:last-child .info::after,
+.an-minori > *:last-child .info::after { left: auto; right: 0; transform: none; }

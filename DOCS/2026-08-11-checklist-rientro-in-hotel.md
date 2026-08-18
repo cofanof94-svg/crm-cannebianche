@@ -260,9 +260,19 @@ raccogliere.
       passa dalla stessa POST di una scritta a mano. Le preferenze salvate NON si
       perdono; si perde solo la provenienza
 
-### Dashboard Analytics
-Analisi già fatta, da riusare: [2026-08-10-analytics-dashboard-analisi.md](2026-08-10-analytics-dashboard-analisi.md).
-Rimandata apposta per non scrivere aggregati alla cieca.
+### Dashboard Analytics — decodificare le nazionalità
+Il riquadro "Nazionalità degli ospiti" mostra il **codice** dell'anagrafica (`I`, `GB`,
+`D`…) invece del nome della nazione: chi sta al banco non deve indovinare che `I` è
+l'Italia. Il gestionale ha una tabella `Nazioni`, ma i nomi delle sue colonne non sono
+documentati da nessuna parte, e tirare a indovinare la join significherebbe spegnere il
+riquadro in produzione.
+
+**Da fare in hotel, in due minuti:** leggere le colonne di `Nazioni`
+(`SELECT TOP 5 * FROM Nazioni`), poi aggiungere la LEFT JOIN in `sqlNazioni`
+(`src/pms/analytics.js`) con fallback sul codice quando la decodifica manca, come già
+fa `sqlVip` con `TabVip`.
+
+Analisi originale della dashboard, se serve: [2026-08-10-analytics-dashboard-analisi.md](2026-08-10-analytics-dashboard-analisi.md).
 
 ### Export per intervallo di date
 Oggi l'export copre **una** data (quella mostrata dalla pagina). L'intervallo richiede

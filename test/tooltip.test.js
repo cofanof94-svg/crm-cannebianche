@@ -40,8 +40,9 @@ test('i soggiorni non comprendono i day use, e lo dicono', () => {
 
 test('nessun tooltip parla il linguaggio del database', () => {
   // "codalb" è il nome di una colonna: chi sta al banco non deve incontrarlo.
-  const tecnici = [/codalb/i, /codclinterm/i, /codpratica/i, /StorPrenota/i, /flgincasa/i, /\bNVARCHAR\b/i];
-  for (const t of tips(HTML).concat(tips(APP))) {
+  const tecnici = [/codalb/i, /codclinterm/i, /codpratica/i, /StorPrenota/i, /flgincasa/i, /\bNVARCHAR\b/i,
+    /\bCodVip\b/, /\bAnagra\b/, /\bStorMatura\b/, /\bStorComanda\b/, /\bCodNaz\b/];
+  for (const t of tips(HTML).concat(tips(APP), Object.values(anTips()))) {
     for (const brutto of tecnici) {
       assert.doesNotMatch(t, brutto, `tooltip troppo tecnico: ${t.slice(0, 70)}…`);
     }
@@ -69,10 +70,66 @@ test('la variazione in Analytics dice rispetto a cosa', () => {
   assert.match(AN, /an-delta-su[\s\S]*title="\$\{esc\(CONFRONTO\)\}"/);
 });
 
+// Le definizioni dei numeri di Analytics, estratte dall'oggetto T di
+// web/analytics.js: sono la parte che va tenuta d'accordo con le
+// interrogazioni, e questi test ne fissano le affermazioni che non possono
+// diventare false in silenzio.
+const anTips = () => {
+  const inizio = AN.indexOf('const T = {');
+  assert.notStrictEqual(inizio, -1, 'le definizioni di Analytics non si trovano più');
+  const blocco = AN.slice(inizio, AN.indexOf('\n};', inizio));
+  const voci = {};
+  for (const m of blocco.matchAll(/^  (\w+): '([^']*)',$/gm)) voci[m[1]] = m[2];
+  return voci;
+};
+
 test('il conteggio VIP di Analytics dichiara di misurare il presente', () => {
-  // Il VIP non è storicizzato (decisione del 14/08): il numero cambia da solo
-  // quando qualcuno tocca una classificazione in anagrafica.
-  assert.match(AN, /VIP ADESSO/);
+  // Il VIP non è storicizzato: il numero cambia da solo quando qualcuno tocca
+  // una classificazione in anagrafica.
+  const vip = anTips().vip;
+  assert.ok(vip, 'manca la definizione del riquadro VIP');
+  assert.match(vip, /OGGI/);
+  assert.match(vip, /non è storicizzat/);
+});
+
+test('ogni numero di Analytics ha la sua definizione', () => {
+  // Un riquadro senza (i) è un numero che l'utente deve indovinare.
+  const senzaTip = [...AN.matchAll(/\$\{anKpi\((.*)\)\}/g)].filter((m) => !/T\.\w+/.test(m[1]));
+  assert.deepStrictEqual(senzaTip.map((m) => m[1]), [], 'ci sono riquadri KPI senza spiegazione');
+  const sezioni = [...AN.matchAll(/anSezione\('([^']+)'[^\n]*\)/g)];
+  assert.ok(sezioni.length >= 8, `trovate solo ${sezioni.length} sezioni: la ricerca non guarda dove crede`);
+  for (const s of sezioni) {
+    assert.match(s[0], /T\.\w+/, `la sezione "${s[1]}" non ha una spiegazione`);
+  }
+});
+
+test('le definizioni di Analytics dicono che cosa contano', () => {
+  // Due riquadri affiancati che contano cose diverse sono la trappola peggiore
+  // della pagina: i canali contano soggiorni, le nazionalità contano persone.
+  const t = anTips();
+  assert.match(t.canali, /SOGGIORNI/);
+  assert.match(t.nazioni, /PERSONE/);
+  assert.match(t.prefReparto, /PREFERENZE/);
+  // Ospiti unici e Soggiorni si assomigliano e non lo sono: va detto in che
+  // rapporto stanno.
+  assert.match(t.ospiti, /una volta sola/);
+  assert.match(t.soggiorni, /Ospiti unici/);
+  // Il blocco del CRM è quasi tutto complessivo, quello del gestionale no.
+  assert.match(t.crmSez, /non cambiano cambiando il periodo/);
+  for (const k of ['conPreferenze', 'conAllergie', 'conNote']) {
+    assert.match(t[k], /non dipende dal periodo/, `${k} non dice di essere complessivo`);
+  }
+  // L'eccezione dentro il blocco complessivo va dichiarata, altrimenti si legge
+  // con la regola del vicino.
+  assert.match(t.qualita, /dipende dal periodo scelto/);
+});
+
+test('la copertura non mescola due popolazioni diverse', () => {
+  // La riga diceva "N su M ospiti del periodo" con N complessivo e M del
+  // periodo: su una finestra corta poteva mostrare più clienti che ospiti.
+  const cop = AN.slice(AN.indexOf('class="an-cop"'), AN.indexOf('</p>', AN.indexOf('class="an-cop"')));
+  assert.doesNotMatch(cop, /ospiti del periodo/, 'numeratore complessivo e denominatore del periodo');
+  assert.match(cop, /non solo quelli del periodo/, 'va detto che il numero è complessivo');
 });
 
 test('nessun tooltip contiene una data', () => {
@@ -83,7 +140,7 @@ test('nessun tooltip contiene una data', () => {
   // non davanti all'utente.
   const dentroCodice = [...APP.matchAll(/tip: '([^']*)'/g)].map((m) => m[1]);
   const dentroAnalytics = [...AN.matchAll(/<small>([^<]*)<\/small>/g)].map((m) => m[1]);
-  const tutti = tips(HTML).concat(tips(APP), dentroCodice, dentroAnalytics);
+  const tutti = tips(HTML).concat(tips(APP), dentroCodice, dentroAnalytics, Object.values(anTips()));
   assert.ok(tutti.length > 20, `trovati solo ${tutti.length} testi: la ricerca non guarda dove crede`);
   for (const x of tutti) {
     assert.doesNotMatch(x, /\d{1,2}\/\d{1,2}\/20\d\d/, `data nell'interfaccia: ${x.slice(0, 70)}…`);
@@ -95,7 +152,7 @@ test('nessun tooltip contiene una data', () => {
 test('i tooltip restano brevi', () => {
   // Non sono documentazione: se servono più di trecento caratteri, la schermata
   // ha un problema che un tooltip non risolve.
-  for (const t of tips(HTML).concat(tips(APP))) {
+  for (const t of tips(HTML).concat(tips(APP), Object.values(anTips()))) {
     assert.ok(t.length <= 340, `tooltip troppo lungo (${t.length}): ${t.slice(0, 60)}…`);
   }
 });
