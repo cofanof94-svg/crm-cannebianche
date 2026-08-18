@@ -20,11 +20,17 @@ const anNum = (n) => Number(n || 0).toLocaleString('it-IT');
 // La freccia del confronto col periodo precedente. Quando prima non c'era nulla
 // il server manda null e qui non si disegna niente: una crescita percentuale
 // calcolata su zero è un numero senza significato che sembra un risultato.
+// La freccia da sola dice "+12%" senza dire rispetto a cosa: il confronto è con
+// il periodo PRECEDENTE della stessa lunghezza (sette giorni contro i sette
+// prima, non contro il mese). Se prima il valore era zero non si mostra niente:
+// una crescita calcolata su zero è un numero senza significato.
+const CONFRONTO = 'Rispetto al periodo precedente, lungo uguale: sette giorni si confrontano con i sette prima, non con il mese.';
+
 function anDelta(v) {
   if (v == null) return '';
-  if (v === 0) return '<span class="an-delta an-delta-fermo">= stabile</span>';
+  if (v === 0) return `<span class="an-delta an-delta-fermo" title="${esc(CONFRONTO)}">= stabile</span>`;
   const su = v > 0;
-  return `<span class="an-delta ${su ? 'an-delta-su' : 'an-delta-giu'}">${su ? '▲' : '▼'} ${Math.abs(v)}%</span>`;
+  return `<span class="an-delta ${su ? 'an-delta-su' : 'an-delta-giu'}" title="${esc(CONFRONTO)}">${su ? '▲' : '▼'} ${Math.abs(v)}%</span>`;
 }
 
 function anKpi(etichetta, valore, delta, tip) {
@@ -97,11 +103,11 @@ function renderAnalytics(d) {
 
   const blocA = `
     <div class="an-kpis">
-      ${anKpi('Ospiti unici', o.ospiti, conf.ospiti, 'Persone distinte che hanno concluso un soggiorno nel periodo')}
-      ${anKpi('Soggiorni', o.soggiorni, conf.soggiorni, 'Da 1 a 200 notti: le giornate e i voucher non sono soggiorni')}
-      ${anKpi('Di ritorno', o.diRitorno, conf.diRitorno, 'Ospiti che avevano gia soggiornato qui prima di questo soggiorno')}
-      ${anKpi('VIP', o.vip, conf.vip, 'Ospiti con una classificazione VIP in anagrafica')}
-      ${anKpi('Notti medie', o.nottiMedie, conf.nottiMedie, 'Notti per soggiorno')}
+      ${anKpi('Ospiti unici', o.ospiti, conf.ospiti, 'Persone distinte che hanno soggiornato nel periodo: chi è tornato due volte conta una volta sola')}
+      ${anKpi('Soggiorni', o.soggiorni, conf.soggiorni, 'Da 1 a 200 notti. I day use e i voucher regalo non sono soggiorni e restano fuori')}
+      ${anKpi('Di ritorno', o.diRitorno, conf.diRitorno, 'Ospiti che erano già stati qui prima di questo soggiorno')}
+      ${anKpi('VIP', o.vip, conf.vip, 'Ospiti che sono VIP ADESSO. La classificazione non è storicizzata: chi lo è diventato dopo il soggiorno conta lo stesso, chi non lo è più non conta')}
+      ${anKpi('Notti medie', o.nottiMedie, conf.nottiMedie, 'Notti in media per soggiorno, non per ospite')}
     </div>
     ${anAndamento(d.andamento)}
     <div class="an-griglia">
@@ -120,10 +126,10 @@ function renderAnalytics(d) {
 
   const blocB = `
     <div class="an-kpis">
-      ${anKpi('Con preferenze', c.conPreferenze, null, 'Clienti con almeno una preferenza registrata')}
+      ${anKpi('Con preferenze', c.conPreferenze, null, 'Clienti con almeno una preferenza registrata nel CRM, di qualunque data')}
       ${anKpi('Con allergie', c.conAllergie, null, 'Clienti con almeno un\'allergia registrata')}
-      ${anKpi('Con note personali', c.conNotePersonali, null, 'Profili con una nota personale')}
-      ${anKpi('Anagrafiche fuse', c.anagraficheFuse, null, 'Duplicati gia associati')}
+      ${anKpi('Con note personali', c.conNotePersonali, null, 'Clienti con una nota personale scritta nel CRM')}
+      ${anKpi('Anagrafiche fuse', c.anagraficheFuse, null, 'Anagrafiche diverse riconosciute come la stessa persona e collegate fra loro')}
     </div>
     <p class="an-cop">Clienti con almeno una preferenza: <b>${anNum(c.conPreferenze)}</b>${suOspiti(c.conPreferenze)}.
       È il numero da far salire: misura quanto il CRM sta diventando utile.</p>
@@ -137,7 +143,7 @@ function renderAnalytics(d) {
       ${anSezione('Chi usa l\'applicazione', anBarre(acc.perUtente, { suffisso: ' accessi', vuoto: 'Nessun accesso registrato nel periodo.' }))}
     </div>
     <div class="an-minori">
-      ${dup ? `<a class="an-minore" href="#duplicati" title="Apri la coda di lavoro dei duplicati">
+      ${dup ? `<a class="an-minore" href="#duplicati" title="Gruppi di anagrafiche che sembrano la stessa persona e su cui nessuno ha ancora deciso. Un gruppo esce dalla coda quando tutti i suoi codici sono stati collegati fra loro.">
         <b>${anNum(dup.daGestire)}</b> duplicati da gestire
         <small>${anNum(dup.gestiti)} già associati · apri la pagina</small></a>` : ''}
       <div class="an-minore"><b>${anNum(rec.aperti)}</b> reclami aperti

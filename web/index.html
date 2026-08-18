@@ -300,14 +300,14 @@
 
             <!-- RELAZIONE: metriche chiave, sempre visibili -->
             <div class="cli-stats">
-              <div class="stat"><span class="stat-n" id="cli-nsogg">–</span><span class="stat-l">Soggiorni <span class="info" data-tip="Le prenotazioni in cui l'ospite ha DORMITO qui. I day use (arrivo e partenza in giornata: SPA, piscina, ristorante) non sono soggiorni e non contano — ma la loro spesa resta nel valore storico. Escluse Eliminate, No-show e quelle che devono ancora cominciare.">i</span></span><span class="stat-sub" id="cli-dayuse"></span></div>
+              <div class="stat"><span class="stat-n" id="cli-nsogg">–</span><span class="stat-l">Soggiorni <span class="info" data-tip="Le volte in cui l'ospite ha dormito qui. I day use non contano come soggiorni, ma la loro spesa resta nel valore storico. Fuori le annullate, i no-show e quelle che devono ancora cominciare.">i</span></span><span class="stat-sub" id="cli-dayuse"></span></div>
               <div class="stat"><span class="stat-n" id="cli-notti">–</span><span class="stat-l">Notti totali <span class="info" data-tip="Somma delle notti dei soggiorni. I day use non ne portano nessuna.">i</span></span></div>
               <div class="stat stat-hl"><span class="stat-n" id="cli-ltv">–</span><span class="stat-l">Valore storico (LTV) <span class="info" data-tip="Totale maturato (arrangiamenti + extra) delle prenotazioni di cui l'ospite fa parte — anche come co-occupante, non solo da intestatario. City tax esclusa. Su membri dello stesso nucleo può quindi ripetersi.">i</span></span><span class="stat-sub" id="cli-ltv-media"></span></div>
-              <div class="stat"><span class="stat-n" id="cli-arr">–</span><span class="stat-l">Arrangiamenti <span class="info" data-tip="Totale maturato per pensione/trattamento (righe con arrangiamento).">i</span></span><span class="stat-sub" id="cli-arr-media"></span></div>
+              <div class="stat"><span class="stat-n" id="cli-arr">–</span><span class="stat-l">Arrangiamenti <span class="info" data-tip="Quanto ha speso per la camera e il trattamento (B&B, mezza pensione…), senza gli extra.">i</span></span><span class="stat-sub" id="cli-arr-media"></span></div>
               <div class="stat"><span class="stat-n" id="cli-extra">–</span><span class="stat-l">Extra <span class="stat-note">(city tax esclusa)</span> <span class="info" data-tip="Consumi extra maturati (ristorante, spiaggia, ecc.). City tax esclusa dal totale.">i</span></span><span class="stat-sub" id="cli-extra-media"></span></div>
               <!-- Scorciatoie: portano allo storico prenotazioni più in basso -->
               <div class="stat stat-visite">
-                <div class="visita-riga" role="button" tabindex="0" data-vai-storico title="Apri lo storico delle prenotazioni"><span class="visita-l">Prima visita <span class="info" data-tip="Data del primo e dell'ultimo soggiorno valido del cliente (esclusi Eliminate e No-show).">i</span></span><span class="visita-d" id="cli-prima">–</span><span class="visita-go" aria-hidden="true">↓</span></div>
+                <div class="visita-riga" role="button" tabindex="0" data-vai-storico title="Apri lo storico delle prenotazioni"><span class="visita-l">Prima visita <span class="info" data-tip="Prima e ultima volta che l'ospite è stato qui. Contano anche i day use: non sono soggiorni, ma sono comunque visite. Escluse le annullate e i no-show.">i</span></span><span class="visita-d" id="cli-prima">–</span><span class="visita-go" aria-hidden="true">↓</span></div>
                 <div class="visita-riga" role="button" tabindex="0" data-vai-storico title="Apri lo storico delle prenotazioni"><span class="visita-l">Ultima visita</span><span class="visita-d" id="cli-ultima">–</span><span class="visita-go" aria-hidden="true">↓</span></div>
               </div>
               <div class="stat"><span class="stat-n stat-sm" id="cli-source">–</span><span class="stat-l">Ultima Source <span class="info" data-tip="Canale di vendita dell'ultima prenotazione: Diretti, OTA, Agenzie, T.O., GDS…">i</span></span></div>
@@ -406,7 +406,7 @@
             </div>
 
             <!-- NUCLEO -->
-            <h2 class="sez">Nucleo di viaggio <span class="info info-wide" data-tip="Chi viaggia con l'ospite. Alla prima apertura della scheda la lista si precompila dalle prenotazioni: entra chi ha condiviso un soggiorno con lui — tutti se l'ospite ha al massimo 3 prenotazioni, altrimenti solo chi ne ha condivise almeno 2. Le aziende sono escluse. I nomi precompilati arrivano con relazione «Altro»: correggila con ✎. Puoi sempre aggiungere o togliere membri a mano. Le preferenze di ambito «nucleo» valgono per tutti i membri.">i</span></h2>
+            <h2 class="sez">Nucleo di viaggio <span class="info info-wide" data-tip="Chi viaggia con l'ospite. La lista si aggiorna a ogni apertura: entra chi ha condiviso un soggiorno con lui, escluse le aziende; chi togli non torna. Accanto a ogni nome, quante volte hanno soggiornato insieme. Le preferenze di ambito «nucleo» valgono per tutti i membri.">i</span></h2>
             <div class="card note-box">
               <form id="nucleo-form" class="pref-form">
                 <select name="tipoRelazione" required></select>
@@ -430,12 +430,12 @@
             </details>
 
             <details class="sez-collapse">
-              <summary class="sez sez-sum">Trattamenti SPA <span class="badge-scope scope-personale">personale</span> <span class="sez-hint">benessere — apri</span> <span class="info" data-tip="Trattamenti benessere PERSONALI dell'ospite, attribuiti alla sua linea di addebito (codalb) → restano del singolo, non del gruppo. Gli importi sono già inclusi negli Extra.">i</span></summary>
+              <summary class="sez sez-sum">Trattamenti SPA <span class="badge-scope scope-personale">personale</span> <span class="sez-hint">benessere — apri</span> <span class="info" data-tip="Trattamenti benessere dell'ospite. Restano SUOI e non del gruppo, perché il gestionale li addebita alla singola persona — al contrario dei consumi F&B, che sono della camera. Gli importi sono già compresi negli Extra.">i</span></summary>
               <div class="card note-box" id="cli-spa"></div>
             </details>
 
             <details class="sez-collapse" id="cli-storico-box">
-              <summary class="sez sez-sum">Storico prenotazioni <span class="sez-hint">tutte le prenotazioni — apri</span> <span class="info" data-tip="Tutte le prenotazioni del cliente (correnti e archiviate): periodo, camere, importi e stato. Una riga per pratica.">i</span></summary>
+              <summary class="sez sez-sum">Storico prenotazioni <span class="sez-hint">tutte le prenotazioni — apri</span> <span class="info" data-tip="Tutte le prenotazioni del cliente, correnti e archiviate: periodo, camere, importi e stato. Le annullate, i no-show e quelle che devono ancora cominciare si vedono qui ma non contano nelle statistiche qui sopra.">i</span></summary>
               <div class="card table-wrap">
                 <table class="cli-sogg-tab">
                   <thead><tr><th>Pratica</th><th>Periodo</th><th class="num">Notti</th><th>Camere</th><th class="num">Arrangiamenti</th><th class="num">Extra</th><th>Stato <span class="info info-pop info-left">i<span class="info-pop-body"><span class="info-pop-row"><b>Pianificata</b> — arrivo futuro</span><span class="info-pop-row"><b>Confermato</b> — arrivo oggi, check-in in attesa</span><span class="info-pop-row"><b>In casa</b> — ospite attualmente presente</span><span class="info-pop-row"><b>Partito</b> — check-out effettuato</span><span class="info-pop-row"><b>Concluso</b> — soggiorno archiviato</span><span class="info-pop-row"><b>No-show</b> — arrivo passato, mai arrivato</span><span class="info-pop-row"><b>Eliminata</b> — prenotazione annullata</span><span class="info-pop-note">No-show ed Eliminata non contano nei soggiorni.</span></span></span></th></tr></thead>

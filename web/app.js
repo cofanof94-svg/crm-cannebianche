@@ -257,11 +257,11 @@ let filtroBriefing = 'all';
 // Chip dell'Arrival Briefing: etichetta, campo del conteggio e predicato di filtro
 // sullo snapshot dell'arrivo. "Mostrare prima le informazioni giuste".
 const BRIEF_CHIPS = [
-  { key: 'all', label: 'Arrivi', field: 'arrivi', pred: () => true },
-  { key: 'vip', label: 'VIP', field: 'vip', pred: (a) => !!(a.snapshot && a.snapshot.vip) },
-  { key: 'compleanni', label: 'Compleanni', field: 'compleanni', pred: (a) => !!(a.snapshot && (a.snapshot.compleanni || []).length) },
-  { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (a) => !!(a.snapshot && a.snapshot.reclami && a.snapshot.reclami.totali > 0) },
-  { key: 'alert', label: 'Alert', field: 'alert', pred: (a) => !!(a.snapshot && ((a.snapshot.intolleranze && a.snapshot.intolleranze.length) || a.snapshot.indesiderato)) },
+  { key: 'all', label: 'Arrivi', field: 'arrivi', pred: () => true, tip: 'Tutte le prenotazioni in arrivo nella data scelta.' },
+  { key: 'vip', label: 'VIP', field: 'vip', pred: (a) => !!(a.snapshot && a.snapshot.vip), tip: 'Ospiti con una classificazione VIP in anagrafica (bollicine, frutta fresca…). Comprende anche gli indesiderati, che nel gestionale sono una classificazione come le altre.' },
+  { key: 'compleanni', label: 'Compleanni', field: 'compleanni', pred: (a) => !!(a.snapshot && (a.snapshot.compleanni || []).length), tip: 'Chi compie gli anni durante il soggiorno, non solo oggi. Conta le prenotazioni: se festeggiano in due, resta una riga sola.' },
+  { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (a) => !!(a.snapshot && a.snapshot.reclami && a.snapshot.reclami.totali > 0), tip: 'Prenotazioni con almeno un reclamo, aperto o già risolto: anche uno chiuso è storia da conoscere prima di accogliere.' },
+  { key: 'alert', label: 'Alert', field: 'alert', pred: (a) => !!(a.snapshot && ((a.snapshot.intolleranze && a.snapshot.intolleranze.length) || a.snapshot.indesiderato)), tip: 'Chi ha un’allergia registrata oppure è segnalato come ospite indesiderato: le due cose che vanno sapute prima di tutto il resto.' },
 ];
 
 function initArrivi(resetOggi) {
@@ -464,7 +464,7 @@ function renderBriefing() {
     const n = b[c.field] || 0;
     const spento = c.key !== 'all' && n === 0 ? ' brief-chip-off' : '';
     const attivo = filtroBriefing === c.key ? ' brief-chip-on' : '';
-    return `<button type="button" class="brief-chip brief-${c.key}${attivo}${spento}" data-brief="${c.key}">
+    return `<button type="button" class="brief-chip brief-${c.key}${attivo}${spento}" data-brief="${c.key}"${c.tip ? ` title="${esc(c.tip)}"` : ''}>
       <span class="brief-n">${n}</span><span class="brief-l">${c.label}</span></button>`;
   }).join('');
   bar.innerHTML = `<div class="briefing-inner">
@@ -604,7 +604,7 @@ function proposteAllergie(x) {
   const opzioni = persone.map((p) => `<option value="${p.codCli}">${esc(p.nome)}</option>`).join('');
   return `<div class="prop-box">
     <div class="prop-testa">🔎 Possibili allergie
-      <span class="info info-wide" data-tip="Trovate cercando parole come allergia, intolleranza o celiachia nei testi del gestionale. Sono proposte: nulla viene salvato finché non premi Aggiungi. Quelle che vengono dall'anagrafica di una persona portano già il suo nome; quelle che vengono dalla nota della prenotazione riguardano la pratica, quindi l'ospite lo scegli tu.">i</span></div>
+      <span class="info info-wide" data-tip="Trovate nei testi del gestionale. Sono proposte: nulla viene salvato finché non premi Aggiungi. Quelle dall'anagrafica portano già il nome della persona; quelle dalla nota della prenotazione riguardano la pratica, quindi l'ospite lo scegli tu.">i</span></div>
     ${utili.map((p) => rigaProposta(p, opzioni, chiaveProposta(x, p.termine))).join('')}</div>`;
 }
 
@@ -912,19 +912,19 @@ const INCASA_CHIPS = [
   // "Oggi in hotel" e non "In casa": questo elenco comprende anche chi parte oggi,
   // quindi dà un numero più alto del riquadro "Restano stanotte" della Home, che
   // conta le camere occupate la notte. Sono due domande diverse, e i nomi lo dicono.
-  { key: 'all', label: 'Oggi in hotel', field: 'presenti', pred: () => true },
+  { key: 'all', label: 'Oggi in hotel', field: 'presenti', pred: () => true, tip: 'Tutti i presenti oggi, compresi chi parte oggi e gli ospiti del giorno. È un numero diverso da «Restano stanotte» della Home, che conta solo le camere occupate stanotte.' },
   // "Partono oggi" = ancora in camera con partenza odierna + chi ha già fatto il
   // check-out. È il filtro che apre la Home cliccando su "Partenze oggi".
-  { key: 'partenze', label: 'Partono oggi', field: 'partonoOggi', pred: (c) => c.statoPartenza === 'partenza' || c.statoPartenza === 'checkout' },
-  { key: 'vip', label: 'VIP', field: 'vip', pred: (c) => !!(c.snapshot && c.snapshot.vip) },
-  { key: 'alert', label: 'Alert', field: 'alert', pred: (c) => !!(c.snapshot && ((c.snapshot.intolleranze && c.snapshot.intolleranze.length) || c.snapshot.indesiderato)) },
-  { key: 'ricorrenze', label: 'Ricorrenze', field: 'ricorrenze', pred: (c) => !!(c.snapshot && (c.snapshot.compleanni || []).length) },
-  { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (c) => !!(c.snapshot && c.snapshot.reclami && c.snapshot.reclami.totali > 0) },
-  { key: 'usciti', label: 'Usciti', field: 'usciti', pred: (c) => c.statoPartenza === 'checkout' },
+  { key: 'partenze', label: 'Partono oggi', field: 'partonoOggi', pred: (c) => c.statoPartenza === 'partenza' || c.statoPartenza === 'checkout', tip: 'Chi lascia l’hotel oggi, compresi quelli che hanno già fatto il check-out.' },
+  { key: 'vip', label: 'VIP', field: 'vip', pred: (c) => !!(c.snapshot && c.snapshot.vip), tip: 'Ospiti con una classificazione VIP in anagrafica (bollicine, frutta fresca…). Comprende anche gli indesiderati, che nel gestionale sono una classificazione come le altre.' },
+  { key: 'alert', label: 'Alert', field: 'alert', pred: (c) => !!(c.snapshot && ((c.snapshot.intolleranze && c.snapshot.intolleranze.length) || c.snapshot.indesiderato)), tip: 'Chi ha un’allergia registrata oppure è segnalato come ospite indesiderato: le due cose che vanno sapute prima di tutto il resto.' },
+  { key: 'ricorrenze', label: 'Ricorrenze', field: 'ricorrenze', pred: (c) => !!(c.snapshot && (c.snapshot.compleanni || []).length), tip: 'Chi compie gli anni durante il soggiorno, non solo oggi.' },
+  { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (c) => !!(c.snapshot && c.snapshot.reclami && c.snapshot.reclami.totali > 0), tip: 'Ospiti con almeno un reclamo, aperto o già risolto.' },
+  { key: 'usciti', label: 'Usciti', field: 'usciti', pred: (c) => c.statoPartenza === 'checkout', tip: 'Check-out già fatto. Restano in fondo alla lista per tutta la giornata, perché il conto può ancora servire; sul foglio dei reparti non ci vanno.' },
   // Ospiti del giorno: esterni di SPA, piscina e serate. Stanno in fondo alla
   // lista perché non hanno camera, e hanno un chip per tirarli fuori quando
   // servono davvero — la sera di una festa sono la lista della cucina.
-  { key: 'dayuse', label: 'Day use', field: 'dayUse', pred: (c) => c.statoPartenza === 'dayuse' },
+  { key: 'dayuse', label: 'Day use', field: 'dayUse', pred: (c) => c.statoPartenza === 'dayuse', tip: 'Ospiti del giorno: entrano ed escono nella stessa giornata (SPA, piscina, ristorante). Nessuna camera e nessuna notte, ma allergie e preferenze valgono come per gli altri.' },
 ];
 
 // resetFiltri: rientrando nella pagina si riparte dalla lista completa. Fa
@@ -980,7 +980,7 @@ function renderBriefingInCasa() {
     if (c.key === 'usciti' && n === 0) return ''; // il chip "Usciti" compare solo se ce ne sono
     const spento = c.key !== 'all' && n === 0 ? ' brief-chip-off' : '';
     const attivo = filtroInCasa === c.key ? ' brief-chip-on' : '';
-    return `<button type="button" class="brief-chip brief-${c.key}${attivo}${spento}" data-incasa="${c.key}">
+    return `<button type="button" class="brief-chip brief-${c.key}${attivo}${spento}" data-incasa="${c.key}"${c.tip ? ` title="${esc(c.tip)}"` : ''}>
       <span class="brief-n">${n}</span><span class="brief-l">${c.label}</span></button>`;
   }).join('');
   bar.innerHTML = `<div class="briefing-inner">
