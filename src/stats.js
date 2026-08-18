@@ -19,6 +19,12 @@
 // soggiorno per un campo vuoto sarebbe peggio che contarne uno di troppo.
 const haDormito = (r) => {
   if (r.dtarrivo && r.dtpartenza) return String(r.dtarrivo) !== String(r.dtpartenza);
+  // Attenzione: `Number(null)` e `Number('')` fanno ZERO, non "non è un
+  // numero". Senza questa riga una pratica senza date — nell'archivio
+  // dell'hotel non sono poche — arrivava qui con `notti: null`, diventava uno
+  // zero e veniva contata come DAY USE: esattamente il contrario di quello che
+  // il commento sopra dichiara. Il dato che manca resta un dato che manca.
+  if (r.notti == null || String(r.notti).trim() === '') return true;
   const n = Number(r.notti);
   return !Number.isFinite(n) || n > 0;
 };

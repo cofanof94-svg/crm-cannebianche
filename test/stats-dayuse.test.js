@@ -59,6 +59,29 @@ test('senza date né notti la riga vale come soggiorno', () => {
   assert.strictEqual(s.nDayUse, 0);
 });
 
+test('una pratica senza date arriva dal database come null, e vale un soggiorno', () => {
+  // Il test qui sopra passava anche quando il difetto c'era, perché non passava
+  // affatto il campo `notti`: da JavaScript diventa `undefined`, cioè "non è un
+  // numero". Ma il database manda `null`, e `Number(null)` fa ZERO: la riga
+  // veniva contata come DAY USE, il contrario della regola. Nell'archivio
+  // dell'hotel le pratiche senza date non sono poche, quindi il caso è vero.
+  for (const notti of [null, '', '   ']) {
+    const s = aggregaCumulativi([{ dtarrivo: null, dtpartenza: null, notti, arrangiamento: 300, extra: 20 }]);
+    assert.strictEqual(s.nSoggiorni, 1, `notti=${JSON.stringify(notti)} dovrebbe valere un soggiorno`);
+    assert.strictEqual(s.nDayUse, 0, `notti=${JSON.stringify(notti)} non è un day use`);
+    // I soldi ci sono in entrambi i casi: quello non cambia mai.
+    assert.strictEqual(s.ltv, 320);
+  }
+});
+
+test('lo zero vero resta un day use', () => {
+  // La correzione non deve rendere soggiorno tutto ciò che non ha le date:
+  // notti = 0 dichiarato è un day use, e va contato come tale.
+  const s = aggregaCumulativi([{ dtarrivo: null, dtpartenza: null, notti: 0, arrangiamento: 0, extra: 45 }]);
+  assert.strictEqual(s.nSoggiorni, 0);
+  assert.strictEqual(s.nDayUse, 1);
+});
+
 test('elenco vuoto: tutto a zero, nessun errore', () => {
   const s = aggregaCumulativi([]);
   assert.strictEqual(s.nSoggiorni, 0);
