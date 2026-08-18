@@ -112,7 +112,13 @@ async function makeApp(opts = {}) {
   };
   const pmsDb = {
     async query(text, params) {
-      if (/a\.CodCli <> @codCli/.test(text)) return [{ codCli: 55491, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: '', match: 'anagrafica', nPrenotazioni: 0 }];
+      // Candidati duplicati: 47186 e 55491 sono la stessa persona, quindi ognuna
+      // dev'essere il duplicato dell'altra. Restituire sempre lo stesso codice
+      // avrebbe nascosto che la segnalazione funziona da entrambe le schede.
+      if (/CodCli <> @codCli/.test(text)) {
+        const altra = Number(params.codCli) === 55491 ? 47186 : 55491;
+        return [{ codCli: altra, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: '', match: 'anagrafica', nPrenotazioni: 0 }];
+      }
       if (/STRING_AGG/.test(text)) return [{ tipo: 'CF', cognome: 'DI BARI', nome: 'ANNA', chiave: 'X', n: 2, membri: '47186,55491' }];
       // Ricerca ospiti. La stessa query serve per testo e per codice: quella per
       // codice porta un IN, e il doppio deve restituire proprio quei codici,
@@ -780,4 +786,37 @@ test('ricerca: chi non è fuso non porta la pastiglia delle collegate', async ()
   const ag = await agente(app);
   const res = await ag.get('/api/clienti?q=bari');
   assert.deepStrictEqual(res.body.risultati.map((r) => r.collegate), [0, 0]);
+});
+
+// --- Alert "possibili duplicati" nella scheda ---------------------------------
+
+test('scheda: il possibile duplicato viene segnalato, e sparisce una volta associato', async () => {
+  // È il ciclo che il ticket chiama principio funzionale: rilevato → alert →
+  // verifica → associazione → alert rimosso. La pagina Duplicati e questo alert
+  // sono due porte sullo stesso processo, non due logiche separate.
+  const app = await makeApp();
+  const ag = await agente(app);
+
+  const prima = await ag.get('/api/clienti/47186/duplicati');
+  assert.strictEqual(prima.status, 200);
+  assert.deepStrictEqual(prima.body.candidati.map((c) => c.codCli), [55491], 'il duplicato va segnalato');
+
+  assert.strictEqual((await ag.post('/api/clienti/47186/merge').send({ memberId: 55491, canonicalId: 47186 })).status, 201);
+
+  const dopo = await ag.get('/api/clienti/47186/duplicati');
+  assert.deepStrictEqual(dopo.body.candidati, [], 'associato: non è più un duplicato da gestire');
+
+  // e sciogliendo l'associazione l'alert deve tornare
+  assert.strictEqual((await ag.delete('/api/merge/55491')).status, 200);
+  const riaperto = await ag.get('/api/clienti/47186/duplicati');
+  assert.deepStrictEqual(riaperto.body.candidati.map((c) => c.codCli), [55491]);
+});
+
+test('scheda: il duplicato si vede da entrambe le anagrafiche, finché non è associato', async () => {
+  // Chi apre la scheda del codice "sbagliato" deve accorgersene lo stesso.
+  const app = await makeApp();
+  const ag = await agente(app);
+  const daAltraParte = await ag.get('/api/clienti/55491/duplicati');
+  assert.strictEqual(daAltraParte.status, 200);
+  assert.ok(daAltraParte.body.candidati.length >= 1);
 });
