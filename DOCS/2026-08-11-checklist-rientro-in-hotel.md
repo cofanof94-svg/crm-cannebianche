@@ -260,6 +260,17 @@ raccogliere.
       passa dalla stessa POST di una scritta a mano. Le preferenze salvate NON si
       perdono; si perde solo la provenienza
 
+### Dashboard Analytics — la query di "Tutto lo storico" non è mai girata sul vero
+`analytics:inizio` in [../src/pms/analytics.js](../src/pms/analytics.js) è la
+`MIN(dtpartenza)` su `StorPrenota` + `Prenota` che dice da quando parte il periodo
+"Tutto lo storico". Sul server finto funziona, sul database vero non è mai stata
+eseguita. Due cose da guardare:
+
+- **quanto ci mette**: è un aggregato su tutto l'archivio, e gira solo quando si
+  sceglie quel pulsante;
+- **quale data torna**: se è assurda (un anno molto anteriore all'hotel) è scattato il
+  limite a vent'anni, e vale la pena trovare la prenotazione che la causa.
+
 ### Dashboard Analytics — decodificare le nazionalità
 Il riquadro "Nazionalità degli ospiti" mostra il **codice** dell'anagrafica (`I`, `GB`,
 `D`…) invece del nome della nazione: chi sta al banco non deve indovinare che `I` è
