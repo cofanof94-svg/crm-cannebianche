@@ -776,6 +776,9 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .ric-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .ric-txt strong { font-size: 14.5px; }
 .ric-txt span { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Anagrafiche collegate: informazione di contorno, non un avviso. Dice perché
+   quell’ospite compare una volta sola anche se nel gestionale ha più codici. */
+.ric-fuse { flex: none; font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; }
 .ric-incasa { display: flex; align-items: center; gap: 8px; flex: none; }
 .ric-go { color: var(--faint); font-size: 22px; flex: none; }
 

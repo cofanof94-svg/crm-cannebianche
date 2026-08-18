@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../auth/middleware');
-const { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, getNotePrenotazioni } = require('../pms/clienti');
+const { cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, getNotePrenotazioni, getClientiRicercaByIds } = require('../pms/clienti');
 const { proponiPerSoggiorno } = require('../crm/allergie-note');
 const { registraAi } = require('../crm/registro');
 const { getGustiFB } = require('../pms/gusti');
@@ -19,7 +19,7 @@ const { intParam } = require('./param');
 const { appartieneA } = require('../crm/helpers');
 const { costruisciFatti, haFatti, suggerisci } = require('../ai/suggerisci');
 const briefingAi = require('../ai/briefing');
-const { getGruppo, mergeInto, unmerge, listMappature, separaGruppiDuplicati } = require('../crm/merge');
+const { getGruppo, getCanoniciByIds, mergeInto, unmerge, listMappature, separaGruppiDuplicati } = require('../crm/merge');
 const { getDuplicatiCandidati, getTuttiGruppiDuplicati, getAnagreConfronto, calcolaConflitti } = require('../pms/duplicati');
 
 // Cosa NON è un soggiorno, ai fini delle statistiche.
@@ -76,6 +76,32 @@ function campoTesto(valore, { max, nome, obbligatorio = true }) {
   return { valore: t };
 }
 
+// Un ospite, una riga. `canonici` mappa un codice al suo principale e dice
+// quanti codici conta il gruppo; i codici che non compaiono sono anagrafiche
+// a sé stanti. PURA e testabile: qui non si legge niente da nessun database.
+//
+// Chi è collegato non sparisce e basta: al suo posto va il PRINCIPALE. Se il
+// principale non è fra i trovati — succede cercando il nome vecchio — il suo
+// codice esce in `daLeggere`, e chi chiama lo legge dal gestionale. Toglierlo
+// senza rimpiazzarlo farebbe sparire un ospite che esiste.
+function collassaSuPrincipale(trovati, canonici) {
+  const perCodice = new Map((trovati || []).map((r) => [r.codCli, r]));
+  const risultati = [];
+  const daLeggere = [];
+  const visti = new Set();
+  for (const r of trovati || []) {
+    const g = canonici && canonici.get ? canonici.get(r.codCli) : null;
+    const principale = g ? g.canonicalId : r.codCli;
+    if (visti.has(principale)) continue; // due membri dello stesso gruppo: una riga sola
+    visti.add(principale);
+    const riga = perCodice.get(principale);
+    const collegate = g ? Math.max(g.membri - 1, 0) : 0;
+    if (riga) risultati.push({ ...riga, collegate });
+    else daLeggere.push(principale);
+  }
+  return { risultati, daLeggere };
+}
+
 function createClientiRouter(pmsDb, crmDb) {
   const router = express.Router();
   router.use(requireAuth);
@@ -96,10 +122,24 @@ function createClientiRouter(pmsDb, crmDb) {
     res.json({ ok: true });
   });
 
+  // Un ospite, un risultato. Quando due anagrafiche del gestionale sono state
+  // riconosciute come la stessa persona, la ricerca ne mostra una sola: quella
+  // PRINCIPALE. Cercare il nome vecchio continua a funzionare — si trova il
+  // principale al suo posto, non il nulla — e le anagrafiche collegate restano
+  // raggiungibili dalla sua scheda, che le elenca e le apre.
   router.get('/clienti', async (req, res) => {
     const q = (req.query.q || '').trim();
     if (q.length < 2) return res.json({ risultati: [] });
-    const risultati = await cercaClienti(pmsDb, q);
+    const trovati = await cercaClienti(pmsDb, q);
+    const canonici = await getCanoniciByIds(crmDb, trovati.map((r) => r.codCli));
+    const { risultati, daLeggere } = collassaSuPrincipale(trovati, canonici);
+    // I principali che il termine cercato non ha intercettato vanno letti a parte.
+    const aggiunti = daLeggere.length ? await getClientiRicercaByIds(pmsDb, daLeggere) : [];
+    for (const a of aggiunti) {
+      const g = canonici.get(a.codCli);
+      risultati.push({ ...a, collegate: g ? g.membri - 1 : 0 });
+    }
+    risultati.sort((a, b) => String(a.nominativo || '').localeCompare(String(b.nominativo || '')));
     res.json({ risultati });
   });
 
@@ -713,4 +753,4 @@ function createClientiRouter(pmsDb, crmDb) {
   return router;
 }
 
-module.exports = { createClientiRouter, calcolaStatistiche };
+module.exports = { createClientiRouter, calcolaStatistiche, collassaSuPrincipale };

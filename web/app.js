@@ -1228,13 +1228,19 @@ async function loadRicerca(q) {
 function cardRicerca(c) {
   const sub = [c.citta, c.telefono, c.cellulare, c.email].filter(Boolean).join(' · ');
   const iniziale = ((c.nominativo || '?')[0] || '?').toUpperCase();
+  // Anagrafiche riconosciute come la stessa persona: la ricerca mostra solo il
+  // principale, e questa pastiglia dice che dietro ce n'è dell'altro. Senza,
+  // chi cerca il nome vecchio e trova quello nuovo non capirebbe il perché.
+  const fuse = c.collegate
+    ? `<span class="ric-fuse" title="Questo ospite ha ${c.collegate + 1} anagrafiche nel gestionale, riconosciute come la stessa persona. Le altre si vedono e si aprono dalla sua scheda.">+${c.collegate} collegat${c.collegate === 1 ? 'a' : 'e'}</span>`
+    : '';
   const incasa = c.cameraInCasa
     ? `<span class="ric-incasa"><span class="pill pill-incasa">In casa</span>${chipCamere(c.cameraInCasa)}</span>`
     : '';
   return `<a class="ric-item" href="#cliente/${c.codCli}">
     <span class="ric-av">${esc(iniziale)}</span>
     <span class="ric-txt"><strong>${esc(c.nominativo || '(senza nominativo)')}</strong><span>${esc(sub)}</span></span>
-    ${incasa}
+    ${fuse}${incasa}
     <span class="ric-go">›</span>
   </a>`;
 }

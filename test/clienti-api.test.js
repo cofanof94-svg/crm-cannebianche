@@ -64,6 +64,15 @@ async function makeApp(opts = {}) {
         if (/MERGE customer_merge/.test(text)) { const ex = merges.find((m) => m.pms_customer_id === params.memberId); if (ex) ex.canonical_id = params.principale; else merges.push({ pms_customer_id: params.memberId, canonical_id: params.principale }); return []; }
         if (/UPDATE customer_merge SET canonical_id/.test(text)) { merges.forEach((m) => { if (m.canonical_id === params.memberId) m.canonical_id = params.principale; }); return []; }
         if (/DELETE FROM customer_merge/.test(text)) { const i = merges.findIndex((m) => m.pms_customer_id === params.memberId); if (i >= 0) { const id = merges[i].pms_customer_id; merges.splice(i, 1); return [{ pms_customer_id: id }]; } return []; }
+        // Ricerca: risoluzione dei principali in blocco, e dimensione dei gruppi.
+        if (/GROUP BY canonical_id/.test(text)) {
+          const per = new Map();
+          merges.filter((m) => ids.includes(m.canonical_id)).forEach((m) => per.set(m.canonical_id, (per.get(m.canonical_id) || 0) + 1));
+          return [...per].map(([canonical_id, n]) => ({ canonical_id, n }));
+        }
+        if (/WHERE pms_customer_id IN /.test(text)) {
+          return merges.filter((m) => ids.includes(m.pms_customer_id)).map((m) => ({ pms_customer_id: m.pms_customer_id, canonical_id: m.canonical_id }));
+        }
         if (/WHERE pms_customer_id = @codCli/.test(text)) return merges.filter((m) => m.pms_customer_id === params.codCli).map((m) => ({ canonical_id: m.canonical_id }));
         if (/WHERE pms_customer_id = @canonicalId/.test(text)) return merges.filter((m) => m.pms_customer_id === params.canonicalId).map((m) => ({ canonical_id: m.canonical_id }));
         if (/WHERE canonical_id = @canonicalId/.test(text)) return merges.filter((m) => m.canonical_id === params.canonicalId).map((m) => ({ pms_customer_id: m.pms_customer_id }));
@@ -105,7 +114,22 @@ async function makeApp(opts = {}) {
     async query(text, params) {
       if (/a\.CodCli <> @codCli/.test(text)) return [{ codCli: 55491, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: '', match: 'anagrafica', nPrenotazioni: 0 }];
       if (/STRING_AGG/.test(text)) return [{ tipo: 'CF', cognome: 'DI BARI', nome: 'ANNA', chiave: 'X', n: 2, membri: '47186,55491' }];
-      if (/cameraInCasa/.test(text)) return [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Telefono: '080123', Citta: 'TRANI', cameraInCasa: null }];
+      // Ricerca ospiti. La stessa query serve per testo e per codice: quella per
+      // codice porta un IN, e il doppio deve restituire proprio quei codici,
+      // altrimenti il principale letto al posto di una collegata non arriverebbe.
+      // Ricerca ospiti. La stessa query serve per testo e per codice.
+      // `ricerca` = cosa intercetta il TERMINE cercato; `catalogo` = cosa esiste
+      // nel gestionale. Sono cose diverse: cercando un nome vecchio si trova solo
+      // la collegata, ma il principale esiste lo stesso e va potuto leggere.
+      if (/cameraInCasa/.test(text)) {
+        const base = [{ CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Telefono: '080123', Citta: 'TRANI', cameraInCasa: null }];
+        const m = String(text).match(/a\.CodCli IN \(([\d,\s]+)\)/);
+        if (m) {
+          const voluti = m[1].split(',').map((s) => Number(s.trim()));
+          return (opts.catalogo || opts.ricerca || base).filter((r) => voluti.includes(r.CodCli));
+        }
+        return opts.ricerca || base;
+      }
       if (/AS nPrenotazioni[\s\S]*a\.CodCli IN/.test(text)) return [
         { codCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: 'X', Citta: 'TRANI', CodNaz: 'I', email: 'a@b.it', Telefono: '080', Cellulare: '', CodVip: '', DesVip: null, nPrenotazioni: 5 },
         { codCli: 55491, Cognome: 'DI BARI', Nome: 'ANNA', dtNascita: '1964-10-17', codiceFiscale: 'Y', Citta: 'TRANI', CodNaz: 'I', email: 'a@b.it', Telefono: '080', Cellulare: '', CodVip: '', DesVip: null, nPrenotazioni: 2 },
@@ -700,4 +724,60 @@ test('nucleo: PATCH modifica la relazione (e 404 su id inesistente)', async () =
   assert.strictEqual(m.tipo_relazione, 'Figlio-a');
   const bad = await ag.patch('/api/clienti/47186/nucleo/999').send({ tipoRelazione: 'Coniuge' });
   assert.strictEqual(bad.status, 404);
+});
+
+// --- Ricerca: un ospite, un risultato -----------------------------------------
+
+const DUE_ANAGRAFICHE = [
+  { CodCli: 47186, Cognome: 'DI BARI', Nome: 'ANNA', email: 'a@b.it', Cellulare: '', Telefono: '080123', Citta: 'TRANI', cameraInCasa: null },
+  { CodCli: 55491, Cognome: 'DI BARI', Nome: 'ANNA MARIA', email: 'a@b.it', Cellulare: '', Telefono: '', Citta: 'TRANI', cameraInCasa: null },
+];
+
+test('ricerca: due anagrafiche fuse compaiono come un ospite solo', async () => {
+  const app = await makeApp({ ricerca: DUE_ANAGRAFICHE });
+  const ag = await agente(app);
+  const prima = await ag.get('/api/clienti?q=bari');
+  assert.strictEqual(prima.body.risultati.length, 2, 'prima della fusione sono due profili distinti');
+
+  assert.strictEqual((await ag.post('/api/clienti/47186/merge').send({ memberId: 55491, canonicalId: 47186 })).status, 201);
+
+  const dopo = await ag.get('/api/clienti?q=bari');
+  assert.strictEqual(dopo.body.risultati.length, 1);
+  assert.strictEqual(dopo.body.risultati[0].codCli, 47186, 'resta il principale');
+  assert.strictEqual(dopo.body.risultati[0].collegate, 1, 'e dichiara quante ne ha dietro');
+});
+
+test('ricerca: il nome vecchio porta al profilo principale, non a un vicolo cieco', async () => {
+  // Chi cerca "ANNA MARIA" intercetta solo la collegata. Scartarla e basta
+  // farebbe dire al CRM che quell'ospite non esiste.
+  const app = await makeApp({ ricerca: DUE_ANAGRAFICHE });
+  const ag = await agente(app);
+  await ag.post('/api/clienti/47186/merge').send({ memberId: 55491, canonicalId: 47186 });
+
+  // il doppio del PMS filtra per token: qui simulo la ricerca che trova la sola collegata
+  const soloCollegata = await makeApp({ ricerca: [DUE_ANAGRAFICHE[1]], catalogo: DUE_ANAGRAFICHE });
+  const ag2 = await agente(soloCollegata);
+  assert.strictEqual((await ag2.post('/api/clienti/47186/merge').send({ memberId: 55491, canonicalId: 47186 })).status, 201);
+  const res = await ag2.get('/api/clienti?q=anna');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.risultati.length, 1);
+  assert.strictEqual(res.body.risultati[0].codCli, 47186, 'al suo posto compare il principale');
+  assert.strictEqual(res.body.risultati[0].collegate, 1);
+});
+
+test('ricerca: sciolta la fusione, tornano due profili', async () => {
+  // L operazione resta reversibile: scollegando, la ricerca torna come prima.
+  const app = await makeApp({ ricerca: DUE_ANAGRAFICHE });
+  const ag = await agente(app);
+  await ag.post('/api/clienti/47186/merge').send({ memberId: 55491, canonicalId: 47186 });
+  assert.strictEqual((await ag.get('/api/clienti?q=bari')).body.risultati.length, 1);
+  assert.strictEqual((await ag.delete('/api/merge/55491')).status, 200);
+  assert.strictEqual((await ag.get('/api/clienti?q=bari')).body.risultati.length, 2);
+});
+
+test('ricerca: chi non è fuso non porta la pastiglia delle collegate', async () => {
+  const app = await makeApp({ ricerca: DUE_ANAGRAFICHE });
+  const ag = await agente(app);
+  const res = await ag.get('/api/clienti?q=bari');
+  assert.deepStrictEqual(res.body.risultati.map((r) => r.collegate), [0, 0]);
 });

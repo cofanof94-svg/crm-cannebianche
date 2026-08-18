@@ -286,6 +286,18 @@ Trovare un ospite per nome, email o telefono e aprirne la scheda.
 - Ogni risultato mostra città, telefoni ed email, e — se l'ospite è in casa in questo momento — la pastiglia "In casa" con il numero di camera `[CODICE]`.
 - La ricerca è per anagrafica, non per persona: **due codici fusi restano due risultati distinti** `[CODICE]`.
 
+### Un ospite, un risultato — dal 14/08/2026
+
+Quando due o più anagrafiche del gestionale sono state **riconosciute come la stessa persona** (§15), la ricerca ne mostra **una sola: la principale** `[DECISO][TEST]`. Prima comparivano tutte, e lo stesso ospite occupava due righe identiche.
+
+- **Cercare il nome vecchio continua a funzionare.** Se il termine intercetta solo un'anagrafica collegata, al suo posto compare il **principale** — letto apposta dal gestionale, se non era già fra i risultati. Limitarsi a scartare le collegate avrebbe fatto rispondere che quell'ospite non esiste `[DECISO][TEST]`.
+- La riga porta una pastiglia **"+N collegata/e"**, che spiega perché quell’ospite compare una volta sola. Il dettaglio è nel suggerimento del mouse `[CODICE][TEST]`.
+- Le anagrafiche collegate **restano raggiungibili**: il banner "Scheda fusa" sulla scheda del principale le elenca e le apre, e "Confronta anagrafiche" mostra i dati affiancati (§15) `[CODICE][TEST]`.
+- **Niente viene cancellato o alterato**: la fusione resta una mappatura nel CRM, il gestionale non si tocca, e **Scollega** rimette tutto come prima — la ricerca torna a mostrare due profili `[CODICE][TEST]`.
+- Due omonimi **non associati** restano due risultati distinti: il raggruppamento agisce solo su chi è stato davvero riconosciuto `[TEST]`.
+
+> **Il quinto punto del ticket era già soddisfatto.** «Il profilo principale come riferimento per l’alimentazione dei dati» vale dal **12/08** (D13, §15): preferenze, allergie, reclami, nucleo, nota personale e lingua vengono scritti tutti sul principale del gruppo, mai sull’anagrafica collegata. Questa evolutiva ha completato il quadro sul lato della **lettura**.
+
 ### Chi può
 
 Tutti i ruoli: è una lettura.

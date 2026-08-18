@@ -406,6 +406,14 @@ const crmDb = {
       if (/WHERE pms_customer_id = @codCli/.test(t)) return store.merge.filter((m) => m.pms_customer_id === params.codCli).map((m) => ({ canonical_id: m.canonical_id }));
       if (/WHERE pms_customer_id = @canonicalId/.test(t)) return store.merge.filter((m) => m.pms_customer_id === params.canonicalId).map((m) => ({ canonical_id: m.canonical_id }));
       if (/WHERE canonical_id = @canonicalId/.test(t)) return store.merge.filter((m) => m.canonical_id === params.canonicalId).map((m) => ({ pms_customer_id: m.pms_customer_id }));
+      // Quanti codici pende da ciascun principale (ricerca: "+N collegate").
+      // Va prima dei filtri per IN, perché la query porta entrambi.
+      if (/GROUP BY canonical_id/.test(t)) {
+        const per = new Map();
+        store.merge.filter((m) => ids.includes(m.canonical_id))
+          .forEach((m) => per.set(m.canonical_id, (per.get(m.canonical_id) || 0) + 1));
+        return [...per].map(([canonical_id, n]) => ({ canonical_id, n }));
+      }
       if (/WHERE pms_customer_id IN/.test(t)) return store.merge.filter((m) => ids.includes(m.pms_customer_id));
       if (/WHERE canonical_id IN/.test(t)) return store.merge.filter((m) => ids.includes(m.canonical_id));
       return store.merge.slice();

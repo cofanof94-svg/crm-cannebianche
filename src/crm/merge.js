@@ -56,6 +56,36 @@ async function getGruppiByIds(crmDb, ids) {
   return map;
 }
 
+// Per una lista di codici: chi ha un PRINCIPALE diverso da sé, e quanti codici
+// conta il suo gruppo. Serve alla ricerca, che deve mostrare un ospite una volta
+// sola anche quando nel gestionale ha più anagrafiche.
+//
+// Due interrogazioni sole, non una per risultato: la ricerca ne restituisce
+// fino a venti e una query per riga si sentirebbe.
+async function getCanoniciByIds(crmDb, ids) {
+  const uniq = [...new Set((Array.isArray(ids) ? ids : [ids]).map(Number).filter(Number.isInteger))];
+  const out = new Map();
+  if (!uniq.length) return out;
+  const righe = await crmDb.query(
+    `SELECT pms_customer_id, canonical_id FROM customer_merge WHERE pms_customer_id IN ${inClause(uniq)}`
+  );
+  if (!righe.length) return out;
+  const canonici = [...new Set(righe.map((r) => r.canonical_id))];
+  // Quanti codici pendono da ciascun principale: il gruppo è il principale più
+  // i suoi membri, quindi la dimensione è il conteggio + 1.
+  const conteggi = await crmDb.query(
+    `SELECT canonical_id, COUNT(*) AS n FROM customer_merge WHERE canonical_id IN ${inClause(canonici)} GROUP BY canonical_id`
+  );
+  const quanti = new Map(conteggi.map((r) => [r.canonical_id, Number(r.n) || 0]));
+  for (const r of righe) {
+    out.set(r.pms_customer_id, { canonicalId: r.canonical_id, membri: (quanti.get(r.canonical_id) || 0) + 1 });
+  }
+  // Anche i principali entrano nella mappa: così chi la interroga non deve
+  // sapere in anticipo se un codice è un membro o un capofila.
+  for (const c of canonici) out.set(c, { canonicalId: c, membri: (quanti.get(c) || 0) + 1 });
+  return out;
+}
+
 // Membri (esclusi/inclusi il principale) di un gruppo dato il principale.
 async function listMembri(crmDb, canonicalId) {
   const rows = await crmDb.query(
@@ -134,4 +164,4 @@ function separaGruppiDuplicati(gruppi, mappature) {
   return { daGestire, gestiti };
 }
 
-module.exports = { getGruppo, getGruppiByIds, listMembri, mergeInto, unmerge, listMappature, separaGruppiDuplicati };
+module.exports = { getGruppo, getGruppiByIds, getCanoniciByIds, listMembri, mergeInto, unmerge, listMappature, separaGruppiDuplicati };

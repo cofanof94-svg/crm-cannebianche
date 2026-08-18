@@ -32,6 +32,14 @@ function sqlCerca(nToken) {
   return `${SQL_CERCA_HEAD}\n  AND ${conds}\nORDER BY a.Cognome, a.Nome`;
 }
 
+// Le stesse colonne della ricerca, ma per codici noti. Serve quando la ricerca
+// trova un'anagrafica COLLEGATA a un'altra: al suo posto si mostra il principale,
+// che però potrebbe non essere fra i risultati (il termine cercato è il vecchio
+// nome). Senza questa lettura, cercare il nome vecchio non troverebbe più nulla.
+const sqlCercaByIds = (inl) => `${SQL_CERCA_HEAD}
+  AND a.CodCli IN ${inl}
+ORDER BY a.Cognome, a.Nome`;
+
 // VIP: CodVip è una classificazione (non un livello gerarchico) decodificata da
 // TabVip.desvip (es. 'V1'→'BOLLICINE + FRUTTA FRESCA', 'IN'→'OSPITE INDESIDERATO').
 const SQL_CLIENTE = `
@@ -132,21 +140,33 @@ function normalizeTokens(termine) {
     .slice(0, 6);
 }
 
+// Una riga di risultato: la stessa forma per la ricerca per testo e per quella
+// per codice, così le due strade non possono divergere.
+const rigaRicerca = (r) => ({
+  codCli: r.CodCli,
+  nominativo: nominativo(r.Cognome, r.Nome),
+  email: pulisci(r.email),
+  cellulare: pulisci(r.Cellulare),
+  telefono: pulisci(r.Telefono),
+  citta: pulisci(r.Citta),
+  cameraInCasa: pulisci(r.cameraInCasa),
+});
+
 async function cercaClienti(pmsDb, termine) {
   const tokens = normalizeTokens(termine);
   if (!tokens.length) return [];
   const params = {};
   tokens.forEach((t, i) => { params[`t${i}`] = `%${t}%`; });
   const rows = await pmsDb.query(sqlCerca(tokens.length), params);
-  return rows.map((r) => ({
-    codCli: r.CodCli,
-    nominativo: nominativo(r.Cognome, r.Nome),
-    email: pulisci(r.email),
-    cellulare: pulisci(r.Cellulare),
-    telefono: pulisci(r.Telefono),
-    citta: pulisci(r.Citta),
-    cameraInCasa: pulisci(r.cameraInCasa),
-  }));
+  return rows.map(rigaRicerca);
+}
+
+// Anagrafiche per codice, nella forma dei risultati di ricerca.
+async function getClientiRicercaByIds(pmsDb, ids) {
+  const arr = [...new Set((Array.isArray(ids) ? ids : [ids]).map(Number).filter(Number.isInteger))];
+  if (!arr.length) return [];
+  const rows = await pmsDb.query(sqlCercaByIds(inClause(arr)), {});
+  return rows.map(rigaRicerca);
 }
 
 async function getCliente(pmsDb, codCli) {
@@ -328,5 +348,5 @@ async function getNotePrenotazioni(pmsDb, ids) {
 
 module.exports = {
   cercaClienti, getCliente, getSoggiorniCliente, getAnagraByIds, getStoricoByIds,
-  getNotePrenotazioni, vipInfo,
+  getNotePrenotazioni, vipInfo, getClientiRicercaByIds,
 };
