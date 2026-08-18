@@ -2,3 +2,8 @@ node_modules/
 .env
 *.log
 .superpowers/
+
+# Il PDF dell'analisi funzionale si rigenera con `node scripts/analisi-pdf.js`:
+# in archivio starebbe come un binario da 1,3 MB che cambia a ogni ritocco del testo.
+DOCS/*.pdf
+DOCS/.analisi-funzionale.tmp.html
