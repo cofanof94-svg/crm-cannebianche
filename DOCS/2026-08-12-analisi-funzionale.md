@@ -326,7 +326,12 @@ Numero di soggiorni, notti totali, LTV (arrangiamenti + extra), spesa media a so
 - Sono calcolate **in tempo reale** dallo storico, non da una tabella precalcolata `[DOC]` (`HANDOFF.md` §7).
 - **La city tax è esclusa** da extra e LTV: è una tassa di passaggio, non un ricavo `[DOC]`.
 - **Contano solo i soggiorni avvenuti** `[DECISO][TEST]`. Restano fuori: *Eliminata*, *No-show*, e le prenotazioni che devono ancora cominciare (*Pianificata*, *Confermato*). Queste ultime hanno importi a zero perché non c'è ancora nulla di maturato: contarle gonfiava il numero dei soggiorni e abbassava tutte le medie — un ospite con 10 soggiorni e 2 prenotazioni per l'estate prossima ne risultava 12.
-- Restano invece **dentro** i soggiorni *In casa* e *Partito*: stanno avvenendo o sono appena finiti, e i soldi sono veri. Così il numero coincide con il badge "Nª volta" delle schede, che mostra i soggiorni archiviati più quello in corso.
+- Restano invece **dentro** i soggiorni *In casa* e *Partito*: stanno avvenendo o sono appena finiti, e i soldi sono veri.
+- **Un day use non è un soggiorno** — dal 18/08/2026 `[DECISO][TEST]`. Arrivo e partenza nello stesso giorno: nessuna notte, nessuna camera. Fino al giorno prima contava come gli altri, e la stessa applicazione dava due risposte sullo stesso ospite: il badge in card diceva *4ª volta*, la scheda *5 soggiorni*.
+- **I suoi soldi però restano nel valore storico** `[DECISO][TEST]`. Sono stati incassati davvero: toglierli farebbe risultare l’ospite meno generoso di quanto è stato. Cambia solo il denominatore delle medie — sull’ospite di prova la spesa media passa da 1.470 a 1.837,50 € a soggiorno, perché si divide per quattro e non per cinque.
+- Chi è venuto **solo** in giornata ha quindi **zero soggiorni** ma una spesa: la scheda lo dichiara con una riga *"+ N day use"* sotto il conteggio, altrimenti il valore storico sembrerebbe uscito dal nulla `[CODICE][TEST]`.
+- La definizione di day use è **la stessa del resto del CRM** (arrivo = partenza), non una seconda regola. Se le date mancassero si guardano le notti; se manca anche quel dato la riga vale come soggiorno, perché un campo vuoto non è uno zero `[CODICE][TEST]`.
+- Con queste due regole il numero **coincide con il badge "Nª volta"** delle schede, che conta i soggiorni archiviati più quello in corso.
 
 > **Che cosa conta come "una volta"** `[DECISO][TEST]` — deciso il 13/08/2026 guardando l'archivio vero.
 >

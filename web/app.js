@@ -1422,6 +1422,9 @@ async function loadCliente(codCli) {
   ].filter(Boolean).join('') || '<div class="cc cc-empty">Nessun dato di contatto</div>';
   renderVip(a.vip);
   $('#cli-nsogg').textContent = s.nSoggiorni;
+  // Chi è venuto solo in giornata ha zero soggiorni ma una spesa: senza questa
+  // riga, il valore storico sembrerebbe uscito dal nulla.
+  $('#cli-dayuse').textContent = s.nDayUse ? `+ ${s.nDayUse} day use` : '';
   $('#cli-notti').textContent = s.nottiTotali != null ? s.nottiTotali : '–';
   $('#cli-ltv').textContent = euro(s.ltv || 0);
   $('#cli-ltv-media').textContent = s.nSoggiorni ? `media ${euro(s.spesaMediaSoggiorno || 0)}/soggiorno` : '';
