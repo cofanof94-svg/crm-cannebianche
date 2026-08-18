@@ -259,7 +259,7 @@ let filtroBriefing = 'all';
 const BRIEF_CHIPS = [
   { key: 'all', label: 'Arrivi', field: 'arrivi', pred: () => true },
   { key: 'vip', label: 'VIP', field: 'vip', pred: (a) => !!(a.snapshot && a.snapshot.vip) },
-  { key: 'compleanni', label: 'Compleanni', field: 'compleanni', pred: (a) => !!(a.snapshot && a.snapshot.compleanno) },
+  { key: 'compleanni', label: 'Compleanni', field: 'compleanni', pred: (a) => !!(a.snapshot && (a.snapshot.compleanni || []).length) },
   { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (a) => !!(a.snapshot && a.snapshot.reclami && a.snapshot.reclami.totali > 0) },
   { key: 'alert', label: 'Alert', field: 'alert', pred: (a) => !!(a.snapshot && ((a.snapshot.intolleranze && a.snapshot.intolleranze.length) || a.snapshot.indesiderato)) },
 ];
@@ -769,15 +769,36 @@ function rigaPreferenze(s, prefisso, classeChip) {
   return `<div class="${prefisso}-prefs"><span class="${prefisso}-lbl">Preferenze</span>${chips}${piu}</div>`;
 }
 
+// Compleanni durante il soggiorno (Arrivi e In casa usano lo stesso pezzo).
+//
+// Si mostrano TUTTI, ognuno con la sua data: in una prenotazione su venticinque
+// festeggia più di una persona, e il secondo nome serve quanto il primo.
+// Quando la data si ripete la si scrive una volta e i nomi si affiancano: nei
+// casi veri capita spesso — gemelle, madre e figlia — e ripetere "20/12" due
+// volte di seguito sembrerebbe un errore invece di due festeggiate.
+function flagCompleanni(s, classe) {
+  const lista = (s && s.compleanni) || [];
+  if (!lista.length) return '';
+  const perData = [];
+  for (const c of lista) {
+    const ultimo = perData[perData.length - 1];
+    if (ultimo && ultimo.data === c.data) ultimo.chi.push(c);
+    else perData.push({ data: c.data, chi: [c] });
+  }
+  const voci = perData.map(({ data, chi }) => {
+    const nomi = chi.map((c) => (c.nome ? linkCliente(c.codCli, c.nome) : '')).filter(Boolean).join(', ');
+    return `${fmtData(data)}${nomi ? ` ${nomi}` : ''}`;
+  }).join(' · ');
+  return `<span class="${esc(classe)} flag-birthday">🎂 ${lista.length === 1 ? 'Compleanno' : 'Compleanni'} ${voci}</span>`;
+}
+
 // Banda snapshot: le informazioni per l'accoglienza, in evidenza. Vuota → non renderizza.
 function snapshotBand(s) {
   if (!s) return '';
   const flags = [];
   if (s.indesiderato) flags.push('<span class="arr-flag flag-danger">⚠ Ospite indesiderato</span>');
-  if (s.compleanno) {
-    const chi = s.compleanno.nome ? ` · ${linkCliente(s.compleanno.codCli, s.compleanno.nome)}` : '';
-    flags.push(`<span class="arr-flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);
-  }
+  const compleanni = flagCompleanni(s, 'arr-flag');
+  if (compleanni) flags.push(compleanni);
   const allergie = flagAllergie(s, 'arr-flag');
   if (allergie) flags.push(allergie);
   const reclami = flagReclami(s, 'arr-flag');
@@ -897,7 +918,7 @@ const INCASA_CHIPS = [
   { key: 'partenze', label: 'Partono oggi', field: 'partonoOggi', pred: (c) => c.statoPartenza === 'partenza' || c.statoPartenza === 'checkout' },
   { key: 'vip', label: 'VIP', field: 'vip', pred: (c) => !!(c.snapshot && c.snapshot.vip) },
   { key: 'alert', label: 'Alert', field: 'alert', pred: (c) => !!(c.snapshot && ((c.snapshot.intolleranze && c.snapshot.intolleranze.length) || c.snapshot.indesiderato)) },
-  { key: 'ricorrenze', label: 'Ricorrenze', field: 'ricorrenze', pred: (c) => !!(c.snapshot && c.snapshot.compleanno) },
+  { key: 'ricorrenze', label: 'Ricorrenze', field: 'ricorrenze', pred: (c) => !!(c.snapshot && (c.snapshot.compleanni || []).length) },
   { key: 'reclami', label: 'Reclami', field: 'reclami', pred: (c) => !!(c.snapshot && c.snapshot.reclami && c.snapshot.reclami.totali > 0) },
   { key: 'usciti', label: 'Usciti', field: 'usciti', pred: (c) => c.statoPartenza === 'checkout' },
   // Ospiti del giorno: esterni di SPA, piscina e serate. Stanno in fondo alla
@@ -1129,10 +1150,8 @@ function schedaInCasa(c) {
   if (s && s.indesiderato) flags.push('<span class="flag flag-danger">⚠ Ospite indesiderato</span>');
   const allergie = flagAllergie(s, 'flag');
   if (allergie) flags.push(allergie);
-  if (s && s.compleanno) {
-    const chi = s.compleanno.nome ? ` · ${linkCliente(s.compleanno.codCli, s.compleanno.nome)}` : '';
-    flags.push(`<span class="flag flag-birthday">🎂 Compleanno ${fmtData(s.compleanno.data)}${chi}</span>`);
-  }
+  const compleanni = flagCompleanni(s, 'flag');
+  if (compleanni) flags.push(compleanni);
   const reclamiFlag = flagReclami(s, 'flag');
   if (reclamiFlag) flags.push(reclamiFlag);
   const flagBlock = flags.length ? `<div class="ic-flags">${flags.join('')}</div>` : '';

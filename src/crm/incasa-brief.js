@@ -84,7 +84,7 @@ function calcolaBriefingInCasa(clienti) {
     if (s.vip) b.vip += 1;
     if ((s.intolleranze && s.intolleranze.length) || s.indesiderato) b.alert += 1;
     if (s.reclami && s.reclami.totali) b.reclami += 1;
-    if (s.compleanno) b.ricorrenze += 1;
+    if (s.compleanni && s.compleanni.length) b.ricorrenze += 1;
   }
   return b;
 }

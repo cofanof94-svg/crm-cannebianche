@@ -100,7 +100,24 @@ function attenzioniDi(x) {
     if (!testi.length) out.push(`Reclamo aperto (${s.reclami.aperti})`);
     else out.push(`Reclamo aperto: ${testi.slice(0, 2).join(' | ')}${testi.length > 2 ? ` (+${testi.length - 2})` : ''}`);
   }
-  if (s.compleanno) out.push(`Compleanno ${fmtData(s.compleanno.data)}${s.compleanno.nome ? ' — ' + s.compleanno.nome : ''}`);
+  // Tutti i festeggiati, ognuno con la sua data. Il foglio va in cucina e in
+  // sala: sapere che sono due cambia quante torte si preparano.
+  // Quando la data coincide la si scrive una volta sola — succede spesso
+  // (gemelle, madre e figlia) e ripeterla sembrerebbe un errore. Stessa resa
+  // della card, perché è la stessa informazione.
+  const compleanni = s.compleanni || [];
+  if (compleanni.length) {
+    const perData = [];
+    for (const c of compleanni) {
+      const ultimo = perData[perData.length - 1];
+      if (ultimo && ultimo.data === c.data) ultimo.chi.push(c.nome);
+      else perData.push({ data: c.data, chi: [c.nome] });
+    }
+    const voci = perData
+      .map(({ data, chi }) => `${fmtData(data)}${chi.filter(Boolean).length ? ` ${chi.filter(Boolean).join(', ')}` : ''}`)
+      .join(' · ');
+    out.push(`${compleanni.length === 1 ? 'Compleanno' : 'Compleanni'} ${voci}`);
+  }
   if (x.statoPartenza === 'partenza') out.push('Parte oggi');
   // "Check-out effettuato" non c'è più: chi è uscito non finisce nel foglio
   // (vedi daEsportare), quindi una riga che lo annuncia non può esistere.

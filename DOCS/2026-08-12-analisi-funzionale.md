@@ -167,7 +167,7 @@ Preparare l'accoglienza: chi arriva oggi, in che camera, cosa serve sapere prima
 Una scheda per prenotazione, non per persona `[CODICE]`. Contiene:
 
 - **Referente** (cliccabile, apre la scheda ospite), stato *Atteso* / *In casa*, ora prevista di arrivo, badge VIP.
-- **Banda di accoglienza**: ospite indesiderato, compleanno durante il soggiorno, allergie *col nome di chi le ha*, reclami aperti con il loro testo, fino a **5 preferenze** (§9), nota personale accorciata.
+- **Banda di accoglienza**: ospite indesiderato, i compleanni durante il soggiorno, allergie *col nome di chi le ha*, reclami aperti con il loro testo, fino a **5 preferenze** (§9), nota personale accorciata.
 - **Camere e tipologie**, date, notti, e il badge **"Nª volta"** con le eventuali visite in giornata — dal 14/08/2026 `[DECISO]`. Era solo in "In casa": chi accoglie deve sapere che sta per arrivare qualcuno alla quarta volta **prima** che entri dalla porta, non scoprirlo il giorno dopo dalla lista dei presenti. È lo stesso pezzo di codice delle due pagine, quindi non possono divergere. Sugli arrivi del 14/08 riguarda 2 prenotazioni su 10.
 - **Ospiti in camera**: gli occupanti, con la relazione col referente quando è nota. Le camere senza occupanti assegnati compaiono lo stesso, con la dicitura "nessun ospite assegnato" `[CODICE]`.
 - **Dati operativi**: importo del soggiorno, extra maturati, trattamento e tariffa, numero pratica, data di creazione.
@@ -195,12 +195,15 @@ Per ogni prenotazione si raccolgono i codici del referente **e di tutti gli occu
 | Allergie | CRM | Tutte quelle del gruppo, **ciascuna col nome di chi la ha** `[DECISO][TEST]`. Doppioni tolti per coppia persona+allergia: due occupanti celiaci restano due voci, perché sono due piatti da preparare |
 | Preferenze | CRM | **Personali e di nucleo**, senza doppioni, **massimo 5**; le personali col nome di chi le ha (§9) `[DECISO][TEST]` |
 | Reclami | CRM | Conteggio di tutti + testo di quelli aperti (i risolti restano solo numero) `[CODICE][TEST]` |
-| Compleanno | PMS (data di nascita) | **Solo il primo** membro che compie gli anni fra arrivo e partenza compresi; gestisce il soggiorno a cavallo di capodanno `[CODICE][TEST]`. Vedi il limite noto qui sotto |
+| Compleanni | PMS (data di nascita) | **Tutti** i membri che compiono gli anni fra arrivo e partenza compresi, in ordine di data; gestisce il soggiorno a cavallo di capodanno `[DECISO][TEST]` |
 | Nota personale | CRM | Solo quella del **referente** (e delle sue anagrafiche fuse), mai quella di un occupante `[CODICE][TEST]` |
 | Nª volta | PMS | Soggiorni **già conclusi**: quello in corso è l'(n+1)-esimo `[CODICE]` |
 
 - Senza data di nascita in anagrafica non c'è compleanno: il CRM non ha una propria copia del dato `[CODICE][TEST]`.
-- **Di una prenotazione si segnala un compleanno solo** — il primo trovato scorrendo referente e poi occupanti `[CODICE]`. Misurato sul database dell'hotel il 14/08/2026: delle **1.482 prenotazioni** con almeno un compleanno durante il soggiorno, **41 ne hanno più di uno** (2,8%) e una ne ha tre. Sono casi veri e proprio quelli che contano: coniugi che festeggiano nella stessa vacanza, gemelle nate lo stesso giorno (pratica 51908), madre e figlia entrambe il 3 luglio (pratica 47381, 1954 e 2017). Oggi l'hotel ne vedrebbe una e preparerebbe una torta sola.
+- **Di una prenotazione si segnalano TUTTI i compleanni**, in ordine di data — dal 14/08/2026 `[DECISO][TEST]`. Fino al giorno prima ci si fermava al primo trovato. Misurato sul database dell’hotel: delle **1.482 prenotazioni** con almeno un compleanno durante il soggiorno, **41 ne hanno più di uno** (2,8%) e una ne ha tre. Sono casi veri e proprio quelli che contano: coniugi che festeggiano nella stessa vacanza, gemelle nate lo stesso giorno (pratica 51908), nonna e nipote entrambe il 3 luglio (pratica 47381, 1954 e 2017). Il secondo nome non arrivava a nessuno, e in cucina si preparava una torta sola.
+- **Quando due festeggiano lo stesso giorno la data si scrive una volta sola** e i nomi si affiancano — *20/12/2024 ELISABETH, MARGARETE* `[DECISO][TEST]`. Succede spesso (in quasi metà dei casi misurati) e ripetere la stessa data due volte di fila sembrerebbe un errore invece di due festeggiate. Stessa resa in card e sul foglio dei reparti, perché è la stessa informazione.
+- Ogni nome resta **cliccabile**: dalla card si apre la scheda del festeggiato `[CODICE][TEST]`.
+- La pastiglia **Compleanni** in cima alla pagina conta le **prenotazioni** con almeno un festeggiato, non le persone: al clic filtra le righe, e il numero deve tornare con quelle `[CODICE][TEST]`.
 
 ### Barra di riepilogo e filtri
 

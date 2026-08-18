@@ -137,9 +137,38 @@ test('costruisciSnapshot: VIP, indesiderato, preferenze personali e di nucleo, i
   ]);
   assert.strictEqual(s.relazioni[200], 'Coniuge');
   assert.strictEqual(s.relazioni[300], undefined);
-  assert.strictEqual(s.compleanno.data, '2026-08-05');
-  assert.strictEqual(s.compleanno.nome, 'ROSSI MARIO');
-  assert.strictEqual(s.compleanno.codCli, 100); // serve a rendere il nome cliccabile
+  assert.strictEqual(s.compleanni.length, 1);
+  assert.strictEqual(s.compleanni[0].data, '2026-08-05');
+  assert.strictEqual(s.compleanni[0].nome, 'ROSSI MARIO');
+  assert.strictEqual(s.compleanni[0].codCli, 100); // serve a rendere il nome cliccabile
+});
+
+test('costruisciSnapshot: se festeggiano in due si vedono tutti e due, in ordine di data', () => {
+  // Misurato sul database dell'hotel il 14/08/2026: 41 prenotazioni su 1.482
+  // hanno più di un compleanno durante il soggiorno. Fermarsi al primo faceva
+  // preparare una torta sola.
+  const ctx = ctxDiProva();
+  ctx.anagra = new Map([
+    [100, { nominativo: 'ROSSI MARIO', dtNascita: '1980-08-07', vip: null }],
+    [200, { nominativo: 'ROSSI ANNA', dtNascita: '1982-08-03', vip: null }],
+    [300, { nominativo: 'ROSSI LUCA', dtNascita: '1990-11-11', vip: null }], // fuori soggiorno
+  ]);
+  const arrivo = { codCliente: 100, dtarrivo: '2026-08-01', dtpartenza: '2026-08-10', ospiti: [{ codCli: 200 }, { codCli: 300 }] };
+  const s = costruisciSnapshot(arrivo, ctx);
+  assert.deepStrictEqual(s.compleanni.map((c) => `${c.data} ${c.nome}`),
+    ['2026-08-03 ROSSI ANNA', '2026-08-07 ROSSI MARIO']);
+});
+
+test('costruisciSnapshot: la stessa persona con due codici fusi festeggia una volta sola', () => {
+  // 100 e 101 sono la stessa persona (anagrafiche fuse): due voci identiche
+  // sulla card sembrerebbero due festeggiati.
+  const ctx = ctxDiProva();
+  ctx.anagra = new Map([
+    [100, { nominativo: 'ROSSI MARIO', dtNascita: '1980-08-05', vip: null }],
+    [101, { nominativo: 'ROSSI MARIO', dtNascita: '1980-08-05', vip: null }],
+  ]);
+  const s = costruisciSnapshot({ codCliente: 100, dtarrivo: '2026-08-01', dtpartenza: '2026-08-10', ospiti: [] }, ctx);
+  assert.strictEqual(s.compleanni.length, 1);
 });
 
 test('costruisciSnapshot: la nota personale è quella del referente (anche fuso), non degli occupanti', () => {
@@ -169,9 +198,11 @@ test('costruisciSnapshot: la card ne mostra al massimo cinque e conta le altre',
 
 test('calcolaBriefing: conta VIP, compleanni, reclami, alert', () => {
   const arriviArr = [
-    { snapshot: { vip: { cod: 'V1' }, compleanno: { data: 'x' }, reclami: { aperti: 0, totali: 1 }, intolleranze: [], indesiderato: false } },
-    { snapshot: { vip: null, compleanno: null, reclami: { aperti: 0, totali: 0 }, intolleranze: ['Glutine'], indesiderato: false } },
-    { snapshot: { vip: null, compleanno: null, reclami: { aperti: 0, totali: 0 }, intolleranze: [], indesiderato: true } },
+    // due festeggiati nella stessa prenotazione: la chip conta la PRENOTAZIONE,
+    // non le persone, perché al clic filtra le righe e il numero deve tornare
+    { snapshot: { vip: { cod: 'V1' }, compleanni: [{ data: 'x' }, { data: 'y' }], reclami: { aperti: 0, totali: 1 }, intolleranze: [], indesiderato: false } },
+    { snapshot: { vip: null, compleanni: [], reclami: { aperti: 0, totali: 0 }, intolleranze: ['Glutine'], indesiderato: false } },
+    { snapshot: { vip: null, compleanni: [], reclami: { aperti: 0, totali: 0 }, intolleranze: [], indesiderato: true } },
   ];
   const b = calcolaBriefing(arriviArr);
   assert.strictEqual(b.arrivi, 3);
@@ -215,7 +246,7 @@ test('arricchisciArrivi: allega snapshot e calcola il briefing', async () => {
   assert.strictEqual(s.preferenzeTop[0].testo, 'Caffè leccese');
   assert.strictEqual(s.reclami.totali, 1);
   assert.strictEqual(s.relazioni[200], 'Coniuge');
-  assert.strictEqual(s.compleanno.data, '2026-08-05');
+  assert.strictEqual(s.compleanni[0].data, '2026-08-05');
   assert.strictEqual(s.indesiderato, true);
   assert.strictEqual(s.notaPersonale.sintesi, 'Direttore LUISS · Economista');
   assert.strictEqual(enr.briefing.reclami, 1);
@@ -226,7 +257,7 @@ test('arricchisciArrivi: senza data di nascita nel PMS non c\'è compleanno', as
   // 200 non ha dtNascita in Anagra: il PMS è l'unica fonte, quindi niente ricorrenza.
   const arrivi = [{ codCliente: 200, dtarrivo: '2026-09-01', dtpartenza: '2026-09-06', ospiti: [] }];
   const enr = await arricchisciArrivi(pmsMock(), crmMock(), arrivi);
-  assert.strictEqual(enr.arrivi[0].snapshot.compleanno, null);
+  assert.deepStrictEqual(enr.arrivi[0].snapshot.compleanni, []);
   assert.strictEqual(enr.briefing.compleanni, 0);
 });
 

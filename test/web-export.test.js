@@ -74,7 +74,7 @@ const arrivo = {
     ],
     preferenzeTop: [{ testo: 'Coca-Cola Zero' }, { testo: 'Cuscino rigido' }],
     reclami: { aperti: 1, totali: 2, apertiDettaglio: [{ testo: 'Ritardo nella pulizia camera', reparto: 'Rooms', categoria: 'Pulizia' }] },
-    compleanno: { data: '2026-08-12', nome: 'PAGLIUSO NATALIA' },
+    compleanni: [{ data: '2026-08-12', nome: 'PAGLIUSO NATALIA' }],
     indesiderato: false,
     notaPersonale: { sintesi: 'CEO settore Fashion', testo: 'CEO settore Fashion. Cena presto, mai dopo le 21.', troncata: true },
   },
@@ -121,7 +121,7 @@ test('rigaExport: dati operativi sì, dati economici no', () => {
 test('attenzioniDi: del reclamo si legge il TESTO e il reparto, non il numero', () => {
   const a = E.attenzioniDi(arrivo);
   assert.ok(a.some((x) => /Reclamo aperto: \[Rooms\/Pulizia\] Ritardo nella pulizia camera/.test(x)));
-  assert.ok(a.some((x) => /Compleanno 12\/08\/2026 — PAGLIUSO NATALIA/.test(x)));
+  assert.ok(a.some((x) => /Compleanno 12\/08\/2026 PAGLIUSO NATALIA/.test(x)));
   const b = E.attenzioniDi({ snapshot: { indesiderato: true, reclami: { aperti: 0 } }, statoPartenza: 'partenza' });
   assert.deepStrictEqual(b, ['Ospite indesiderato', 'Parte oggi']);
   assert.deepStrictEqual(E.attenzioniDi({}), []); // nessun allarme inventato
@@ -183,6 +183,29 @@ test('accorcia: taglia a parola intera, lascia intatto ciò che ci sta', () => {
 test('ordinaPerCamera: ordine da rack, non alfabetico', () => {
   const r = E.ordinaPerCamera([{ camere: '218' }, { camere: '109' }, { camere: '—' }, { camere: '9' }]);
   assert.deepStrictEqual(r.map((x) => x.camere), ['9', '109', '218', '—']);
+});
+
+test('foglio reparti: se festeggiano in due si leggono entrambe le date', () => {
+  // Il foglio va in cucina e in sala: sapere che sono due cambia quante torte
+  // si preparano. Sui dati veri capita in 41 prenotazioni su 1.482.
+  const due = E.attenzioniDi({ snapshot: { compleanni: [
+    { data: '2026-07-03', nome: 'KELLY JENNIFER' },
+    { data: '2026-07-08', nome: 'KELLY-DRAKE ROWYNN' },
+  ] } });
+  assert.strictEqual(due[0], 'Compleanni 03/07/2026 KELLY JENNIFER · 08/07/2026 KELLY-DRAKE ROWYNN');
+  const uno = E.attenzioniDi({ snapshot: { compleanni: [{ data: '2026-07-03', nome: 'KELLY JENNIFER' }] } });
+  assert.strictEqual(uno[0], 'Compleanno 03/07/2026 KELLY JENNIFER');
+  assert.deepStrictEqual(E.attenzioniDi({ snapshot: { compleanni: [] } }), []);
+});
+
+test('foglio reparti: stessa data, una volta sola — come in card', () => {
+  // Caso vero (pratica 47381): nonna e nipote, entrambe il 3 luglio. Sul foglio
+  // la data ripetuta due volte di fila sembrerebbe un errore di stampa.
+  const a = E.attenzioniDi({ snapshot: { compleanni: [
+    { data: '2024-07-03', nome: 'KELLY JENNIFER' },
+    { data: '2024-07-03', nome: 'KELLY-DRAKE ROWYNN' },
+  ] } });
+  assert.strictEqual(a[0], 'Compleanni 03/07/2024 KELLY JENNIFER, KELLY-DRAKE ROWYNN');
 });
 
 // --- Chi non va sul foglio dei reparti ----------------------------------------

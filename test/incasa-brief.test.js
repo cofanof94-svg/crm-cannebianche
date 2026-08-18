@@ -49,8 +49,8 @@ test('avanzamento: notte corrente, ultima notte, input incompleti', () => {
 
 test('calcolaBriefingInCasa: presenti esclude gli usciti, conta i segnali', () => {
   const b = calcolaBriefingInCasa([
-    { statoPartenza: 'incasa', snapshot: { vip: { cod: 'V1' }, intolleranze: [], reclami: { totali: 0 }, compleanno: null } },
-    { statoPartenza: 'partenza', snapshot: { vip: null, intolleranze: ['Lattosio'], reclami: { totali: 2, aperti: 1 }, compleanno: { data: '2026-08-07' } } },
+    { statoPartenza: 'incasa', snapshot: { vip: { cod: 'V1' }, intolleranze: [], reclami: { totali: 0 }, compleanni: [] } },
+    { statoPartenza: 'partenza', snapshot: { vip: null, intolleranze: ['Lattosio'], reclami: { totali: 2, aperti: 1 }, compleanni: [{ data: '2026-08-07' }] } },
     { statoPartenza: 'incasa', snapshot: { vip: null, indesiderato: true, intolleranze: [], reclami: { totali: 0 } } },
     { statoPartenza: 'checkout', snapshot: { vip: { cod: 'V1' }, intolleranze: [], reclami: { totali: 0 } } },
   ]);

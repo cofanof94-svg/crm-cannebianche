@@ -271,15 +271,25 @@ function costruisciSnapshot(a, ctx) {
   const rigaNota = raccogli(ctx.noteBy, ancore).find((r) => r.note_personali);
   const notaPersonale = rigaNota ? sintetizzaNota(rigaNota.note_personali) : null;
 
-  // Compleanno durante il soggiorno (primo membro che compie gli anni). Porta
-  // con sé il codice cliente: nelle card il nome dev'essere cliccabile.
-  let compleanno = null;
+  // TUTTI i compleanni durante il soggiorno, in ordine di data. Ognuno porta il
+  // codice cliente, perché nelle card il nome dev'essere cliccabile.
+  //
+  // Fino al 14/08/2026 ci si fermava al primo. Misurato sul database dell'hotel:
+  // delle 1.482 prenotazioni con almeno un compleanno, 41 ne hanno più di uno e
+  // una ne ha tre — coniugi che festeggiano nella stessa vacanza, gemelle nate
+  // lo stesso giorno, madre e figlia entrambe il 3 luglio. Il secondo nome non
+  // arrivava a nessuno, e in cucina si preparava una torta sola.
+  const compleanni = [];
   for (const id of ids) {
     const an = ctx.anagra.get(id);
     if (!an) continue;
     const data = compleannoNelSoggiorno(an.dtNascita, a.dtarrivo, a.dtpartenza);
-    if (data) { compleanno = { codCli: id, nome: an.nominativo, data }; break; }
+    // Stessa persona con più codici fusi: una voce sola, non una per codice.
+    if (data && !compleanni.some((c) => c.nome === an.nominativo && c.data === data)) {
+      compleanni.push({ codCli: id, nome: an.nominativo, data });
+    }
   }
+  compleanni.sort((x, y) => String(x.data).localeCompare(String(y.data)));
 
   // Possibili allergie: PROPOSTE, non dati. Il CRM non scrive mai da solo in un
   // dato di sicurezza. Due fonti, con due gradi di certezza diversi:
@@ -294,7 +304,7 @@ function costruisciSnapshot(a, ctx) {
     .map((an) => ({ codCli: an.codCli, nome: an.nominativo, testo: an.note }));
   const allergieProposte = proponiPerSoggiorno({ nota: a.note, annotazioni, giaPresenti: intoll });
 
-  return { vip, indesiderato, preferenzeTop: prefTop, preferenzeAltre, intolleranze: intoll, reclami, relazioni, compleanno, notaPersonale, allergieProposte };
+  return { vip, indesiderato, preferenzeTop: prefTop, preferenzeAltre, intolleranze: intoll, reclami, relazioni, compleanni, notaPersonale, allergieProposte };
 }
 
 // Riepilogo giornata dai singoli snapshot.
@@ -303,7 +313,9 @@ function calcolaBriefing(arriviArr) {
   for (const a of arriviArr) {
     const s = a.snapshot || {};
     if (s.vip) b.vip += 1;
-    if (s.compleanno) b.compleanni += 1;
+    // Il contatore conta le PRENOTAZIONI con almeno un festeggiato, non le
+    // persone: è una chip che filtra la lista, e deve tornare con le righe.
+    if (s.compleanni && s.compleanni.length) b.compleanni += 1;
     if (s.reclami && s.reclami.totali > 0) b.reclami += 1;
     if ((s.intolleranze && s.intolleranze.length > 0) || s.indesiderato) b.alert += 1;
   }
