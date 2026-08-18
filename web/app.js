@@ -1422,17 +1422,17 @@ async function loadCliente(codCli) {
   ].filter(Boolean).join('') || '<div class="cc cc-empty">Nessun dato di contatto</div>';
   renderVip(a.vip);
   $('#cli-nsogg').textContent = s.nSoggiorni;
-  // Sotto il conteggio dei soggiorni, quello che i soggiorni NON comprendono.
-  // Chi è venuto solo in giornata ha zero soggiorni ma una spesa: senza la
-  // prima voce il valore storico sembrerebbe uscito dal nulla. La seconda dice
-  // quante pratiche sono state scartate perché non hanno le date: la loro riga
-  // si vede ancora nello storico qui sotto, e senza questa scritta il conto non
-  // tornerebbe con le righe visibili.
-  const senzaDate = s.nSenzaDate || 0;
-  $('#cli-dayuse').textContent = [
-    s.nDayUse ? `+ ${s.nDayUse} day use` : '',
-    senzaDate ? `${senzaDate} ${senzaDate === 1 ? 'pratica senza date, non contata' : 'pratiche senza date, non contate'}` : '',
-  ].filter(Boolean).join(' · ');
+  // Sotto il conteggio dei soggiorni si dichiara UNA cosa sola: i day use. Chi è
+  // venuto solo in giornata ha zero soggiorni ma una spesa, e senza questa voce
+  // il valore storico sembrerebbe uscito dal nulla.
+  //
+  // Le pratiche senza date invece NON si dichiarano (decisione di Mik,
+  // 18/08/2026): sono residui vecchi del gestionale, e annunciarli in ogni
+  // scheda vorrebbe dire mettere davanti alla reception un problema di pulizia
+  // dell'archivio che non è suo e che non può risolvere. Il server continua a
+  // contarle (`nSenzaDate`) perché quel numero serve a chi indaga, ma qui non si
+  // scrive. Perché il conteggio non comprende tutto lo dice la (i) del riquadro.
+  $('#cli-dayuse').textContent = s.nDayUse ? `+ ${s.nDayUse} day use` : '';
   $('#cli-notti').textContent = s.nottiTotali != null ? s.nottiTotali : '–';
   $('#cli-ltv').textContent = euro(s.ltv || 0);
   $('#cli-ltv-media').textContent = s.nSoggiorni ? `media ${euro(s.spesaMediaSoggiorno || 0)}/soggiorno` : '';
