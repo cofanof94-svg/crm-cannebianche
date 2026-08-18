@@ -184,6 +184,15 @@ const pmsDb = {
       return idsDaIn(t).map((id) => anagraByCod.get(id)).filter(Boolean);
     }
     if (/AS cameraInCasa/.test(t)) {
+      // La stessa query serve per testo e per CODICE. Quella per codice porta un
+      // IN e nessun parametro: senza questo ramo i token sarebbero zero, la
+      // condizione risulterebbe vera per tutti e la ricerca restituirebbe
+      // l'intera rubrica al posto del solo profilo principale.
+      const perCodice = String(t).match(/a\.CodCli IN \(([\d,\s]+)\)/);
+      if (perCodice) {
+        const voluti = perCodice[1].split(',').map((s) => Number(s.trim()));
+        return F.ANAGRAFICHE.filter((a) => voluti.includes(a.CodCli)).map((a) => ({ ...a, cameraInCasa: null }));
+      }
       // i token arrivano come '%testo%' (LIKE): via i jolly, poi AND fra i token
       const tokens = Object.values(params).map((v) => String(v).replace(/%/g, '').toLowerCase()).filter(Boolean);
       return F.ANAGRAFICHE
