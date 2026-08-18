@@ -75,6 +75,23 @@ test('il conteggio VIP di Analytics dichiara di misurare il presente', () => {
   assert.match(AN, /VIP ADESSO/);
 });
 
+test('nessun tooltip contiene una data', () => {
+  // L'applicazione è ancora in sviluppo e non l'ha usata nessuno: i dati sono
+  // di prova. Una data in un suggerimento ("si raccoglie dal 13/08") racconta
+  // la storia dello sviluppo, che a chi legge non serve, e invecchia da sola.
+  // Le date delle decisioni stanno nei commenti e nel documento funzionale,
+  // non davanti all'utente.
+  const dentroCodice = [...APP.matchAll(/tip: '([^']*)'/g)].map((m) => m[1]);
+  const dentroAnalytics = [...AN.matchAll(/<small>([^<]*)<\/small>/g)].map((m) => m[1]);
+  const tutti = tips(HTML).concat(tips(APP), dentroCodice, dentroAnalytics);
+  assert.ok(tutti.length > 20, `trovati solo ${tutti.length} testi: la ricerca non guarda dove crede`);
+  for (const x of tutti) {
+    assert.doesNotMatch(x, /\d{1,2}\/\d{1,2}\/20\d\d/, `data nell'interfaccia: ${x.slice(0, 70)}…`);
+    assert.doesNotMatch(x, /\bdal \d{1,2}\/\d{1,2}\b/, `data nell'interfaccia: ${x.slice(0, 70)}…`);
+  }
+});
+
+
 test('i tooltip restano brevi', () => {
   // Non sono documentazione: se servono più di trecento caratteri, la schermata
   // ha un problema che un tooltip non risolve.

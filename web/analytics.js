@@ -150,7 +150,7 @@ function renderAnalytics(d) {
         <small>${anNum(rec.totali)} in tutto · ${anNum(rec.daClassificare)} da classificare</small></div>
       <div class="an-minore"><b>${anNum(acc.riusciti)}</b> accessi
         <small>${anNum(acc.utentiAttivi)} utenti in ${anNum(acc.giorniConAccessi)} giorni</small></div>
-      ${aiRighe || '<div class="an-minore an-minore-vuoto"><b>—</b> uso dell\'AI<small>si raccoglie dal 13/08/2026</small></div>'}
+      ${aiRighe || '<div class="an-minore an-minore-vuoto"><b>—</b> uso dell\'AI<small>nessuna generazione registrata finora</small></div>'}
     </div>`;
 
   return `<div class="an-periodo-eco">Periodo <b>${fmtData(d.periodo.da)} → ${fmtData(d.periodo.a)}</b>
