@@ -73,6 +73,47 @@ function rigaPrenota(p, data) {
   };
 }
 
+// --- Analytics: numeri finti che però rispondono al periodo ------------------
+//
+// Prima le fixture erano costanti: si cambiava finestra temporale e non si
+// muoveva niente, e la pagina sembrava rotta quando invece era il finto a non
+// avere storia. Adesso i numeri si ricavano dal periodo chiesto, con un peso
+// stagionale — è un albergo di mare, agosto non è novembre — così il selettore
+// si può collaudare da remoto e i riquadri restano coerenti fra loro e con il
+// grafico dell'andamento. Restano numeri inventati: servono a vedere la pagina
+// viva, non a studiarli.
+const PESO_MESE = [0, 0.2, 0.25, 0.5, 0.9, 1.4, 1.7, 2.1, 1.6, 0.8, 0.35, 0.2, 0.2];
+const SOMMA_PESI = PESO_MESE.reduce((s, x) => s + x, 0);
+const giorniDelMese = (d) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+
+// Che frazione di un anno "pesa" il periodo chiesto. Un anno intero vale 1.
+function quotaAnno(da, a) {
+  if (!da || !a) return 1;
+  let q = 0;
+  const d = new Date(`${da}T00:00:00Z`);
+  const fine = new Date(`${a}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || Number.isNaN(fine.getTime())) return 1;
+  while (d <= fine) {
+    q += PESO_MESE[d.getUTCMonth() + 1] / SOMMA_PESI / giorniDelMese(d);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return q;
+}
+
+// I mesi toccati dal periodo, ciascuno con la sua quota: è l'andamento, e la
+// somma dei suoi punti torna con il totale dei soggiorni.
+function mesiDelPeriodo(da, a) {
+  const per = new Map();
+  const d = new Date(`${da}T00:00:00Z`);
+  const fine = new Date(`${a}T00:00:00Z`);
+  while (d <= fine) {
+    const mese = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    per.set(mese, (per.get(mese) || 0) + PESO_MESE[d.getUTCMonth() + 1] / SOMMA_PESI / giorniDelMese(d));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return per;
+}
+
 // ---------------------------------------------------------------- PMS (RO) --
 const pmsDb = {
   async query(text, params = {}) {
@@ -80,26 +121,37 @@ const pmsDb = {
 
     if (/AS data FROM Persona/.test(t)) return [{ data: F.DATA_LAVORO }];
 
-    // --- Analytics (le fixture non hanno anni di storico: numeri inventati ma
-    // coerenti fra loro, per vedere la pagina disegnata e non per studiarli) ---
-    if (/analytics:kpi/.test(t)) return [{ soggiorni: 412, ospiti: 388, notti: 1704, vip: 96, diRitorno: 71 }];
-    if (/analytics:qualita/.test(t)) return [{ ospiti: 388, senzaEmail: 141, senzaTelefono: 132, senzaDataNascita: 58 }];
-    if (/analytics:canali/.test(t)) return [
-      { voce: 'DIRETTI', n: 186 }, { voce: 'OTA', n: 121 }, { voce: 'T. OPERATOR', n: 64 }, { voce: 'AGENZIE', n: 41 }];
-    if (/analytics:nazioni/.test(t)) return [
-      { voce: 'USA', n: 92 }, { voce: 'I', n: 74 }, { voce: 'GB', n: 58 }, { voce: 'D', n: 31 }, { voce: 'Non indicata', n: 27 }];
-    if (/analytics:vip/.test(t)) return [
-      { voce: 'BOLLICINE + FRUTTA FRESCA DI STAGIONE', n: 44 }, { voce: 'SELEZIONE DI BISCOTTI', n: 21 }, { voce: 'VIRTUOSO', n: 9 }];
-    if (/analytics:consumi/.test(t)) return [
+    // --- Analytics: i valori qui sotto sono riferiti a un ANNO, e vengono
+    // ridotti alla quota del periodo chiesto (vedi quotaAnno). Le righe con n a
+    // zero le scarta già la pagina, quindi su una settimana d'inverno certe
+    // classifiche restano giustamente vuote. ---
+    const q = quotaAnno(params.da, params.a);
+    const scala = (n) => Math.round(n * q);
+    const classifica = (righe) => righe.map((r) => ({ ...r, n: scala(r.n), ...(r.euro == null ? {} : { euro: scala(r.euro) }) }));
+
+    if (/analytics:kpi/.test(t)) {
+      const soggiorni = scala(412);
+      return [{ soggiorni, ospiti: Math.round(soggiorni * 0.94), notti: Math.round(soggiorni * 4.1), vip: scala(96), diRitorno: scala(71) }];
+    }
+    if (/analytics:qualita/.test(t)) {
+      return [{ ospiti: Math.round(scala(412) * 0.94), senzaEmail: scala(141), senzaTelefono: scala(132), senzaDataNascita: scala(58) }];
+    }
+    if (/analytics:canali/.test(t)) return classifica([
+      { voce: 'DIRETTI', n: 186 }, { voce: 'OTA', n: 121 }, { voce: 'T. OPERATOR', n: 64 }, { voce: 'AGENZIE', n: 41 }]);
+    if (/analytics:nazioni/.test(t)) return classifica([
+      { voce: 'USA', n: 92 }, { voce: 'I', n: 74 }, { voce: 'GB', n: 58 }, { voce: 'D', n: 31 }, { voce: 'Non indicata', n: 27 }]);
+    if (/analytics:vip/.test(t)) return classifica([
+      { voce: 'BOLLICINE + FRUTTA FRESCA DI STAGIONE', n: 44 }, { voce: 'SELEZIONE DI BISCOTTI', n: 21 }, { voce: 'VIRTUOSO', n: 9 }]);
+    if (/analytics:consumi/.test(t)) return classifica([
       { voce: 'ACQUA NAT. CANNE BIANCHE', n: 1180, euro: 3480, tipo: 'B' },
       { voce: 'CAFFÈ', n: 640, euro: 3900, tipo: 'B' },
       { voce: 'APEROL SPRITZ', n: 402, euro: 11200, tipo: 'B' },
-      { voce: 'INSALATA MISTA', n: 318, euro: 3090, tipo: 'F' }];
-    if (/analytics:spa/.test(t)) return [
-      { voce: 'PERCORSO INTERNI', n: 118, euro: 2180 }, { voce: 'SERENITY', n: 57, euro: 6620 }];
-    if (/analytics:andamento/.test(t)) return [
-      { mese: '2026-03', n: 48 }, { mese: '2026-04', n: 71 }, { mese: '2026-05', n: 88 },
-      { mese: '2026-06', n: 79 }, { mese: '2026-07', n: 84 }, { mese: '2026-08', n: 42 }];
+      { voce: 'INSALATA MISTA', n: 318, euro: 3090, tipo: 'F' }]);
+    if (/analytics:spa/.test(t)) return classifica([
+      { voce: 'PERCORSO INTERNI', n: 118, euro: 2180 }, { voce: 'SERENITY', n: 57, euro: 6620 }]);
+    if (/analytics:andamento/.test(t)) {
+      return [...mesiDelPeriodo(params.da, params.a)].map(([mese, quota]) => ({ mese, n: Math.round(412 * quota) }));
+    }
 
     if (/AS arrivi/.test(t)) {
       const d = params.data || F.DATA_LAVORO;
@@ -338,7 +390,14 @@ const crmDb = {
       }];
     }
     if (/AS preferenze/.test(t)) {
-      return [{ preferenze: store.preferenze.length, allergie: store.intolleranze.length, reclami: store.complaints.length }];
+      // Questo riquadro conta quello che è stato SCRITTO nel periodo, non quello
+      // che c'è: qui la data va guardata davvero, altrimenti la riga del ritmo
+      // resterebbe ferma come lo erano i numeri del gestionale.
+      const nel = (righe) => righe.filter((r) => {
+        const g = String(r.created_at || '').slice(0, 10);
+        return g && (!params.da || g >= params.da) && (!params.a || g <= params.a);
+      }).length;
+      return [{ preferenze: nel(store.preferenze), allergie: nel(store.intolleranze), reclami: nel(store.complaints) }];
     }
     if (/AS daClassificare/.test(t)) {
       return [{
