@@ -1,6 +1,6 @@
 # Analisi funzionale — CRM Hotel Canne Bianche
 
-- **Data:** 2026-08-12, **aggiornato il 2026-08-13 in hotel** e il **2026-08-14**
+- **Data:** 2026-08-12, **aggiornato il 2026-08-13 in hotel**, il **2026-08-14** e il **2026-08-18**
 - **Oggetto:** che cosa fa l'applicazione e con quali regole, dal punto di vista di chi la usa.
 - **Metodo:** lettura dei documenti in `DOCS/`, del codice in `src/` e `web/`, dei test in `test/`. La prima stesura è stata scritta **senza il database dell'hotel**; il 13/08 tutto ciò che si poteva misurare è stato misurato sui dati veri, e dove i numeri contraddicevano il documento ha vinto il database.
 
@@ -64,7 +64,7 @@ Il CRM sta sopra il gestionale alberghiero (PMS) e serve alla reception per **co
 
 ### Le due sorgenti dei dati
 
-| | PMS (`HolidayCanneBianche`) | CRM (`HolidayCanneBianche_CRM`) |
+| | PMS (`HolidaySQL`) | CRM (`HolidayCanneBianche_CRM`) |
 |---|---|---|
 | Accesso | **Sola lettura**, garantita dai permessi del database `[DOC]` | Lettura e scrittura |
 | Contiene | Anagrafiche, prenotazioni, camere, occupanti, consumi, consensi privacy, note libere del gestionale | Utenti dell'app, preferenze, allergie, reclami, note personali, lingua, nucleo, fusioni |
@@ -84,7 +84,7 @@ Sono verità del PMS, non scelte del CRM, e spiegano molti comportamenti dell'ap
 
 ### Se il gestionale non risponde
 
-- Le pagine Arrivi e In casa provano ad arricchire la lista con i dati CRM; se **il CRM** fallisce, la lista operativa del PMS viene servita comunque, senza gli arricchimenti `[CODICE]` (`src/api/arrivi.js:27-33`). È una scelta esplicita: la reception deve poter lavorare anche con il CRM in avaria.
+- Le pagine Arrivi e In casa provano ad arricchire la lista con i dati CRM; se **il CRM** fallisce, la lista operativa del PMS viene servita comunque, senza gli arricchimenti `[CODICE]` (il ripiego è il `catch` intorno a `arricchisciArrivi` in `src/api/arrivi.js`). È una scelta esplicita: la reception deve poter lavorare anche con il CRM in avaria.
 - Se **il PMS** non risponde, la pagina mostra un messaggio d'errore e il resto dell'applicazione continua a funzionare `[DOC]`.
 
 ---
@@ -100,7 +100,7 @@ Solo chi ha un account entra, e ciascuno vede e può fare quello che gli compete
 - Username e password; la password è conservata come impronta bcrypt, mai in chiaro `[DOC]`.
 - Un **utente disattivato non entra**, anche con la password giusta `[TEST]` (`test/auth.test.js`).
 - Credenziali sbagliate e utente inesistente danno **lo stesso messaggio**: non si può capire dall'esterno se un nome utente esiste `[DOC][TEST]`.
-- La sessione dura **8 ore** e viaggia su un cookie non leggibile da JavaScript `[CODICE]` (`src/app.js:18`).
+- La sessione dura **8 ore** e viaggia su un cookie non leggibile da JavaScript `[CODICE]` (la durata sta nel `cookie.maxAge` di `src/app.js`).
 - Dopo il logout il vecchio cookie non vale più `[DOC]` (verificato nel collaudo dell'11/08).
 - **Ruolo e stato si rileggono a ogni richiesta**, non solo all'accesso `[DECISO][TEST]`. Fino al 13/08/2026 il ruolo veniva letto una volta sola al login e messo in sessione: declassare qualcuno non era un'etichetta rimasta indietro, era un permesso che **restava valido fino a otto ore**, e disattivare un account non buttava fuori nessuno. Trovato in hotel declassando un utente a sola lettura e vedendolo ancora operativo nell'altra finestra. Ora un ruolo cambiato si riallinea alla richiesta successiva e un utente disattivato o eliminato perde la sessione all'istante.
 - Non esiste blocco dopo N tentativi falliti, né limite di frequenza sul login: **è una scelta**, non una dimenticanza `[DECISO]`. Un blocco chiuderebbe fuori chi ha davvero dimenticato la password, e non esiste recupero via email. Vedi §17 per il quadro completo.
@@ -135,6 +135,30 @@ Fissati da `[TEST]` (`test/permessi.test.js`, «i tre ruoli della Fase 1, e ness
 - Nei riquadri che normalmente mostrano un modulo di inserimento quando il dato manca (lingua, note personali), a chi non può scrivere si dice invece che il dato non c'è: un modulo nascosto lascerebbe un buco bianco che sembra un guasto `[CODICE][TEST]`.
 - Se il server non manda l'elenco dei permessi (file dell'applicazione più recenti del processo in esecuzione), l'interfaccia va **prudentemente in sola lettura** e dice che il server va riavviato, invece di far sembrare che tutti abbiano perso metà delle funzioni `[CODICE][TEST]`.
 
+### Che cosa resta scritto di un accesso
+
+Ogni tentativo di entrare **con nome utente e password** lascia una riga nel CRM: chi, quando, com'è andata `[CODICE][TEST]`. Un modulo inviato a metà viene rifiutato prima e non si registra: non è un tentativo di accesso, è un campo dimenticato.
+
+- Tre esiti possibili: **riuscito**, **credenziali sbagliate**, **utente disattivato**. All'utente il messaggio è sempre lo stesso — dall'esterno non si deve capire se un nome utente esiste (vedi *Accesso*) — ma nel registro i casi si distinguono: un account disattivato che continua a provare è un'informazione che serve.
+- Chi ha provato è registrato per nome anche quando quel nome utente **non esiste**: la riga resta senza collegamento a nessuno, ma il tentativo si conta.
+- **Si registrano anche i tentativi falliti**, e il motivo è l'adozione più che la sicurezza: qualcuno che sbaglia password tre volte al giorno è una persona in difficoltà con l'applicazione, e va visto.
+- Il registro **non è legato alla vita degli utenti**: eliminando una persona dalla pagina Utenti (§17) la storia dei suoi accessi resta. Cancellarla sarebbe cancellare proprio quello che si vuole conservare.
+- **Registrare non deve mai far fallire l'azione registrata** `[CODICE][TEST]`. Se la scrittura non riesce — la migrazione non è ancora passata, il database è occupato — l'errore finisce nei log del server e chi sta entrando non se ne accorge. Un accesso rifiutato perché non si è potuto annotare che era avvenuto sarebbe assurdo. Vale identica per il registro dell'AI (§18).
+
+### Che cosa NON resta scritto
+
+Il registro risponde a **una** domanda — *"il CRM lo stanno usando?"* — e a nient'altro `[CODICE]`:
+
+- **niente navigazione**: quali pagine sono state aperte, quali schede consultate, quante ricerche fatte;
+- **niente uscita**: il logout non lascia traccia, quindi la durata di una sessione non è ricostruibile;
+- **niente indirizzo di rete né dispositivo**.
+
+Di chi **scrive** si sapeva già tutto, perché preferenze, allergie, reclami e note portano autore e data. Quello che mancava era chi **consulta e basta**: una reception che apre venti schede al giorno sta usando il CRM anche se non salva niente, e prima di questo registro risultava inattiva.
+
+Conseguenza da tenere presente leggendo Analytics (§20): il riquadro **"Chi usa l'applicazione"** conta gli **accessi riusciti**, non il lavoro fatto dentro. Dice chi entra, non quanto ci sta.
+
+**Le righe non vengono mai cancellate** e non esiste una pulizia periodica `[CODICE]`. Sono poche per costruzione — una per accesso — ma è un registro dell'attività del personale, e nessuno ha ancora deciso per quanto tempo conservarlo: **è una domanda aperta**, non una scelta presa.
+
 ---
 
 ## 3. Home
@@ -147,7 +171,7 @@ La fotografia della giornata in tre numeri, all'apertura dell'applicazione.
 
 - Tre riquadri: **Arrivi oggi**, **Partenze oggi**, **Restano stanotte**, riferiti alla data di lavoro del gestionale `[DOC]`.
 - Sono conteggi di **prenotazioni**, non di persone `[CODICE]`.
-- Arrivi = prenotazioni non annullate con data di arrivo pari a oggi, escluse quelle già segnate come partite. Partenze = stesso criterio sulla data di partenza. **Restano stanotte** = check-in fatto e oggi compreso fra arrivo e partenza, **partenza esclusa** `[CODICE]` (`src/pms/prenotazioni.js:121-126`).
+- Arrivi = prenotazioni non annullate con data di arrivo pari a oggi, escluse quelle già segnate come partite. Partenze = stesso criterio sulla data di partenza. **Restano stanotte** = check-in fatto e oggi compreso fra arrivo e partenza, **partenza esclusa** `[CODICE]` (`SQL_RIEPILOGO` in `src/pms/prenotazioni.js`).
 - Cliccando "Partenze oggi" si apre la pagina In casa già filtrata sui partenti `[CODICE]`.
 - Se il gestionale non risponde, i tre numeri diventano trattini con un messaggio `[CODICE]`.
 
@@ -285,7 +309,7 @@ Trovare un ospite per nome, email o telefono e aprirne la scheda.
 - Massimo **6 parole** e **20 risultati**, senza paginazione. Chi cerca un cognome comune non vede tutto `[CODICE]`.
 - Le anagrafiche **senza cognome e senza nome non compaiono mai** nei risultati `[CODICE]`.
 - Ogni risultato mostra città, telefoni ed email, e — se l'ospite è in casa in questo momento — la pastiglia "In casa" con il numero di camera `[CODICE]`.
-- La ricerca è per anagrafica, non per persona: **due codici fusi restano due risultati distinti** `[CODICE]`.
+- La ricerca guarda le **anagrafiche del gestionale**, ma le mostra **per persona**: i codici riconosciuti come la stessa persona si presentano in una riga sola (vedi sotto).
 
 ### Un ospite, un risultato — dal 14/08/2026
 
@@ -340,7 +364,7 @@ Numero di soggiorni, notti totali, LTV (arrangiamenti + extra), spesa media a so
 >
 > Contandole tutte, **9.996 ospiti su 62.123** risultavano più affezionati di quanto fossero, e **5.363 comparivano come "di ritorno" senza aver mai dormito qui**. Un ospite in casa il 13/08 leggeva "7ª volta" con cinque soggiorni veri.
 >
-> Da oggi sono **due conteggi separati**: il badge "Nª volta" conta i soggiorni con pernottamento; le giornate hanno un badge a parte ("3 in giornata"). Non si sommano — chi ha dormito qui una volta e poi è tornato sei volte per la SPA è al secondo soggiorno — ma non si buttano: un cliente che torna spesso in giornata è un dato commerciale, e prima chi veniva **solo** in giornata non entrava proprio nello storico.
+> Da oggi sono **due conteggi separati**: il badge "Nª volta" conta i soggiorni con pernottamento; le giornate hanno un badge a parte ("3 day use"). Non si sommano — chi ha dormito qui una volta e poi è tornato sei volte per la SPA è al secondo soggiorno — ma non si buttano: un cliente che torna spesso in giornata è un dato commerciale, e prima chi veniva **solo** in giornata non entrava proprio nello storico.
 >
 > Il taglio è fra **1 e 200 notti**: sotto c'è la giornata, sopra il voucher (stanno tutti sui 365 giorni), e qui la stagione dura meno di 200 giorni. Anche **"ultima visita"** guarda solo i soggiorni: prendeva il massimo fra le partenze, e un voucher valido fino al 2027 poteva far scrivere alla card una data che deve ancora arrivare.
 - **Le prenotazioni future restano visibili nello storico** `[DECISO][TEST]`: non contano nei numeri, ma sapere che l'ospite torna a giugno serve a chi lo accoglie.
@@ -492,7 +516,7 @@ Fino al 13/08 si leggeva solo il primo. Il secondo era già mostrato nella sched
 
 ### Dove compaiono
 
-Arrivi, In casa **e scheda ospite** `[DECISO]`. Sulla scheda entrano entrambe le fonti: all'inizio erano escluse le note di prenotazione per non attribuire in silenzio a chi apre la pagina un'allergia riferita a un altro occupante, ma alla prova coi dati veli la scelta non ha retto — chi apre la scheda ha davanti la frase, il numero di pratica e le date, e giudica meglio di qualunque regola. Sulla scheda si leggono le note delle prenotazioni **correnti**, non l'archivio: le richieste di soggiorni conclusi anni fa tornerebbero a galla a ogni apertura senza che nessuno sappia se valgono ancora.
+Arrivi, In casa **e scheda ospite** `[DECISO]`. Sulla scheda entrano entrambe le fonti: all'inizio erano escluse le note di prenotazione per non attribuire in silenzio a chi apre la pagina un'allergia riferita a un altro occupante, ma alla prova coi dati veri la scelta non ha retto — chi apre la scheda ha davanti la frase, il numero di pratica e le date, e giudica meglio di qualunque regola. Sulla scheda si leggono le note delle prenotazioni **correnti**, non l'archivio: le richieste di soggiorni conclusi anni fa tornerebbero a galla a ogni apertura senza che nessuno sappia se valgono ancora.
 
 ### Perché propone e non scrive
 
@@ -814,7 +838,7 @@ Due funzioni, entrambe **solo su richiesta esplicita dell'operatore**, mai autom
 - Il modello risponde in formato vincolato: reparto e categoria possono essere **solo** valori delle liste chiuse. Una preferenza con reparto o categoria fuori lista viene **scartata**, non salvata a metà `[CODICE][TEST]`.
 - Le regole date al modello: le note del gestionale sono fonte diretta e bastano da sole; i consumi sono fonte indiretta e servono 3-4 evidenze coerenti; entrambe insieme danno affidabilità massima; si sintetizza il tratto, non il singolo consumo; niente richieste occasionali (taxi, late check-out); nel dubbio non si propone; massimo 8 proposte `[DOC][CODICE][TEST]`.
 - Ogni proposta mostra affidabilità, fonte e motivo `[CODICE]`.
-- **Le proposte accettate vengono salvate con ambito `nucleo`** `[CODICE]` (`web/app.js:1690`).
+- **Le proposte accettate vengono salvate con ambito `nucleo`** `[CODICE]` (`aiAggiungiPreferenza` in `web/app.js` passa `ambito: 'nucleo'`).
 - Il pulsante si spegne dopo una generazione riuscita e torna disponibile riaprendo la scheda: ogni clic è una chiamata a pagamento. Un **errore non conta** come esecuzione, così si può riprovare subito `[CODICE][TEST]`.
 
 ### 18.2 Guest Briefing
