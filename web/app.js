@@ -1422,9 +1422,17 @@ async function loadCliente(codCli) {
   ].filter(Boolean).join('') || '<div class="cc cc-empty">Nessun dato di contatto</div>';
   renderVip(a.vip);
   $('#cli-nsogg').textContent = s.nSoggiorni;
-  // Chi è venuto solo in giornata ha zero soggiorni ma una spesa: senza questa
-  // riga, il valore storico sembrerebbe uscito dal nulla.
-  $('#cli-dayuse').textContent = s.nDayUse ? `+ ${s.nDayUse} day use` : '';
+  // Sotto il conteggio dei soggiorni, quello che i soggiorni NON comprendono.
+  // Chi è venuto solo in giornata ha zero soggiorni ma una spesa: senza la
+  // prima voce il valore storico sembrerebbe uscito dal nulla. La seconda dice
+  // quante pratiche sono state scartate perché non hanno le date: la loro riga
+  // si vede ancora nello storico qui sotto, e senza questa scritta il conto non
+  // tornerebbe con le righe visibili.
+  const senzaDate = s.nSenzaDate || 0;
+  $('#cli-dayuse').textContent = [
+    s.nDayUse ? `+ ${s.nDayUse} day use` : '',
+    senzaDate ? `${senzaDate} ${senzaDate === 1 ? 'pratica senza date, non contata' : 'pratiche senza date, non contate'}` : '',
+  ].filter(Boolean).join(' · ');
   $('#cli-notti').textContent = s.nottiTotali != null ? s.nottiTotali : '–';
   $('#cli-ltv').textContent = euro(s.ltv || 0);
   $('#cli-ltv-media').textContent = s.nSoggiorni ? `media ${euro(s.spesaMediaSoggiorno || 0)}/soggiorno` : '';

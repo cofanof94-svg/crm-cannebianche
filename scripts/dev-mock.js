@@ -289,6 +289,10 @@ const pmsDb = {
       for (const s of F.STORICO) {
         if (!ids.includes(s.codCli)) continue;
         const cur = out.get(s.codCli) || { codCli: s.codCli, n: 0, ultima: null, visite: 0 };
+        // Una pratica senza date non si conta da nessuna parte: è la stessa cosa
+        // che fa il SQL vero, dove il CASE sulle notti non scatta perché la
+        // sottrazione fra due date mancanti non dà un numero.
+        if (!s.dtarrivo || !s.dtpartenza) { out.set(s.codCli, cur); continue; }
         // Le giornate concluse (SPA, piscina, cene) contano a parte: non sono
         // soggiorni e non devono gonfiare il badge "Nª volta".
         if (s.dtarrivo === s.dtpartenza) cur.visite += 1;
@@ -314,7 +318,10 @@ const pmsDb = {
         })),
         ...concluse.map((s) => ({
           codpratica: s.codpratica, dtarrivo: s.dtarrivo, dtpartenza: s.dtpartenza,
-          notti: notti(s.dtarrivo, s.dtpartenza), camere: s.camere, stato: 'Concluso',
+          // Senza date il gestionale manda null, non "non è un numero": è la
+          // differenza che aveva fatto contare queste pratiche come day use.
+          notti: (s.dtarrivo && s.dtpartenza) ? notti(s.dtarrivo, s.dtpartenza) : null,
+          camere: s.camere, stato: 'Concluso',
           source: 'OTA', mercato: 'LEISURE INDIVIDUALI',
           arrangiamento: s.arrangiamento, extra: s.extra, pianificato: s.arrangiamento, ospitiJson: null,
         })),

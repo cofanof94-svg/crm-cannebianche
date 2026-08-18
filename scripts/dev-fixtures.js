@@ -235,6 +235,12 @@ const STORICO = [
   { codpratica: 60011, codCli: 1001, dtarrivo: '2025-08-02', dtpartenza: '2025-08-09', camere: '101', arrangiamento: 2240, extra: 380 },
   { codpratica: 60012, codCli: 1001, dtarrivo: '2024-07-20', dtpartenza: '2024-07-27', camere: '101', arrangiamento: 2100, extra: 410 },
   { codpratica: 60013, codCli: 1001, dtarrivo: '2023-08-11', dtpartenza: '2023-08-16', camere: '103', arrangiamento: 1500, extra: 220 },
+  // Pratica vecchia SENZA DATE, con un importo: è il dato sporco che nell'archivio
+  // dell'hotel esiste per davvero (decisione del 18/08/2026). Non deve contare né
+  // fra i soggiorni né fra i day use, la sua spesa deve restare nel valore storico,
+  // e la riga deve restare visibile nello storico con i trattini. Senza questa
+  // finta, quella regola non si vedrebbe in nessuna schermata di prova.
+  { codpratica: 60014, codCli: 1001, dtarrivo: null, dtpartenza: null, camere: null, arrangiamento: 640, extra: 55 },
   { codpratica: 60021, codCli: 1004, dtarrivo: '2025-08-01', dtpartenza: '2025-08-08', camere: '109', arrangiamento: 9800, extra: 1980 },
   { codpratica: 60031, codCli: 1007, dtarrivo: '2022-08-14', dtpartenza: '2022-08-19', camere: '232', arrangiamento: 2600, extra: 300 },
   { codpratica: 60032, codCli: 1007, dtarrivo: '2021-08-10', dtpartenza: '2021-08-15', camere: '230', arrangiamento: 2400, extra: 190 },

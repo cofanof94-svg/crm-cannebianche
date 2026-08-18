@@ -355,8 +355,21 @@ Numero di soggiorni, notti totali, LTV (arrangiamenti + extra), spesa media a so
 - **Un day use non è un soggiorno** — dal 18/08/2026 `[DECISO][TEST]`. Arrivo e partenza nello stesso giorno: nessuna notte, nessuna camera. Fino al giorno prima contava come gli altri, e la stessa applicazione dava due risposte sullo stesso ospite: il badge in card diceva *4ª volta*, la scheda *5 soggiorni*.
 - **I suoi soldi però restano nel valore storico** `[DECISO][TEST]`. Sono stati incassati davvero: toglierli farebbe risultare l’ospite meno generoso di quanto è stato. Cambia solo il denominatore delle medie — sull’ospite di prova la spesa media passa da 1.470 a 1.837,50 € a soggiorno, perché si divide per quattro e non per cinque.
 - Chi è venuto **solo** in giornata ha quindi **zero soggiorni** ma una spesa: la scheda lo dichiara con una riga *"+ N day use"* sotto il conteggio, altrimenti il valore storico sembrerebbe uscito dal nulla `[CODICE][TEST]`.
-- La definizione di day use è **la stessa del resto del CRM** (arrivo = partenza), non una seconda regola. Se le date mancassero si guardano le notti; se manca anche quel dato la riga vale come soggiorno, perché un campo vuoto non è uno zero `[CODICE][TEST]`.
-- Con queste due regole il numero **coincide con il badge "Nª volta"** delle schede, che conta i soggiorni archiviati più quello in corso.
+- La definizione di day use è **la stessa del resto del CRM** (arrivo = partenza), non una seconda regola. Se le date mancano si guardano le notti `[CODICE][TEST]`.
+- **Una pratica senza date non è né un soggiorno né un day use: non si conta** — dal 18/08/2026 `[DECISO][TEST]`. Sono in gran parte pratiche archiviate vecchie, dati sporchi. Contarle come soggiorni gonfiava lo storico dell'ospite; contarle come day use gli attribuiva giornate che non ha mai fatto. **I suoi soldi restano nel valore storico**: se in quella pratica c'è un importo qualcuno l'ha pagato, e il valore storico è la somma di ciò che è entrato, non di ciò che sappiamo classificare.
+  - La riga **resta visibile nello storico** della scheda, con i trattini al posto delle date: nasconderla renderebbe solo più difficile andare a correggerla nel gestionale. È la stessa linea tenuta con l'anagrafica «. .» (§5).
+  - Quando ce ne sono, la scheda **lo dichiara** sotto il conteggio — *"2 pratiche senza date, non contate"* — accanto ai day use. Senza, chi conta le righe dell'elenco troverebbe un totale diverso da quello del riquadro Soggiorni e penserebbe a un guasto.
+  - **Lo zero dichiarato resta un day use**: la regola non è "senza date, allora fuori", è "senza date *e* senza notti". Una pratica con `notti = 0` scritto è una giornata, e si conta come tale.
+- Questa regola **allinea la scheda al resto dell'applicazione**: il badge "Nª volta" e tutti i numeri della dashboard escludevano già le pratiche senza date, e la scheda era l'unica a contarle `[CODICE]`.
+
+> **Come è venuto fuori, ed è il motivo per cui vale la pena raccontarlo** `[DECISO]` (18/08/2026).
+>
+> Fino al 18/08 la regola era l'opposta — *"un campo vuoto non è uno zero, la riga vale come soggiorno"* — ed era scritta in un commento nel codice. **Il codice faceva il contrario**: in JavaScript `Number(null)` non vale "non è un numero", vale **zero**, e una pratica senza date arriva dal gestionale con le notti a `null`. Diventava uno zero, e finiva fra i **day use**.
+>
+> C'era anche un test su quella regola, ed era verde: passava una riga **priva del campo** notti, che in JavaScript diventa `undefined` — l'unico dei tre valori possibili che funzionava. Un test che prova solo il caso che funziona è peggio di nessun test, perché dichiara una copertura che non c'è.
+>
+> Messo davanti al comportamento vero, Mik ha cambiato la regola invece di farla rispettare: se non si sa cosa sia una pratica, **non la si conta**. Che è anche ciò che il resto dell'applicazione faceva già.
+- Con queste regole il numero **coincide con il badge "Nª volta"** delle schede, che conta i soggiorni archiviati più quello in corso.
 
 > **Che cosa conta come "una volta"** `[DECISO][TEST]` — deciso il 13/08/2026 guardando l'archivio vero.
 >

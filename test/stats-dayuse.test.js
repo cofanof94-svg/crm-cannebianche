@@ -51,35 +51,60 @@ test('le date comprendono i day use: sono comunque visite', () => {
   assert.strictEqual(s.ultimaVisita, '2026-08-18');
 });
 
-test('senza date né notti la riga vale come soggiorno', () => {
-  // Un campo vuoto non è uno zero: buttare via un soggiorno per un dato che
-  // manca sarebbe peggio che contarne uno di troppo.
-  const s = aggregaCumulativi([{ arrangiamento: 855, extra: 40 }]);
-  assert.strictEqual(s.nSoggiorni, 1);
-  assert.strictEqual(s.nDayUse, 0);
-});
+// --- Pratiche senza date: fuori da tutti i conteggi (decisione del 18/08/2026)
+// Sono pratiche archiviate vecchie, dati sporchi. Contarle come soggiorni
+// gonfiava lo storico dell'ospite; contarle come day use gli attribuiva giornate
+// che non ha mai fatto. Il badge "Nª volta" e la dashboard le escludevano già:
+// così la scheda smette di essere l'unica a contarle.
 
-test('una pratica senza date arriva dal database come null, e vale un soggiorno', () => {
-  // Il test qui sopra passava anche quando il difetto c'era, perché non passava
-  // affatto il campo `notti`: da JavaScript diventa `undefined`, cioè "non è un
-  // numero". Ma il database manda `null`, e `Number(null)` fa ZERO: la riga
-  // veniva contata come DAY USE, il contrario della regola. Nell'archivio
-  // dell'hotel le pratiche senza date non sono poche, quindi il caso è vero.
-  for (const notti of [null, '', '   ']) {
+test('una pratica senza date non è né un soggiorno né un day use', () => {
+  // Il database manda `null`, non `undefined`, e `Number(null)` fa ZERO: senza
+  // il controllo sul valore grezzo queste righe finivano fra i day use.
+  for (const notti of [null, undefined, '', '   ']) {
     const s = aggregaCumulativi([{ dtarrivo: null, dtpartenza: null, notti, arrangiamento: 300, extra: 20 }]);
-    assert.strictEqual(s.nSoggiorni, 1, `notti=${JSON.stringify(notti)} dovrebbe valere un soggiorno`);
-    assert.strictEqual(s.nDayUse, 0, `notti=${JSON.stringify(notti)} non è un day use`);
-    // I soldi ci sono in entrambi i casi: quello non cambia mai.
-    assert.strictEqual(s.ltv, 320);
+    const q = JSON.stringify(notti);
+    assert.strictEqual(s.nSoggiorni, 0, `notti=${q} non è un soggiorno`);
+    assert.strictEqual(s.nDayUse, 0, `notti=${q} non è un day use`);
+    assert.strictEqual(s.nSenzaDate, 1, `notti=${q} va contata fra quelle senza date`);
   }
 });
 
-test('lo zero vero resta un day use', () => {
-  // La correzione non deve rendere soggiorno tutto ciò che non ha le date:
-  // notti = 0 dichiarato è un day use, e va contato come tale.
+test('i soldi di una pratica senza date restano nel valore storico', () => {
+  // Se in quella pratica c'è un importo, qualcuno l'ha pagato: il valore storico
+  // è la somma di ciò che è entrato, non di ciò che sappiamo classificare.
+  const s = aggregaCumulativi([{ dtarrivo: null, dtpartenza: null, notti: null, arrangiamento: 300, extra: 20 }]);
+  assert.strictEqual(s.ltv, 320);
+  assert.strictEqual(s.totArrangiamenti, 300);
+  assert.strictEqual(s.totExtra, 20);
+  // Zero soggiorni: la media non deve dividere per zero né inventare un numero.
+  assert.strictEqual(s.spesaMediaSoggiorno, 0);
+});
+
+test('lo zero DICHIARATO resta un day use', () => {
+  // La regola non è "senza date allora fuori": notti = 0 scritto è un day use,
+  // e va contato come tale anche se le date non ci sono.
   const s = aggregaCumulativi([{ dtarrivo: null, dtpartenza: null, notti: 0, arrangiamento: 0, extra: 45 }]);
   assert.strictEqual(s.nSoggiorni, 0);
   assert.strictEqual(s.nDayUse, 1);
+  assert.strictEqual(s.nSenzaDate, 0);
+});
+
+test('le tre categorie insieme, e nessuna riga persa per strada', () => {
+  const righe = [
+    sogg('2026-01-01', '2026-01-05', 4, 400, 50),   // soggiorno
+    sogg('2026-02-01', '2026-02-01', 0, 0, 40),     // day use
+    { dtarrivo: null, dtpartenza: null, notti: null, arrangiamento: 300, extra: 20 }, // sconosciuta
+    sogg('2026-03-01', '2026-03-03', 2, 200, 10),   // soggiorno
+  ];
+  const s = aggregaCumulativi(righe);
+  assert.strictEqual(s.nSoggiorni, 2);
+  assert.strictEqual(s.nDayUse, 1);
+  assert.strictEqual(s.nSenzaDate, 1);
+  assert.strictEqual(s.nSoggiorni + s.nDayUse + s.nSenzaDate, righe.length, 'una riga è finita in nessuna categoria');
+  // I soldi di tutte e quattro.
+  assert.strictEqual(s.ltv, 400 + 50 + 40 + 300 + 20 + 200 + 10);
+  // Le medie si dividono per i due soggiorni veri.
+  assert.strictEqual(s.spesaMediaSoggiorno, s.ltv / 2);
 });
 
 test('elenco vuoto: tutto a zero, nessun errore', () => {

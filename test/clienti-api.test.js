@@ -10,13 +10,16 @@ test('calcolaStatistiche conta solo i soggiorni avvenuti', () => {
   // devono ancora cominciare. Quelle future hanno importi a zero perché non c'è
   // ancora nulla di maturato: contarle gonfiava il numero dei soggiorni e abbassava
   // tutte le medie. Restano dentro "In casa" e "Partito", dove i soldi sono veri.
+  // Le righe portano ARRIVO E PARTENZA, come quelle vere: dal 18/08/2026 una
+  // pratica senza date non è più contata (né come soggiorno né come day use), e
+  // una finta con la sola data d'arrivo misurerebbe un caso che non esiste.
   const s = calcolaStatistiche([
-    { stato: 'Concluso', dtarrivo: '2026-04-17', arrangiamento: 855, extra: 40 },
-    { stato: 'Eliminata', dtarrivo: '2026-01-01', arrangiamento: 0, extra: 0 },
-    { stato: 'No-show', dtarrivo: '2025-05-05', arrangiamento: 0, extra: 0 },
-    { stato: 'Confermato', dtarrivo: '2026-07-07', arrangiamento: 0, extra: 0 },   // arriva oggi, non ha ancora speso
-    { stato: 'Pianificata', dtarrivo: '2027-06-01', arrangiamento: 0, extra: 0 },  // estate prossima
-    { stato: 'Partito', dtarrivo: '2026-05-02', arrangiamento: 600, extra: 100 },  // appena uscito: conta
+    { stato: 'Concluso', dtarrivo: '2026-04-17', dtpartenza: '2026-04-20', notti: 3, arrangiamento: 855, extra: 40 },
+    { stato: 'Eliminata', dtarrivo: '2026-01-01', dtpartenza: '2026-01-03', notti: 2, arrangiamento: 0, extra: 0 },
+    { stato: 'No-show', dtarrivo: '2025-05-05', dtpartenza: '2025-05-08', notti: 3, arrangiamento: 0, extra: 0 },
+    { stato: 'Confermato', dtarrivo: '2026-07-07', dtpartenza: '2026-07-10', notti: 3, arrangiamento: 0, extra: 0 },   // arriva oggi, non ha ancora speso
+    { stato: 'Pianificata', dtarrivo: '2027-06-01', dtpartenza: '2027-06-08', notti: 7, arrangiamento: 0, extra: 0 },  // estate prossima
+    { stato: 'Partito', dtarrivo: '2026-05-02', dtpartenza: '2026-05-05', notti: 3, arrangiamento: 600, extra: 100 },  // appena uscito: conta
   ]);
   assert.strictEqual(s.nSoggiorni, 2);
   assert.strictEqual(s.totaleSpeso, 1595);          // 895 + 700
