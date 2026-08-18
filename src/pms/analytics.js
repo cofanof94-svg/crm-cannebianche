@@ -160,11 +160,37 @@ ORDER BY COUNT(1) DESC`;
 // Andamento: soggiorni conclusi per mese. Serve a vedere la forma della
 // stagione, non il dettaglio: su un periodo di sette giorni resta un mese solo,
 // ed è giusto così — un grafico con un punto dice già tutto quello che sa.
-const sqlAndamento = `
+//
+// Oltre i due anni si raggruppa per ANNO. Il grafico scrive un'etichetta per
+// punto: su tutto lo storico dell'hotel sarebbero oltre cento etichette da dieci
+// pixel una sopra l'altra, cioè un grafico illeggibile che sembra un errore.
+// Lo stile 23 è `aaaa-mm-gg`, quindi i primi quattro caratteri sono l'anno e i
+// primi sette l'anno col mese: una sola espressione, tagliata più corta.
+const sqlAndamento = (perAnno) => `
 -- analytics:andamento
 WITH s AS (${SOGGIORNI})
-SELECT CONVERT(varchar(7), s.dtpartenza, 23) AS mese, COUNT(*) AS n
-FROM s GROUP BY CONVERT(varchar(7), s.dtpartenza, 23) ORDER BY 1`;
+SELECT CONVERT(varchar(${perAnno ? 4 : 7}), s.dtpartenza, 23) AS mese, COUNT(*) AS n
+FROM s GROUP BY CONVERT(varchar(${perAnno ? 4 : 7}), s.dtpartenza, 23) ORDER BY 1`;
+
+// Il giorno in cui si è concluso il primo soggiorno che il gestionale ricorda.
+// Serve al periodo "tutto lo storico": senza, bisognerebbe inventare una data di
+// partenza, e il grafico partirebbe da anni in cui non c'era niente.
+const sqlPrimoSoggiorno = `
+-- analytics:inizio
+SELECT MIN(fine) AS inizio FROM (
+  SELECT MIN(CAST(sp.dtpartenza AS date)) AS fine
+    FROM StorPrenota sp
+   WHERE sp.DataEliminazione IS NULL AND sp.codclinterm IS NOT NULL
+     AND DATEDIFF(day, sp.dtarrivo, sp.dtpartenza) BETWEEN ${NOTTI_MIN} AND ${NOTTI_MAX}
+  UNION ALL
+  SELECT MIN(CAST(p.dtpartenza AS date))
+    FROM Prenota p
+   WHERE p.DataEliminazione IS NULL AND p.codclinterm IS NOT NULL
+     AND DATEDIFF(day, p.dtarrivo, p.dtpartenza) BETWEEN ${NOTTI_MIN} AND ${NOTTI_MAX}
+) x`;
+
+// Oltre questo, l'andamento passa da mese ad anno.
+const GIORNI_PER_ANNO = 731;
 
 const numero = (v) => (v == null ? 0 : Number(v));
 
@@ -192,14 +218,14 @@ async function getKpiPeriodo(pmsDb, { da, a }) {
   };
 }
 
-async function getDettagliPeriodo(pmsDb, { da, a, soloVip = false }) {
+async function getDettagliPeriodo(pmsDb, { da, a, soloVip = false, perAnno = false }) {
   const [canali, nazioni, vip, consumi, spa, andamento] = await Promise.all([
     pmsDb.query(sqlCanali, { da, a }),
     pmsDb.query(sqlNazioni, { da, a }),
     pmsDb.query(sqlVip, { da, a }),
     pmsDb.query(sqlConsumi(soloVip), { da, a }),
     pmsDb.query(sqlSpa, { da, a }),
-    pmsDb.query(sqlAndamento, { da, a }),
+    pmsDb.query(sqlAndamento(perAnno), { da, a }),
   ]);
   return {
     canali: classifica(canali),
@@ -208,7 +234,20 @@ async function getDettagliPeriodo(pmsDb, { da, a, soloVip = false }) {
     consumi: classifica(consumi),
     spa: classifica(spa),
     andamento: (andamento || []).map((r) => ({ mese: r.mese, n: numero(r.n) })),
+    // La pagina deve sapere se i punti sono mesi o anni: le etichette si
+    // scrivono in modo diverso, e "08/26" su un anno non vorrebbe dire niente.
+    andamentoPerAnno: !!perAnno,
   };
+}
+
+// Da quando comincia lo storico. Torna null se non c'è niente da contare: chi
+// chiama decide cosa farne, qui non si inventa una data.
+async function getPrimoSoggiorno(pmsDb) {
+  const [r] = await pmsDb.query(sqlPrimoSoggiorno, {});
+  const g = r && r.inizio;
+  if (!g) return null;
+  const iso = String(g instanceof Date ? g.toISOString() : g).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
 }
 
 // Anagrafiche incomplete fra chi ha soggiornato nel periodo. È l'indicatore di
@@ -234,4 +273,7 @@ async function getQualitaAnagrafica(pmsDb, { da, a }) {
   };
 }
 
-module.exports = { getKpiPeriodo, getDettagliPeriodo, getQualitaAnagrafica, NOTTI_MIN, NOTTI_MAX };
+module.exports = {
+  getKpiPeriodo, getDettagliPeriodo, getQualitaAnagrafica, getPrimoSoggiorno,
+  NOTTI_MIN, NOTTI_MAX, GIORNI_PER_ANNO,
+};

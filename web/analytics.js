@@ -76,9 +76,12 @@ function anBarre(voci, opzioni) {
 // Andamento mensile: una spezzata in SVG disegnata a mano. Con un mese solo
 // (periodo di sette giorni) non si mostra niente — un grafico con un punto non
 // aggiunge nulla a quel punto.
-function anAndamento(serie) {
+function anAndamento(serie, perAnno) {
   const s = (serie || []).filter((p) => p && p.mese);
   if (s.length < 2) return '';
+  // Il punto è un mese (`2026-08`) o un anno (`2026`): sotto si scrive "08/26"
+  // oppure "2026", e la scelta la fa il server insieme al raggruppamento.
+  const etichetta = (p) => (perAnno ? p.mese : `${p.mese.slice(5)}/${p.mese.slice(2, 4)}`);
   const max = Math.max(...s.map((p) => p.n), 1);
   const L = 640;
   const H = 120;
@@ -88,11 +91,11 @@ function anAndamento(serie) {
   const punti = s.map((p, i) => `${x(i).toFixed(1)},${y(p.n).toFixed(1)}`).join(' ');
   const area = `${pad},${H - pad} ${punti} ${(L - pad).toFixed(1)},${H - pad}`;
   return `<div class="an-trend">
-    <svg viewBox="0 0 ${L} ${H}" preserveAspectRatio="none" role="img" aria-label="Soggiorni conclusi per mese">
+    <svg viewBox="0 0 ${L} ${H}" preserveAspectRatio="none" role="img" aria-label="Soggiorni conclusi per ${perAnno ? 'anno' : 'mese'}">
       <polygon class="an-trend-area" points="${area}"></polygon>
       <polyline class="an-trend-linea" points="${punti}"></polyline>
     </svg>
-    <div class="an-trend-x">${s.map((p) => `<span>${esc(p.mese.slice(5))}/${esc(p.mese.slice(2, 4))}</span>`).join('')}</div>
+    <div class="an-trend-x">${s.map((p) => `<span>${esc(etichetta(p))}</span>`).join('')}</div>
   </div>`;
 }
 
@@ -112,7 +115,7 @@ const T = {
   diRitorno: 'Quanti, fra gli ospiti del periodo, avevano già dormito qui prima di questo soggiorno. Guarda tutta la loro storia e non solo il periodo scelto: allargare o stringere la finestra non cambia chi è di ritorno.',
   vip: 'Quanti, fra gli ospiti del periodo, hanno OGGI una classificazione VIP in anagrafica. La classificazione non è storicizzata: chi lo è diventato dopo il soggiorno conta lo stesso, e chi non lo è più non conta.',
   nottiMedie: 'Notti totali diviso soggiorni conclusi nel periodo: è la media di un soggiorno, non di un ospite. Chi è venuto due volte pesa due volte.',
-  andamento: 'Quanti soggiorni si sono conclusi in ciascun mese: serve a vedere la forma della stagione. Il mese è quello della partenza. Se il periodo scelto sta dentro un mese solo il grafico non compare, perché un punto isolato non dice niente.',
+  andamento: 'Quanti soggiorni si sono conclusi in ciascun mese: serve a vedere la forma della stagione. Il mese è quello della partenza. Oltre i due anni i punti diventano gli anni, perché un’etichetta per mese su tutto lo storico non si leggerebbe. Su un mese solo il grafico non compare.',
   canali: 'Da dove è arrivata la prenotazione: diretto, portali, tour operator, agenzie. Si contano i SOGGIORNI, non le persone — al contrario delle nazionalità qui accanto. Solo i primi otto canali.',
   nazioni: 'La nazione registrata in anagrafica, scritta con il codice del gestionale. Si contano le PERSONE, non i soggiorni — al contrario dei canali qui accanto. Chi non ce l’ha compare come «Non indicata»: si mostra apposta, nasconderla falserebbe le proporzioni.',
   vipClass: 'Come sono classificati gli ospiti VIP del periodo. Ogni ospite ha una classificazione sola, quindi compare in una riga sola; chi non è VIP non compare affatto. Solo le prime otto.',
@@ -148,7 +151,8 @@ function renderAnalytics(d) {
 
   // Solo se ci sono almeno due mesi: altrimenti resterebbe l'intestazione di un
   // grafico che non c'è.
-  const trend = anAndamento(d.andamento);
+  const perAnno = !!d.andamentoPerAnno;
+  const trend = anAndamento(d.andamento, perAnno);
 
   const blocA = `
     <div class="an-kpis">
@@ -158,7 +162,7 @@ function renderAnalytics(d) {
       ${anKpi('VIP', o.vip, T.vip)}
       ${anKpi('Notti medie', o.nottiMedie, T.nottiMedie)}
     </div>
-    ${trend ? anSezione('Soggiorni conclusi per mese', trend, null, T.andamento) : ''}
+    ${trend ? anSezione(`Soggiorni conclusi per ${perAnno ? 'anno' : 'mese'}`, trend, null, T.andamento) : ''}
     <div class="an-griglia">
       ${anSezione('Canali di prenotazione', anBarre(d.canali), 'soggiorni', T.canali)}
       ${anSezione('Nazionalità degli ospiti', anBarre(d.nazioni), 'persone', T.nazioni)}
@@ -210,8 +214,11 @@ function renderAnalytics(d) {
       ${aiRighe || `<div class="an-minore an-minore-vuoto"><b>—</b> uso dell’AI${anInfo(T.ai)}<small>nessuna generazione registrata finora</small></div>`}
     </div>`;
 
+  // Su "tutto lo storico" le due date restano — dicono da quando il gestionale
+  // ha memoria, che è un'informazione — ma "4.542 giorni" non lo direbbe
+  // nessuno: al posto suo il nome di quello che si sta guardando.
   return `<div class="an-periodo-eco">Periodo <b>${fmtData(d.periodo.da)} → ${fmtData(d.periodo.a)}</b>
-      <span>${d.periodo.giorni} giorni</span></div>
+      <span>${d.periodo.tutto ? 'tutto lo storico' : `${d.periodo.giorni} giorni`}</span></div>
     ${anSezione('I nostri ospiti', blocA, 'dal gestionale', T.ospitiSez)}
     ${anSezione('Quanto conosciamo gli ospiti', blocB, 'dal CRM', T.crmSez)}`;
 }

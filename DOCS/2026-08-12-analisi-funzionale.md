@@ -892,11 +892,22 @@ Tenerli insieme farebbe sembrare inaffidabile anche la metà buona.
 
 ### 20.1 Il periodo
 
-Il periodo si sceglie fra quattro pulsanti (7 giorni, 30 giorni, 3 mesi, 12 mesi) o a mano con due date. "Oggi" è la **data di lavoro del gestionale**, non l'orologio del server: è la stessa regola di Arrivi e In casa, e serve perché in hotel la giornata contabile non finisce a mezzanotte `[CODICE]`.
+Il periodo si sceglie fra cinque pulsanti (7 giorni, 30 giorni, 3 mesi, 12 mesi, **Tutto lo storico**) o a mano con due date. "Oggi" è la **data di lavoro del gestionale**, non l'orologio del server: è la stessa regola di Arrivi e In casa, e serve perché in hotel la giornata contabile non finisce a mezzanotte `[CODICE]`.
 
 La regola che vale per tutta la pagina: **un soggiorno cade nel periodo quando ci FINISCE**, non quando comincia. A quel punto è concluso e i consumi sono stati registrati tutti; contarlo dall'arrivo farebbe entrare soggiorni ancora in corso, con metà dei numeri a zero `[CODICE]`.
 
-**Non c'è nessun confronto fra periodi** — vedi §20.3.
+**Non c'è nessun confronto fra periodi** — vedi §20.4.
+
+#### "Tutto lo storico" — aggiunto il 18/08/2026 `[DECISO]`
+
+Mostra tutti gli ospiti che l'hotel ricorda, senza finestra temporale. La data d'inizio **si chiede al gestionale** (il giorno in cui si è concluso il primo soggiorno in archivio) invece di inventarne una: partendo da un anno in cui non c'era niente, il grafico comincerebbe con una lunga riga a zero `[CODICE][TEST]`.
+
+Due accorgimenti, entrambi con un test che li fissa:
+
+- **Un limite a vent'anni.** Non è diffidenza verso l'hotel: nei gestionali vecchi capita una prenotazione con l'anno sbagliato di decenni, e basta quella per far partire lo storico da prima che l'albergo esistesse. Vent'anni sono già più storia di quanta ce ne sia.
+- **Se la lettura non riesce**, si ripiega su dieci anni e la pagina si apre lo stesso, al più con qualche mese vuoto in testa. Far fallire l'intera dashboard per una data non letta sarebbe sproporzionato — è la stessa regola dei duplicati e del registro accessi.
+
+L'unico numero che **non** cambia scegliendolo è il blocco del CRM, che è già complessivo per costruzione.
 
 Che cos'è un **soggiorno**: una prenotazione da **1 a 200 notti**. Sotto c'è il day use (SPA, piscina, cene per esterni), sopra il voucher regalo, registrato come prenotazione lunga un anno perché quella è la sua validità. Contarli tutti è l'errore che faceva risultare "di ritorno" migliaia di ospiti che non avevano mai dormito qui `[CODICE]`.
 
@@ -911,7 +922,7 @@ Ogni numero della pagina porta la sua definizione addosso, con la **iconcina (i)
 | Di ritorno | ospiti del periodo che avevano già dormito qui prima di quel soggiorno | persone | sì (ma guarda tutta la storia) |
 | VIP | ospiti del periodo che hanno **oggi** una classificazione VIP | persone | sì |
 | Notti medie | notti totali ÷ soggiorni | media per soggiorno | sì |
-| Soggiorni conclusi per mese | soggiorni, raggruppati per mese di partenza | soggiorni | sì |
+| Soggiorni conclusi per mese / per anno | soggiorni, raggruppati per mese di partenza — **per anno oltre i due anni** | soggiorni | sì |
 | Canali di prenotazione | da dove è arrivata la prenotazione | **soggiorni** | sì |
 | Nazionalità degli ospiti | nazione dell'anagrafica | **persone** | sì |
 | Classificazioni VIP | come sono classificati i VIP del periodo | persone | sì |
@@ -952,6 +963,8 @@ Calcolare la copertura *sugli ospiti del periodo* — cioè quanti, fra chi ha s
 | Anagrafiche fuse | **Anagrafiche collegate** | "fuse" fa pensare a qualcosa di distruttivo: il collegamento è reversibile e non cancella niente (§15) |
 
 **Il grafico dell'andamento aveva un titolo solo per i lettori di schermo**: adesso si chiama "Soggiorni conclusi per mese" e dice che il mese è quello della partenza.
+
+**E scriveva un'etichetta per mese a qualunque lunghezza.** Su un periodo di più di due anni — "Tutto lo storico", ma anche due date digitate a mano — sarebbero state oltre cento scritte da dieci pixel sovrapposte: un grafico illeggibile che sembra un errore. Oltre i due anni i punti diventano gli **anni**, il titolo lo dice ("per anno") e le etichette cambiano di conseguenza. La regola sta sulla **durata**, non sul pulsante, così vale anche per il periodo personalizzato `[CODICE][TEST]`.
 
 ### 20.4 Il confronto fra periodi è stato tolto — deciso il 18/08/2026 `[DECISO]`
 

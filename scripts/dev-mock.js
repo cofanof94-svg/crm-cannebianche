@@ -85,6 +85,13 @@ function rigaPrenota(p, data) {
 const PESO_MESE = [0, 0.2, 0.25, 0.5, 0.9, 1.4, 1.7, 2.1, 1.6, 0.8, 0.35, 0.2, 0.2];
 const SOMMA_PESI = PESO_MESE.reduce((s, x) => s + x, 0);
 const giorniDelMese = (d) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+// Un po' di crescita di anno in anno, se no "tutto lo storico" disegnerebbe una
+// riga perfettamente piatta — che è il modo migliore per far credere di nuovo
+// che il filtro non funzioni.
+const ANNO_RIF = Number(String(F.DATA_LAVORO).slice(0, 4));
+const pesoAnno = (anno) => Math.pow(1.07, anno - ANNO_RIF);
+// Contributo di un singolo giorno alla "quota di anno" del periodo.
+const quotaGiorno = (d) => (PESO_MESE[d.getUTCMonth() + 1] / SOMMA_PESI / giorniDelMese(d)) * pesoAnno(d.getUTCFullYear());
 
 // Che frazione di un anno "pesa" il periodo chiesto. Un anno intero vale 1.
 function quotaAnno(da, a) {
@@ -94,7 +101,7 @@ function quotaAnno(da, a) {
   const fine = new Date(`${a}T00:00:00Z`);
   if (Number.isNaN(d.getTime()) || Number.isNaN(fine.getTime())) return 1;
   while (d <= fine) {
-    q += PESO_MESE[d.getUTCMonth() + 1] / SOMMA_PESI / giorniDelMese(d);
+    q += quotaGiorno(d);
     d.setUTCDate(d.getUTCDate() + 1);
   }
   return q;
@@ -108,7 +115,7 @@ function mesiDelPeriodo(da, a) {
   const fine = new Date(`${a}T00:00:00Z`);
   while (d <= fine) {
     const mese = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-    per.set(mese, (per.get(mese) || 0) + PESO_MESE[d.getUTCMonth() + 1] / SOMMA_PESI / giorniDelMese(d));
+    per.set(mese, (per.get(mese) || 0) + quotaGiorno(d));
     d.setUTCDate(d.getUTCDate() + 1);
   }
   return per;
@@ -150,7 +157,22 @@ const pmsDb = {
     if (/analytics:spa/.test(t)) return classifica([
       { voce: 'PERCORSO INTERNI', n: 118, euro: 2180 }, { voce: 'SERENITY', n: 57, euro: 6620 }]);
     if (/analytics:andamento/.test(t)) {
-      return [...mesiDelPeriodo(params.da, params.a)].map(([mese, quota]) => ({ mese, n: Math.round(412 * quota) }));
+      // Il server chiede i mesi o gli anni cambiando la lunghezza del CONVERT:
+      // il finto riconosce quella, come riconosce tutto il resto.
+      const perAnno = /varchar\(4\)/.test(t);
+      const punti = new Map();
+      for (const [mese, quota] of mesiDelPeriodo(params.da, params.a)) {
+        const chiave = perAnno ? mese.slice(0, 4) : mese;
+        punti.set(chiave, (punti.get(chiave) || 0) + quota);
+      }
+      return [...punti].map(([mese, quota]) => ({ mese, n: Math.round(412 * quota) }));
+    }
+    // Da quando il finto "ha memoria": otto anni, cioè un ordine di grandezza
+    // simile all'archivio vero, abbastanza da far scattare i punti per anno.
+    if (/analytics:inizio/.test(t)) {
+      const d = new Date(`${F.DATA_LAVORO}T00:00:00Z`);
+      d.setUTCFullYear(d.getUTCFullYear() - 8);
+      return [{ inizio: d.toISOString().slice(0, 10) }];
     }
 
     if (/AS arrivi/.test(t)) {

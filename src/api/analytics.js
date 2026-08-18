@@ -1,13 +1,22 @@
 const express = require('express');
-const { getKpiPeriodo, getDettagliPeriodo, getQualitaAnagrafica } = require('../pms/analytics');
+const {
+  getKpiPeriodo, getDettagliPeriodo, getQualitaAnagrafica, getPrimoSoggiorno, GIORNI_PER_ANNO,
+} = require('../pms/analytics');
 const { getAnalyticsCrm } = require('../crm/analytics');
 const { getDataLavoro } = require('../pms/prenotazioni');
 const { getTuttiGruppiDuplicati } = require('../pms/duplicati');
 const { listMappature, separaGruppiDuplicati } = require('../crm/merge');
 
-// Periodi predefiniti del ticket, in giorni. Il periodo personalizzato arriva
-// come coppia di date e non passa di qui.
+// Periodi predefiniti, in giorni. Il periodo personalizzato arriva come coppia
+// di date e non passa di qui; "tutto" nemmeno, perché la sua data d'inizio la
+// sa solo il gestionale (vedi inizioStorico).
 const PERIODI = { '7g': 7, '30g': 30, '3m': 91, '12m': 365 };
+
+// Quanto indietro si accetta di andare con "tutto lo storico". Non è diffidenza
+// verso l'hotel: nei gestionali vecchi capita una prenotazione con una data
+// sbagliata di decenni, e basta quella per far partire il grafico da un secolo
+// in cui non c'era niente. Venti anni sono già più storia di quanta ne esista.
+const ANNI_MAX_STORICO = 20;
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const giorno = (d) => d.toISOString().slice(0, 10);
@@ -80,23 +89,46 @@ function createAnalyticsRouter(pmsDb, crmDb) {
     }
   };
 
+  // Da dove comincia "tutto lo storico". Si chiede al gestionale invece di
+  // inventare una data: partire da un anno in cui non c'era niente farebbe un
+  // grafico che comincia con una lunga riga a zero. Se la lettura non riesce si
+  // ripiega su dieci anni, che è più di quanto l'hotel abbia in archivio: la
+  // pagina si apre lo stesso, con qualche mese vuoto in testa.
+  const inizioStorico = async (oggi) => {
+    const limite = sposta(oggi, -Math.round(ANNI_MAX_STORICO * 365.25));
+    let primo = null;
+    try {
+      primo = await getPrimoSoggiorno(pmsDb);
+    } catch (err) {
+      console.warn(`[analytics] inizio dello storico non leggibile: ${err.message}`);
+    }
+    if (!primo) return sposta(oggi, -3653);
+    return primo < limite ? limite : primo;
+  };
+
   // Una sola chiamata per tutta la pagina: sono una decina di interrogazioni
   // brevi, e servirle insieme evita che i riquadri compaiano a scaglioni.
   router.get('/analytics', async (req, res) => {
-    const p = risolviPeriodo(req.query, await dataDiLavoro());
+    const oggi = await dataDiLavoro();
+    const tutto = String(req.query.periodo || '') === 'tutto';
+    const query = tutto ? { da: await inizioStorico(oggi), a: oggi } : req.query;
+    const p = risolviPeriodo(query, oggi);
     if (p.errore) return res.status(400).json({ error: p.errore });
     const soloVip = String(req.query.vip || '') === '1';
+    // Oltre i due anni l'andamento passa da mese ad anno: un'etichetta per mese
+    // su tutto lo storico sarebbe un grafico illeggibile.
+    const perAnno = p.durata > GIORNI_PER_ANNO;
 
     const [kpi, dettagli, qualita, crm, duplicati] = await Promise.all([
       getKpiPeriodo(pmsDb, p),
-      getDettagliPeriodo(pmsDb, { ...p, soloVip }),
+      getDettagliPeriodo(pmsDb, { ...p, soloVip, perAnno }),
       getQualitaAnagrafica(pmsDb, p),
       getAnalyticsCrm(crmDb, p),
       contaDuplicati(),
     ]);
 
     res.json({
-      periodo: { da: p.da, a: p.a, giorni: p.durata },
+      periodo: { da: p.da, a: p.a, giorni: p.durata, tutto },
       ospiti: kpi,
       ...dettagli,
       qualitaAnagrafica: qualita,

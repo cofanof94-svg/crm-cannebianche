@@ -80,7 +80,11 @@ async function appAnalytics({ pms = {}, crm = {}, conta = {} } = {}) {
       if (/TabVip/.test(text)) return [];
       if (/StorAddebitiComanda/.test(text)) return pms.consumi || [];
       if (/codgrpmerCAT LIKE 'SPA%'/.test(text)) return [];
-      if (/AS mese/.test(text)) return pms.andamento || [];
+      if (/AS inizio/.test(text)) {
+        if (pms.inizio === 'guasto') throw new Error('storico non leggibile');
+        return [{ inizio: pms.inizio || null }];
+      }
+      if (/AS mese/.test(text)) { conta.perAnno = /varchar\(4\)/.test(text); return pms.andamento || []; }
       return [];
     },
   };
@@ -126,6 +130,58 @@ test('GET /api/analytics: quanto e\' stato scritto nel periodo arriva alla pagin
   const res = await ag.get('/api/analytics?periodo=30g');
   assert.strictEqual(res.status, 200);
   assert.deepStrictEqual(res.body.crm.scritteNelPeriodo, { preferenze: 12, allergie: 3, reclami: 1 });
+});
+
+// --- Tutto lo storico --------------------------------------------------------
+
+test('tutto lo storico parte dal primo soggiorno che il gestionale ricorda', async () => {
+  const conta = {};
+  const app = await appAnalytics({ conta, pms: { inizio: '2016-05-04' } });
+  const ag = await entra(app);
+  const res = await ag.get('/api/analytics?periodo=tutto');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.periodo.da, '2016-05-04');
+  assert.strictEqual(res.body.periodo.a, '2026-08-13'); // la data di lavoro
+  assert.strictEqual(res.body.periodo.tutto, true);
+  // Oltre i due anni i punti del grafico sono anni: un'etichetta per mese su
+  // dieci anni di storico sarebbe centoventi scritte da dieci pixel.
+  assert.strictEqual(res.body.andamentoPerAnno, true);
+  assert.strictEqual(conta.perAnno, true, 'la query deve raggruppare per anno');
+});
+
+test('una data d\'inizio assurda non fa partire il grafico da un secolo vuoto', async () => {
+  // Nei gestionali vecchi capita una prenotazione con l'anno sbagliato: basta
+  // quella per portare l'inizio dello storico a prima che l'hotel esistesse.
+  const app = await appAnalytics({ pms: { inizio: '1974-01-01' } });
+  const ag = await entra(app);
+  const res = await ag.get('/api/analytics?periodo=tutto');
+  assert.strictEqual(res.status, 200);
+  assert.ok(res.body.periodo.da > '2006-01-01', `inizio non limitato: ${res.body.periodo.da}`);
+  assert.ok(res.body.periodo.da < '2007-01-01', `inizio limitato troppo: ${res.body.periodo.da}`);
+});
+
+test('se lo storico non si riesce a leggere la pagina si apre lo stesso', async () => {
+  for (const inizio of ['guasto', null]) {
+    const app = await appAnalytics({ pms: { inizio } });
+    const ag = await entra(app);
+    const res = await ag.get('/api/analytics?periodo=tutto');
+    assert.strictEqual(res.status, 200, `caso ${inizio}`);
+    assert.ok(res.body.periodo.da < '2017-01-01', `ripiego troppo corto: ${res.body.periodo.da}`);
+  }
+});
+
+test('anche un periodo scelto a mano, se lungo, passa agli anni', async () => {
+  // La regola sta sulla DURATA, non sul pulsante: chi digita dal 2015 a oggi
+  // deve avere lo stesso grafico leggibile.
+  const conta = {};
+  const app = await appAnalytics({ conta });
+  const ag = await entra(app);
+  const lungo = await ag.get('/api/analytics?da=2015-01-01&a=2026-08-13');
+  assert.strictEqual(lungo.body.andamentoPerAnno, true);
+  assert.strictEqual(lungo.body.periodo.tutto, false);
+  const corto = await ag.get('/api/analytics?da=2026-01-01&a=2026-08-13');
+  assert.strictEqual(corto.body.andamentoPerAnno, false);
+  assert.strictEqual(conta.perAnno, false);
 });
 
 test('GET /api/analytics: date invertite → 400 con un messaggio leggibile', async () => {
