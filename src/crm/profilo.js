@@ -11,7 +11,13 @@
 const { inClause } = require('../db/query');
 
 // ids: codice singolo o array (gruppo). Per ogni campo si prende il primo valore
-// non nullo del gruppo (più recente). La scrittura resta sul codice visualizzato.
+// non nullo del gruppo (più recente).
+//
+// La SCRITTURA invece va sull'anagrafica PRINCIPALE del gruppo, non sul codice
+// che si sta guardando (decisione del 12/08/2026): chi chiama passa già il
+// canonico. Qui c'era scritto il contrario, ed era la frase rimasta dalla
+// versione precedente — chi la leggeva per orientarsi rifaceva il difetto che
+// quella decisione ha chiuso, cioè due schede a metà dopo uno "Scollega".
 async function getProfilo(db, ids) {
   const rows = await db.query(
     `SELECT p.pms_customer_id, p.lingua, p.note_personali, p.updated_at, u.username AS autore
