@@ -63,6 +63,15 @@ function createApp({ crmDb, pmsDb, sessionSecret }) {
     if (err && err.type === 'entity.parse.failed') {
       return res.status(400).json({ error: 'Corpo della richiesta non valido' });
     }
+    // Corpo troppo grande: è l'altra metà dello stesso problema. Il limite del
+    // lettore di JSON è 100 KB, e chi lo superava riceveva "Errore interno del
+    // server" con lo stack nei log — cioè un errore di chi chiama travestito da
+    // guasto nostro. Vale soprattutto per il testo dei reclami, che nel database
+    // non ha tetto: chi ne incolla uno enorme deve capire perché è stato
+    // rifiutato, non credere che l'applicazione sia rotta.
+    if (err && err.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'Il contenuto inviato è troppo grande: accorcia il testo e riprova.' });
+    }
     console.error('Errore non gestito:', err);
     res.status(500).json({ error: 'Errore interno del server' });
   });

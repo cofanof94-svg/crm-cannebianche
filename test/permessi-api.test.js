@@ -318,3 +318,29 @@ test('se il registro non scrive, si entra lo stesso', async () => {
   const res = await request(app).post('/api/auth/login').send({ username: 'banco', password: PASSWORD });
   assert.strictEqual(res.status, 200, "un guasto del registro non deve chiudere fuori nessuno");
 });
+
+test('un corpo troppo grande è un 413 spiegato, non un 500', async () => {
+  // express.json() si ferma a 100 KB. Chi superava il limite riceveva "Errore
+  // interno del server" con lo stack nei log: un errore di chi chiama travestito
+  // da guasto nostro. Vale soprattutto per il testo dei reclami, che nel
+  // database non ha tetto.
+  const hash = await hashPassword(PASSWORD);
+  const utenti = { banco: { id: 2, username: 'banco', password_hash: hash, role: 'reception', attivo: 1 } };
+  const crmDb = {
+    async query(text, params) {
+      if (/FROM users WHERE username/.test(text)) { const u = utenti[params.username]; return u ? [u] : []; }
+      if (/SELECT[\s\S]*FROM users WHERE id/.test(text)) {
+        const u = Object.values(utenti).find((x) => x.id === Number(params.id));
+        return u ? [u] : [];
+      }
+      return [];
+    },
+  };
+  const app = createApp({ crmDb, pmsDb: { async query() { return []; } }, sessionSecret: 'test' });
+  const ag = request.agent(app);
+  await ag.post('/api/auth/login').send({ username: 'banco', password: PASSWORD });
+  const res = await ag.post('/api/clienti/47186/complaints')
+    .send({ testo: 'x'.repeat(300 * 1024), reparto: 'Rooms', categoria: 'Rumore' });
+  assert.strictEqual(res.status, 413, `atteso 413, ricevuto ${res.status}`);
+  assert.match(res.body.error, /troppo grande/i);
+});

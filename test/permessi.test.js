@@ -78,6 +78,19 @@ test('una rotta nuova nasce protetta senza che nessuno la registri', () => {
   assert.strictEqual(permessoPer('DELETE', '/rotta/mai/vista'), PERMESSI.SCRIVI);
 });
 
+test('la barra finale non cambia il permesso richiesto', () => {
+  // Express instrada allo stesso posto con o senza barra finale, quindi
+  // `…/briefing/` eseguiva l'AI chiedendo il permesso di SCRIVERE. Le regole di
+  // amministrazione e Analytics chiudevano già con `(\/|$)`, quella dell'AI no.
+  // Oggi nessun ruolo scrive senza poter usare l'AI, ma il giorno del ruolo di
+  // reparto il buco si aprirebbe da solo.
+  for (const rotta of ['/clienti/47186/briefing/', '/clienti/47186/suggerimenti/']) {
+    assert.strictEqual(permessoPer('POST', rotta), PERMESSI.USA_AI, rotta);
+  }
+  assert.strictEqual(permessoPer('GET', '/admin/users/'), PERMESSI.GESTISCI_UTENTI);
+  assert.strictEqual(permessoPer('GET', '/analytics/'), PERMESSI.VEDI_ANALYTICS);
+});
+
 test('le eccezioni: AI, amministrazione e la futura Analytics', () => {
   assert.strictEqual(permessoPer('POST', '/clienti/47186/briefing'), PERMESSI.USA_AI);
   assert.strictEqual(permessoPer('POST', '/clienti/47186/suggerimenti'), PERMESSI.USA_AI);

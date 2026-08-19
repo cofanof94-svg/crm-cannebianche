@@ -67,7 +67,13 @@ const { PERMESSI, puo } = require('./permessi');
 const REGOLE = [
   // Le funzioni AI non scrivono nel CRM, ma costano e producono contenuto:
   // non le diamo a un profilo di sola consultazione.
-  { metodo: 'POST', re: /^\/clienti\/\d+\/(briefing|suggerimenti)$/, permesso: PERMESSI.USA_AI },
+  // `(\/|$)` e non `$`, come le due regole qui sotto: Express instrada allo
+  // stesso posto con o senza la barra finale, quindi `…/briefing/` arrivava
+  // all'handler dell'AI ma chiedeva il permesso di SCRIVERE invece di quello di
+  // usare l'AI. Oggi non si guadagna niente — nessun ruolo scrive senza poter
+  // usare l'AI — ma il giorno del ruolo di reparto, già previsto, il buco si
+  // aprirebbe da solo. Il percorso va visto come lo vede chi instrada.
+  { metodo: 'POST', re: /^\/clienti\/\d+\/(briefing|suggerimenti)(\/|$)/, permesso: PERMESSI.USA_AI },
   { re: /^\/admin(\/|$)/, permesso: PERMESSI.GESTISCI_UTENTI },
   // Analytics non esiste ancora: la regola c'è già, così il giorno che nasce è
   // protetta anche da URL diretto, che è esattamente il requisito.
