@@ -134,7 +134,12 @@ async function refresh() {
     badge.textContent = 'Sola lettura';
     badge.title = 'Il tuo profilo consente di consultare, non di modificare.';
   }
-  if (!location.hash) location.hash = '#home';
+  // `replaceState` e non `location.hash = …`: assegnare l'indirizzo fa scattare
+  // `hashchange`, che chiama route() per conto suo — e insieme alla riga qui
+  // sotto la home veniva disegnata due volte, con due letture identiche al
+  // gestionale a ogni avvio. Così l'indirizzo si sistema in silenzio e route()
+  // gira una volta sola.
+  if (!location.hash) history.replaceState(null, '', '#home');
   route();
 }
 

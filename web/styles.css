@@ -549,9 +549,16 @@ dialog.modal-wide { width: min(780px, calc(100vw - 32px)); }
   background: var(--brand-900); color: #fff; padding: 9px 11px; border-radius: 8px;
   font: 400 11.5px/1.45 var(--font-body); text-transform: none; letter-spacing: 0; text-align: left;
   width: max-content; max-width: 230px; white-space: normal;
+  /* `display: none` e non solo `opacity: 0`: un fumetto invisibile ma PIAZZATO
+     conta lo stesso nella larghezza della pagina, e quando l'iconcina sta vicino
+     al bordo destro di un riquadro stretto fa comparire la barra di scorrimento
+     orizzontale — sulla scheda ospite erano ventinove pixel di scorrimento che
+     nessuno riusciva a spiegarsi, perché la cosa che li causava non si vede.
+     Si perde la dissolvenza di 140 millesimi, che nessuno guarda. */
+  display: none;
   opacity: 0; pointer-events: none; transition: opacity .14s; z-index: 20; box-shadow: var(--shadow-md);
 }
-.info:hover::after { opacity: 1; }
+.info:hover::after { display: block; opacity: 1; }
 .sez .info { vertical-align: 3px; }
 .info-wide::after { max-width: 340px; }
 .info-left::after { left: auto; right: 0; transform: none; }
@@ -1060,13 +1067,9 @@ a.an-minore:hover { background: var(--sand-050); }
    il fumetto centrato uscirebbe dal bordo destro della pagina: lì si ancora a
    destra. Ancorarlo a destra non lo fa mai uscire a sinistra, perché i riquadri
    sono sempre più larghi del fumetto. */
-/* Da nascosti i fumetti spariscono per davvero. Altrove nell'app sono pochi e
-   in mezzo alla pagina, qui sono ventiquattro e molti sfiorano il bordo: un
-   fumetto invisibile ma piazzato allarga comunque la pagina, e la barra di
-   scorrimento orizzontale compare senza che si veda perché. Si perde la
-   dissolvenza di 140 millesimi, che nessuno guarda. */
-#analytics-body .info::after { display: none; }
-#analytics-body .info:hover::after { display: block; }
+/* Il "da nascosti spariscono per davvero" era una regola solo di questa pagina:
+   è diventata la regola di tutte le iconcine (vedi `.info::after`), perché lo
+   stesso scorrimento orizzontale c'era anche sulla scheda ospite. */
 /* Sugli schermi stretti le colonne si ricompongono e l'ultimo riquadro della
    fila non è più quello ancorato a destra: il fumetto si restringe, così sta
    dentro comunque. */
