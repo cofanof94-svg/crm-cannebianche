@@ -249,6 +249,28 @@ Opus no. Si chiede a mano poche volte al giorno, quindi il costo è contenuto.
 
 ## 4. Da sviluppare in hotel
 
+### Il controllo dell'ultimo amministratore non è atomico
+`src/api/admin.js` conta gli amministratori, decide, poi scrive: fra le due cose
+c'è una finestra, e nel progetto non esiste nessuna transazione. Due
+amministratori che si declassano (o si eliminano) a vicenda nello stesso istante
+passano tutti e due il controllo, e ne restano **zero** — a quel punto la pagina
+Utenti è irraggiungibile per chiunque e si rientra solo dal database.
+
+La **rete di sicurezza c'è già**: [crm-ripristina-admin.sql](../scripts/crm-ripristina-admin.sql),
+prudente per costruzione (se un amministratore attivo esiste, non tocca niente).
+
+**Da fare qui**, meglio se lo stesso giorno in cui si creano gli account veri del
+personale — cioè quando il rischio comincia a esistere davvero:
+
+- spostare il controllo **dentro la scrittura**, in un'istruzione sola che si
+  applica solo se un altro amministratore attivo resta;
+- aggiungere il **blocco esplicito sulla lettura** (`UPDLOCK, HOLDLOCK`) o una
+  transazione serializzabile, se no due richieste simultanee vedono entrambe
+  l'altro come ancora attivo;
+- provarlo davvero: **il server finto non valida il SQL**, quindi da remoto una
+  query sbagliata sembra funzionare. E qui una query sbagliata rompe proprio la
+  pagina che serve per rimediare.
+
 ### Priorità alta: due migrazioni che perdono dati ogni giorno che passa
 Nessuna delle due recupera il passato, quindi prima si fanno prima si inizia a
 raccogliere.
