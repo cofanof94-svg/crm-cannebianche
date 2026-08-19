@@ -469,3 +469,41 @@ test("la nota della prenotazione resta zittita dal solo testo", () => {
   });
   assert.deepStrictEqual(con, []);
 });
+
+// --- Negazioni nelle quattro lingue — decisione del 19/08/2026 ---------------
+// Prima erano un DANNO, non una mancanza: "keine Allergien gegen Nüsse" e "pas
+// allergique aux noix" producevano l'allergene GIUSTO col significato RIBALTATO;
+// "senza allergie particolari" e "aucune allergie connue" producevano un
+// allergene inventato ("Particolari", "Connue").
+
+test('una nota che dice "non ci sono allergie" tace, in tutte e quattro le lingue', () => {
+  for (const nota of [
+    'Ospite senza allergie particolari',
+    'soggiorno tranquillo, senza allergie particolari da segnalare',
+    'Allergie: nessuna',
+    'Intolleranze: nulla da segnalare',
+    'Allergies: none',
+    'No known allergies',
+    'The guest is not allergic to peanuts',
+    'Keine Allergien gegen Nüsse',
+    'Keine bekannten Allergien',
+    'Das Kind ist nicht allergisch gegen Erdnüsse',
+    'Ohne Allergien',
+    'Aucune allergie connue',
+    'Pas allergique aux noix',
+    'Sans allergies particulières',
+  ]) {
+    assert.deepStrictEqual(termini(nota), [], `doveva tacere: ${nota}`);
+  }
+});
+
+test('la negazione cade sull\'ALLERGIA, non sulla sostanza', () => {
+  // È la distinzione che tiene in piedi tutto: "senza allergie" è una negazione,
+  // "senza glutine" è una restrizione vera. Vale identica nelle quattro lingue.
+  assert.deepStrictEqual(termini('Senza glutine per una persona'), ['Glutine']);
+  assert.deepStrictEqual(termini('sans gluten pour une personne'), ['Glutine']);
+  assert.deepStrictEqual(termini('Ohne Nüsse bitte.'), ['Frutta a guscio']);
+  assert.deepStrictEqual(termini('No glutine'), ['Glutine']);
+  // e la negazione non deve zittire una seconda proposizione che afferma
+  assert.deepStrictEqual(termini('Non risulta intollerante però evitare i crostacei'), ['Crostacei']);
+});

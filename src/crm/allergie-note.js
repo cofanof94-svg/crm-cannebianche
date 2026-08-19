@@ -84,7 +84,43 @@ const AUTONOMI = [
 // L'aggettivo in mezzo ("non hanno ALTRE allergie", "non ha PARTICOLARI
 // intolleranze") è frequente nel parlato della reception: senza, la frase
 // scivolerebbe oltre il filtro e finirebbe nel ramo "sostanza fuori elenco".
-const NEGAZIONE = /\bnon\s+(?:è|e|ha|sono|hanno|risulta|risultano)?\s*(?:altre?\s+|particolari\s+|alcun\w*\s+|nessun\w*\s+)?(?:allergic|allergi|intolleran|celiac)|\bnessun\w*\s+(?:allergi|intolleran)|\bniente\s+allergi|\bno\s+allergi|\bnon\s+ci\s+sono\s+allergi|\b(?:do\s+not|don'?t|does\s+not|doesn'?t)\s+have\s+(?:any\s+)?allerg|\bno\s+known\s+allerg|\bwithout\s+allerg/i;
+// Le forme in altre lingue sono state aggiunte il 19/08/2026, decisione di Mik.
+// Prima erano un DANNO, non una mancanza: "keine Allergien gegen Nüsse" e "pas
+// allergique aux noix" producevano l'allergene GIUSTO con il significato
+// RIBALTATO, cioè un allarme in cucina su una nota che dice l'opposto; "senza
+// allergie particolari" e "aucune allergie connue" producevano addirittura un
+// allergene inventato ("Particolari", "Connue"), che sul foglio dei reparti è il
+// genere di voce che fa smettere di fidarsi del canale.
+//
+// LA REGOLA CHE TIENE INSIEME TUTTO: la negazione scatta solo davanti alle
+// parole ALLERGIA / INTOLLERANZA, mai davanti a una sostanza. "Senza glutine"
+// resta una restrizione vera, "senza allergie" è una negazione. Vale identica
+// nelle quattro lingue: `ohne Nüsse` e `sans gluten` restano allarmi, `ohne
+// Allergien` e `sans allergies` no.
+const NEGAZIONE = new RegExp([
+  // italiano
+  /\bnon\s+(?:è|e|ha|sono|hanno|risulta|risultano)?\s*(?:altre?\s+|particolari\s+|alcun\w*\s+|nessun\w*\s+)?(?:allergic|allergi|intolleran|celiac)/,
+  /\bnessun\w*\s+(?:allergi|intolleran)/,
+  /\bniente\s+allergi/,
+  /\bno\s+allergi/,
+  /\bnon\s+ci\s+sono\s+allergi/,
+  /\bsenza\s+(?:altre?\s+|particolari\s+|alcun\w*\s+)?(?:allergi|intolleran)/,
+  /\b(?:allergi\w*|intolleran\w*)\s*[:\-]\s*(?:nessun\w*|niente|nulla|no\b|n\/?a\b)/,
+  // inglese
+  /\b(?:do\s+not|don'?t|does\s+not|doesn'?t)\s+have\s+(?:any\s+)?allerg/,
+  /\bno\s+known\s+allerg/,
+  /\bwithout\s+allerg/,
+  /\b(?:not|isn'?t|aren'?t)\s+allergic/,
+  /\ballergies?\s*[:\-]\s*(?:none|no\b|n\/?a\b)/,
+  // tedesco — `keine Allergien`, `nicht allergisch`, `ohne Allergien`
+  /\bkeine\w*\s+(?:bekannten\s+|weiteren\s+|besonderen\s+)?(?:allergi|unverträglich|lebensmittelallergi)/,
+  /\bnicht\s+allergisch/,
+  /\bohne\s+allergi/,
+  // francese — `aucune allergie`, `pas allergique`, `sans allergie`
+  /\baucune?\w*\s+(?:autre\s+|particulière\s+)?(?:allergi|intoléran)/,
+  /\bpas\s+allergique/,
+  /\bsans\s+allergi/,
+].map((r) => r.source).join('|'), 'i');
 
 // Coda dopo il marcatore, per i casi non in elenco: "allergica ai pollini".
 // ATTENZIONE all'ordine delle alternative: in una regex vince la PRIMA che
