@@ -507,3 +507,63 @@ test('la negazione cade sull\'ALLERGIA, non sulla sostanza', () => {
   // e la negazione non deve zittire una seconda proposizione che afferma
   assert.deepStrictEqual(termini('Non risulta intollerante però evitare i crostacei'), ['Crostacei']);
 });
+
+// --- Marcatori forti in due famiglie — decisione del 19/08/2026 --------------
+// Prima valevano tutti in TUTTA la frase, senza il vincolo di vicinanza che i
+// deboli hanno sempre avuto. La distanza DA SOLA non separa i due casi: per
+// uccidere "Vietato fumare in camera, gradisce il pesce" serve una soglia
+// stretta, e a quella soglia si perde "allergie: arachidi, noci, sedano, sesamo
+// e solfiti", dove l'ultimo elemento sta a sette parole. Un elenco vero è più
+// lungo di una frase amministrativa.
+
+test('un verbo di divieto che parla d\'altro non è un\'allergia', () => {
+  for (const nota of [
+    'Vietato fumare in camera, gradisce il pesce a cena',
+    'evitare rumori, servire il pesce alla griglia',
+    'evitare piano terra, cliente con noci in valigia per regalo',
+    'Non può salire le scale, camera al piano terra, gradisce le fragole a colazione',
+    'il cliente non puo salire le scale, gradisce molto il pesce',
+  ]) {
+    assert.deepStrictEqual(termini(nota), [], `doveva tacere: ${nota}`);
+  }
+});
+
+test('un verbo di divieto vicino alla sostanza resta un\'allergia', () => {
+  assert.deepStrictEqual(termini('il cliente non può mangiare le noci'), ['Frutta a guscio']);
+  assert.deepStrictEqual(termini('il cliente non puo mangiare le noci'), ['Frutta a guscio']);
+  assert.deepStrictEqual(termini('evitare assolutamente le arachidi'), ['Arachidi']);
+  assert.deepStrictEqual(termini('vietato il glutine'), ['Glutine']);
+  assert.deepStrictEqual(termini('cannot eat shellfish'), ['Crostacei']);
+});
+
+test('"non può" con l\'accento vale quanto "non puo" senza', () => {
+  // In JavaScript il confine di parola non riconosce le lettere accentate:
+  // `\bnon può\b` non combaciava MAI, nemmeno da solo, e funzionava solo la
+  // forma senza accento — cioè la nota scritta male.
+  assert.deepStrictEqual(termini('non può mangiare il glutine'), termini('non puo mangiare il glutine'));
+  assert.deepStrictEqual(termini('non può mangiare il glutine'), ['Glutine']);
+});
+
+test('gli elenchi lunghi non si perdono: la parola "allergia" vale a distanza', () => {
+  assert.deepStrictEqual(
+    termini('Allergie del gruppo: arachidi, noci, sedano, sesamo e solfiti'),
+    ['Arachidi', 'Frutta a guscio', 'Sedano', 'Sesamo', 'Solfiti']
+  );
+  assert.deepStrictEqual(
+    termini('La signora del 305 è fortemente allergica, non deve avere in tavola crostacei'),
+    ['Crostacei']
+  );
+});
+
+test('le forme francesi con accenti e legature combaciano', () => {
+  // `œ` non è una lettera di parola, quindi `\bœufs\b` non combaciava mai; e la
+  // preposizione `à` non veniva staccata, così l'allergene diventava
+  // "À la fraise pour la petite".
+  assert.deepStrictEqual(termini('Allergie aux œufs.'), ['Uova']);
+  assert.deepStrictEqual(termini('Allergie aux oeufs.'), ['Uova']);
+  assert.deepStrictEqual(termini('Allergie à la fraise pour la petite.'), ['Fraise pour la petite']);
+  // controprove: l'apostrofo e il taglio delle prime lettere devono reggere
+  assert.deepStrictEqual(termini("Allergia all'aglio"), ['Aglio']);
+  assert.deepStrictEqual(termini('ALLERGIE ALIMENTARI'), []);
+  assert.deepStrictEqual(termini('allergica agli animali'), ['Animali']);
+});

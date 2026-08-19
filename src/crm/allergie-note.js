@@ -32,7 +32,10 @@ const SOSTANZE = [
   { re: /\bcrostace\w*|\bgamber\w*|\bscampi\b|\baragost\w*|\bshellfish\b|\bshrimps?\b|\bprawns?\b|\bkrustentier\w*|\bcrustacés\b/i, termine: 'Crostacei' },
   { re: /\bmollusch\w*|\bcozze\b|\bvongol\w*|\bmussels?\b|\bclams?\b|\boysters?\b|\bostrich\w*/i, termine: 'Molluschi' },
   { re: /\bpesce\b|\bpesci\b|\bfish\b|\bfisch\b|\bpoisson\b/i, termine: 'Pesce' },
-  { re: /\buov\w+|\begg\w*|\beier\b|\bœufs?\b|\boeufs?\b/i, termine: 'Uova' },
+  // `œ` non è una lettera di parola per JavaScript, quindi `\bœufs\b` non
+  // combaciava MAI: al posto del confine iniziale, "non preceduto da una
+  // lettera". La forma senza legatura (`oeufs`) funzionava già.
+  { re: /\buov\w+|\begg\w*|\beier\b|(?<![a-zà-öø-ÿ])œufs?\b|\boeufs?\b/i, termine: 'Uova' },
   { re: /\bsoia\b|\bsoy\w*\b|\bsoja\b/i, termine: 'Soia' },
   { re: /\bsedano\b|\bcelery\b|\bsellerie\b|\bcéleri\b/i, termine: 'Sedano' },
   { re: /\bsesamo\b|\bsesame\b|\bsesam\b/i, termine: 'Sesamo' },
@@ -62,7 +65,32 @@ const SOSTANZE = [
 // che si sta già parlando d'altro.
 // `allerg\w*` copre già l'inglese (allergic, allergy, allergies) e il tedesco
 // (Allergie, allergisch). Le altre forme vanno aggiunte.
-const MARCATORE_FORTE = /\ballerg\w*|\bintolleran\w*|\bevita\w*|\bvietat\w*|\bnon può\b|\bnon puo\b|\bunverträglich\w*|\bintoleran\w*|\bcannot (?:eat|have)\b|\bmust avoid\b|\bdoit éviter\b/i;
+// I marcatori forti erano UNO SOLO e valevano in TUTTA la frase, senza il
+// vincolo di vicinanza che i deboli hanno sempre avuto. Dal 19/08/2026 sono due
+// famiglie, perché misurando si è visto che non si comportano allo stesso modo.
+//
+//   "Vietato fumare in camera, gradisce il pesce a cena"  → proponeva Pesce
+//   "Allergie del gruppo: arachidi, noci, sedano, sesamo e solfiti"  → giusta
+//
+// La distanza DA SOLA non separa i due casi: per uccidere il primo serve una
+// soglia stretta, e a quella soglia si perde il secondo, dove l'ultimo elemento
+// dell'elenco sta a sette parole dal marcatore. Un elenco vero è più lungo di
+// una frase amministrativa.
+//
+// Quindi: le parole che parlano SOLO di allergie restano valide anche a
+// distanza; i verbi di divieto, che nelle note dell'hotel parlano di scale,
+// fumo, piscina e camere molto più spesso che di cibo, valgono solo se vicini.
+const MARCATORE_ALLERGIA = /\ballerg\w*|\bintolleran\w*|\bintoleran\w*|\bunverträglich\w*/i;
+// `non può` finiva con una vocale accentata seguita da `\b`: in JavaScript il
+// confine di parola non riconosce le lettere accentate, quindi non combaciava
+// MAI — nemmeno da solo. Funzionava solo `non puo` senza accento, cioè la nota
+// scritta male. Al posto del confine, "non seguito da una lettera".
+const MARCATORE_DIVIETO = /\bevita\w*|\bvietat\w*|\bnon pu(?:ò|o)(?![a-zà-öø-ÿ])|\bcannot (?:eat|have)\b|\bmust avoid\b|\bdoit éviter\b/i;
+// Quante parole possono stare fra il marcatore e la sostanza. Misurate: sotto le
+// otto la famiglia "allergia" comincia a perdere gli elenchi; sopra le quattro
+// la famiglia "divieto" ricomincia a raccogliere frasi che parlano d'altro.
+const PAROLE_FRA_ALLERGIA_E_SOSTANZA = 10;
+const PAROLE_FRA_DIVIETO_E_SOSTANZA = 4;
 const MARCATORE_DEBOLE = /\bno\b|\bniente\b|\bsenza\b|\bohne\b|\bsans\b|\bwithout\b/gi;
 const PAROLE_FRA_DEBOLE_E_SOSTANZA = 2;
 
@@ -134,7 +162,21 @@ const NEGAZIONE = new RegExp([
 // "To feathers", perché nessuna preposizione italiana combaciava.
 // Le forme con l'apostrofo vanno PRIMA, o "alla" combacia con "all'" lasciando
 // l'apostrofo attaccato al termine: "allergia ALL'AGLIO" dava "All'aglio".
-const PREPOSIZIONI = "all'|dell'|dall'|nell'|sull'|della|delle|degli|dello|alla|alle|agli|allo|del|dei|ai|ad|al|a|to|the|gegen|aux|au|à";
+// Le preposizioni stanno in due gruppi perché finiscono in modo diverso, e la
+// fine decide come si chiude il confronto.
+//
+// Quelle con l'apostrofo non hanno bisogno di nessun confine: dopo `all'` viene
+// subito la parola ("all'aglio").
+// Quelle che finiscono con una lettera devono NON essere seguite da un'altra
+// lettera, altrimenti `al` si mangerebbe le prime due lettere di ALIMENTARI.
+// Qui prima c'era `\b`, che però con la francese `à` non funziona mai: il
+// confine di parola non riconosce le lettere accentate, quindi "allergie À LA
+// FRAISE" non si accorciava e proponeva un allergene chiamato "À la fraise pour
+// la petite" (corretto il 19/08/2026).
+const PREP_APOSTROFO = "all'|dell'|dall'|nell'|sull'";
+const PREP_PAROLA = 'della|delle|degli|dello|alla|alle|agli|allo|del|dei|ai|ad|al|a|to|the|gegen|aux|au|à';
+const NON_LETTERA = '(?![a-zà-öø-ÿ])';
+const PREPOSIZIONI = `(?:${PREP_APOSTROFO}|(?:${PREP_PAROLA})${NON_LETTERA})`;
 // La cattura si ferma anche sui due punti: "allergica ai pollini: evitare i
 // fiori" deve dare "pollini", non tutta la frase con le istruzioni operative.
 // Il \b dopo \w* non è decorativo: senza, la regex tornava indietro dentro la
@@ -150,7 +192,7 @@ const PREPOSIZIONI = "all'|dell'|dall'|nell'|sull'|della|delle|degli|dello|alla|
 // Il punto esclamativo e quello interrogativo chiudono la cattura come il punto:
 // "allergia agli animali! cercare di…" lasciava "Animali!" con la lama attaccata.
 const DOPO_MARCATORE = new RegExp(
-  `\\b(?:allerg\\w*|intolleran\\w*|unverträglich\\w*)\\b\\s*(?:(?:${PREPOSIZIONI})\\b)?\\s*(?:[:—]|(?<=\\s)-)?\\s*([^.;,:!?\\n]{2,40})`,
+  `\\b(?:allerg\\w*|intolleran\\w*|unverträglich\\w*)\\b\\s*(?:${PREPOSIZIONI})?\\s*(?:[:—]|(?<=\\s)-)?\\s*([^.;,:!?\\n]{2,40})`,
   'i'
 );
 const CODA_MAX = 40;
@@ -233,11 +275,38 @@ function frasi(testo) {
 
 // Quella sostanza è segnalata come problema, in questa frase?
 // Marcatore forte ovunque nella frase, oppure marcatore debole attaccato davanti.
+// Quante parole ci sono fra un marcatore e la sostanza. Il marcatore può stare
+// prima ("allergia al glutine") o dopo ("glutine, allergia nota"): si guardano
+// tutte le occorrenze e basta che UNA sia abbastanza vicina.
+// `rompiSuPausa`: una virgola o due punti fra il marcatore e la sostanza dicono
+// che sono due cose diverse. Vale per i DIVIETI — "evitare rumori, servire il
+// pesce alla griglia" sono due istruzioni, non un'allergia al pesce — ed è la
+// stessa regola che i marcatori deboli hanno sempre avuto.
+// NON vale per la famiglia "allergia": lì la virgola è proprio il modo in cui si
+// scrive un elenco ("allergie: arachidi, noci, sedano"), e romperci sopra
+// perderebbe tutto tranne il primo.
+function marcatoreVicino(frase, re, inizio, fine, maxParole, rompiSuPausa) {
+  const g = new RegExp(re.source, 'gi');
+  let m;
+  while ((m = g.exec(frase)) !== null) {
+    const a = m.index;
+    const b = a + m[0].length;
+    if (m[0].length === 0) { g.lastIndex += 1; continue; }
+    if (b > inizio && a < fine) return true; // marcatore e sostanza si sovrappongono
+    const fra = b <= inizio ? frase.slice(b, inizio) : frase.slice(fine, a);
+    if (rompiSuPausa && /[,;:]/.test(fra)) continue;
+    if (fra.split(/\s+/).filter(Boolean).length <= maxParole) return true;
+  }
+  return false;
+}
+
 function marcata(frase, reSostanza) {
-  if (MARCATORE_FORTE.test(frase)) return true;
   const m = frase.match(reSostanza);
   if (!m) return false;
   const inizio = m.index;
+  const fineSostanza = inizio + m[0].length;
+  if (marcatoreVicino(frase, MARCATORE_ALLERGIA, inizio, fineSostanza, PAROLE_FRA_ALLERGIA_E_SOSTANZA, false)) return true;
+  if (marcatoreVicino(frase, MARCATORE_DIVIETO, inizio, fineSostanza, PAROLE_FRA_DIVIETO_E_SOSTANZA, true)) return true;
   // "gluten free", "laktosefrei": qui il marcatore viene DOPO la sostanza ed è
   // attaccato. Si guarda solo il pezzetto subito successivo, non tutta la frase,
   // per non far passare un "free" che parla d'altro (free upgrade, free wifi).
@@ -270,7 +339,7 @@ function ripulisci(t) {
     .replace(CODA_ISTRUZIONE, '')
     .replace(CODA_ALTRA_FRASE, '')
     .replace(CONGIUNZIONE_FINALE, '');
-  let s = grezzo.replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|i|il|lo|la|le|gli|un|una)\\b\\s+`, 'i'), '');
+  let s = grezzo.replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|(?:i|il|lo|la|le|gli|un|una)${NON_LETTERA})\\s+`, 'i'), '');
   // Se la cattura è arrivata al limite, l'ultima parola è quasi certamente
   // tagliata a metà ("fiori fresch"): si butta invece di salvarla monca.
   // Il taglio non si applica se la coda amministrativa ha già accorciato il testo.
