@@ -8,6 +8,14 @@ async function api(path, opts = {}) {
   // può usare, quindi se un 403 arriva qui vuol dire che qualcosa è sfuggito: si
   // dice a schermo il motivo, invece di lasciare un pulsante che non fa niente.
   if (res.status === 403 && body && body.error) avviso(body.error);
+  // 401 = la sessione non vale più: scaduta, oppure chiusa da un'altra finestra,
+  // oppure l'utente è stato disattivato mentre lavorava. Senza questo si restava
+  // DENTRO l'applicazione a premere comandi che non salvavano niente, e ogni
+  // pagina mostrava un errore generico tutto suo ("Errore nel caricamento…"),
+  // che non dice la cosa importante: devi rientrare.
+  // La chiamata di accesso è l'eccezione ovvia: lì il 401 vuol dire "password
+  // sbagliata" e lo gestisce il modulo, se no si scaccerebbe chi sta entrando.
+  if (res.status === 401 && !String(path).includes('/api/auth/login')) showLogin();
   return { status: res.status, body };
 }
 

@@ -543,6 +543,16 @@ dialog.modal-wide { width: min(780px, calc(100vw - 32px)); }
   font-style: normal; font-family: var(--font-body); line-height: 1; letter-spacing: 0;
   text-transform: none; cursor: help; position: relative; vertical-align: middle; margin-left: 6px;
 }
+/* Un testo senza spazi — un token incollato, un nome importato tutto attaccato —
+   non deve allargare la pagina. Senza questa regola una preferenza di 280
+   caratteri senza interruzioni faceva ricomparire lo scorrimento orizzontale
+   appena tolto insieme ai fumetti. `anywhere` e non `break-word`: solo il primo
+   riduce anche la larghezza MINIMA del riquadro, che è ciò che conta quando il
+   testo sta dentro una griglia — con `break-word` la colonna si allarga lo
+   stesso. Gli URL e le email vanno già a capo da soli (barre e chiocciole sono
+   punti di rottura): il caso vero è il testo incollato dal gestionale. */
+body { overflow-wrap: anywhere; }
+
 .info:hover { border-color: var(--brand); color: var(--brand); }
 .info::after {
   content: attr(data-tip); position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
