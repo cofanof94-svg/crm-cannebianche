@@ -313,6 +313,30 @@ function testiGiaPresenti(lista) {
   return out;
 }
 
+// Le allergie già registrate, ma sapendo DI CHI sono: chiave `codice|testo`.
+//
+// Serve al ramo delle annotazioni di anagrafica, dove la persona è certa. Con il
+// solo testo, un'allergia registrata su un occupante zittiva la stessa allergia
+// di TUTTI gli altri: due celiaci nella stessa pratica diventavano un piatto
+// solo, e la seconda proposta non nasceva più — in silenzio, che è il modo
+// peggiore di perdere un dato di sicurezza (decisione del 19/08/2026).
+//
+// Le righe senza un codice riconoscibile finiscono in `senzaPersona`: di quelle
+// non si sa a chi appartengano, quindi continuano a zittire tutti. Meglio una
+// proposta in meno che ripresentare all'infinito una riga già lavorata.
+function giaPresentiPerPersona(lista) {
+  const perPersona = new Set();
+  const senzaPersona = new Set();
+  for (const v of lista || []) {
+    if (!v || typeof v !== 'object') { continue; }
+    const s = String(v.testo == null ? '' : v.testo).trim().toLowerCase();
+    if (!s) continue;
+    if (Number.isInteger(v.codCli)) perPersona.add(`${v.codCli}|${s}`);
+    else senzaPersona.add(s);
+  }
+  return { perPersona, senzaPersona };
+}
+
 // Proposte al netto di quelle già registrate sul cliente (confronto senza
 // maiuscole): ciò che è già nella card non si ripropone.
 function proponiDaNote(nota, giaPresenti) {
@@ -336,6 +360,12 @@ function proponiDaNote(nota, giaPresenti) {
 // `annotazioni`: [{ codCli, nome, testo }] — di norma il referente e gli occupanti.
 function proponiPerSoggiorno({ nota, note, annotazioni, giaPresenti } = {}) {
   const gia = testiGiaPresenti(giaPresenti);
+  // Sulle annotazioni di anagrafica si sa di chi è l'allergia, quindi il
+  // confronto con ciò che è già registrato è per PERSONA. Sulla nota della
+  // prenotazione la persona non si sa — "la signora è celiaca" in una pratica da
+  // quattro non dice quale — e lì resta il confronto per solo testo: riproporla
+  // a ogni apertura sarebbe rumore su una riga che qualcuno ha già letto.
+  const { perPersona, senzaPersona } = giaPresentiPerPersona(giaPresenti);
   const out = [];
   const daAnagrafica = new Set();
 
@@ -343,7 +373,7 @@ function proponiPerSoggiorno({ nota, note, annotazioni, giaPresenti } = {}) {
     if (!a || !Number.isInteger(a.codCli) || !a.testo) continue;
     for (const p of estraiAllergie(a.testo)) {
       const chiave = p.termine.toLowerCase();
-      if (gia.has(chiave)) continue;
+      if (perPersona.has(`${a.codCli}|${chiave}`) || senzaPersona.has(chiave)) continue;
       // Una persona sola non ha bisogno di due volte la stessa allergia, ma due
       // persone diverse con la stessa allergia restano due proposte distinte:
       // vanno registrate su entrambe.

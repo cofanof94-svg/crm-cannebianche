@@ -418,3 +418,54 @@ test('una parentesi che si chiude senza essersi aperta chiude anche il termine',
   // Ma le parentesi del nome restano: fanno parte di come si chiama.
   assert.deepStrictEqual(termini('allergic to Penicillin (PCN)'), ['Penicillin (PCN)']);
 });
+
+// --- Già registrate: il confronto è per PERSONA dove la persona è certa -------
+// Decisione del 19/08/2026. Con il confronto sul solo testo, un'allergia
+// registrata su un occupante zittiva la stessa allergia di TUTTI gli altri: due
+// celiaci nella stessa pratica diventavano un piatto solo, e la seconda proposta
+// non nasceva più — senza nessun messaggio.
+
+const dueCeliaci = [
+  { codCli: 11, nome: 'Rossi Anna', testo: 'allergia al glutine' },
+  { codCli: 22, nome: 'Rossi Marco', testo: 'allergia al glutine' },
+];
+const chiPropone = (p) => p.map((x) => `${x.termine}/${x.nome || x.fonte}`);
+
+test("l'allergia registrata su uno non zittisce quella di un altro", () => {
+  const p = proponiPerSoggiorno({
+    annotazioni: dueCeliaci,
+    giaPresenti: [{ codCli: 11, testo: 'Glutine', chi: 'Rossi Anna' }],
+  });
+  assert.deepStrictEqual(chiPropone(p), ['Glutine/Rossi Marco']);
+});
+
+test('registrate su entrambi: nessuna proposta, nessun rumore', () => {
+  const p = proponiPerSoggiorno({
+    annotazioni: dueCeliaci,
+    giaPresenti: [{ codCli: 11, testo: 'Glutine' }, { codCli: 22, testo: 'Glutine' }],
+  });
+  assert.deepStrictEqual(p, []);
+});
+
+test("una riga registrata senza persona continua a zittire tutti", () => {
+  // Di quella non si sa a chi appartenga: meglio una proposta in meno che
+  // ripresentare all'infinito una riga che qualcuno ha già lavorato.
+  const p = proponiPerSoggiorno({
+    annotazioni: dueCeliaci,
+    giaPresenti: [{ testo: 'Glutine', chi: null }],
+  });
+  assert.deepStrictEqual(p, []);
+});
+
+test("la nota della prenotazione resta zittita dal solo testo", () => {
+  // Lì la persona non si sa — "la signora è celiaca" in una pratica da quattro
+  // non dice quale — quindi il confronto per persona non si può fare, e
+  // riproporla a ogni apertura sarebbe rumore.
+  const senza = proponiPerSoggiorno({ nota: 'la signora è celiaca', giaPresenti: [] });
+  assert.deepStrictEqual(chiPropone(senza), ['Celiachia/prenotazione']);
+  const con = proponiPerSoggiorno({
+    nota: 'la signora è celiaca',
+    giaPresenti: [{ codCli: 11, testo: 'Celiachia' }],
+  });
+  assert.deepStrictEqual(con, []);
+});

@@ -230,7 +230,10 @@ function costruisciSnapshot(a, ctx) {
     const key = `${i.pms_customer_id}|${testo.toLowerCase()}`;
     if (vistiInt.has(key)) continue;
     vistiInt.add(key);
-    intoll.push({ testo, chi });
+    // Il codice della persona viaggia insieme al nome: serve al controllo delle
+    // proposte, che deve sapere DI CHI è un'allergia già registrata e non solo
+    // che esiste (vedi proponiPerSoggiorno).
+    intoll.push({ codCli: i.pms_customer_id, testo, chi });
   }
 
   // Reclami sul gruppo. Oltre al conteggio si porta il TESTO di quelli aperti:

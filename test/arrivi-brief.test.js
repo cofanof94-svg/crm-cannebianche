@@ -124,9 +124,12 @@ test('costruisciSnapshot: VIP, indesiderato, preferenze personali e di nucleo, i
   // Ogni allergia con il nome di chi la ha (decisione del 12/08, D2): la nota è
   // della prenotazione, il piatto si prepara per una persona. La stessa allergia
   // ripetuta sulla stessa persona resta una sola voce.
+  // Dal 19/08 ogni riga porta anche il CODICE della persona, non solo il nome:
+  // serve al controllo delle proposte, che deve sapere di chi è un'allergia già
+  // registrata e non solo che esiste.
   assert.deepStrictEqual(s.intolleranze, [
-    { testo: 'Lattosio', chi: 'ROSSI MARIO' },
-    { testo: 'Lattosio', chi: 'ROSSI ANNA' },
+    { codCli: 100, testo: 'Lattosio', chi: 'ROSSI MARIO' },
+    { codCli: 200, testo: 'Lattosio', chi: 'ROSSI ANNA' },
   ]);
   assert.strictEqual(s.reclami.aperti, 1);
   assert.strictEqual(s.reclami.totali, 2);
