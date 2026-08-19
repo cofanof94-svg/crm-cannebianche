@@ -26,7 +26,9 @@
 const SOSTANZE = [
   { re: /\bglutine\b|\bgluten\w*\b|\bfrumento\b|\bwheat\b|\bweizen\b|\bblé\b/i, termine: 'Glutine' },
   { re: /\blattosio\b|\blactose\b|\blaktose\w*/i, termine: 'Lattosio' },
-  { re: /\blatticin\w*|\bdairy\b|\bmilchprodukt\w*|\bproduits laitiers\b/i, termine: 'Latticini' },
+  // `milch` da sola serve al composto tedesco (Milchallergie): senza, restava
+  // fuori proprio la parola più comune per il latte.
+  { re: /\blatticin\w*|\bdairy\b|\bmilch\b|\bmilchprodukt\w*|\bproduits laitiers\b/i, termine: 'Latticini' },
   { re: /\barachid\w*|\bpeanut\w*|\berdnuss\w*|\bcacahuèt\w*/i, termine: 'Arachidi' },
   { re: /\bfrutta a guscio\b|\bnoci\b|\bnocciol\w*|\bmandorl\w*|\bpistacch\w*|\banacard\w*|\btree ?nuts?\b|\bnuts?\b|\bnüsse\b|\bnuss\b|\bfruits à coque\b/i, termine: 'Frutta a guscio' },
   { re: /\bcrostace\w*|\bgamber\w*|\bscampi\b|\baragost\w*|\bshellfish\b|\bshrimps?\b|\bprawns?\b|\bkrustentier\w*|\bcrustacés\b/i, termine: 'Crostacei' },
@@ -49,7 +51,11 @@ const SOSTANZE = [
   // "Down feathers in pillows and bedding", "Feathers pls request no feather
   // pillows" — cioè tre voci diverse in cucina e in governante per la stessa
   // cosa. Con la sostanza in elenco diventano tutte "Piume".
-  { re: /\bpium\w*|\bfeather\w*|\bdown\s+(?:pillow|feather|duvet)\w*|\bdaunen\w*|\bfeder(?:n|kissen)\b|\bplume[sn]?\b/i, termine: 'Piume' },
+  // `pium\w*` prendeva anche PIUMINO e PIUMONE, che in un albergo di mare sono
+  // la coperta: "camera senza piumino, fa caldo" diventava un allarme piume
+  // (20/08/2026). Ora si elencano le forme che sono davvero l'allergene —
+  // piuma, piume, piumaggio — e restano fuori quelle che sono un oggetto.
+  { re: /\bpium[ae]\b|\bpiumagg\w*|\bfeather\w*|\bdown\s+(?:pillow|feather|duvet)\w*|\bdaunen\w*|\bfeder(?:n|kissen)\b|\bplume[sn]?\b/i, termine: 'Piume' },
 ];
 
 // Marcatori: dicono che quella sostanza è un problema, non un gradimento.
@@ -248,7 +254,15 @@ const CODA_COMPOSTA = /^\s*-/;
 // "INTOLLERANZE NON COMUNICATE" dice che non si sa niente, non che l'ospite è
 // intollerante a una cosa chiamata "Non comunicate". Stessa famiglia di
 // "ALLERGIE ALIMENTARI": la nota annuncia allergie senza dire quali.
-const GENERICO = /^(?:[/\\|]|alimentar\w*|food\b|alimentaires?\b|varie\b|vari\b|multiple\b|several\b|note\b|notes\b|in\s+nota|nelle\s+note|non\s+comunicat\w*|non\s+segnalat\w*|non\s+specificat\w*|da\s+comunicar\w*|da\s+chieder\w*|da\s+verificar\w*|sconosciut\w*)/i;
+// Gli AGGETTIVI DI GRAVITÀ e i PARTICIPI PASSATI sono stati aggiunti il
+// 20/08/2026. Producevano allergeni che non sono sostanze: "ALLERGIA GRAVE"
+// diventava un allergene chiamato «Grave», "Allergia segnalata dal cliente"
+// diventava «Segnalata dal cliente». Il danno non è il singolo caso: una voce
+// del genere su un foglio che va in cucina fa smettere di fidarsi anche di
+// quelle vere.
+// I participi non erano coperti da VERBI_ISTRUZIONE, che è fatta di temi
+// (`segnalar`, `comunicar`) e non prende le forme concordate.
+const GENERICO = /^(?:[/\\|]|alimentar\w*|food\b|alimentaires?\b|varie\b|vari\b|multiple\b|several\b|note\b|notes\b|in\s+nota|nelle\s+note|non\s+comunicat\w*|non\s+segnalat\w*|non\s+specificat\w*|da\s+comunicar\w*|da\s+chieder\w*|da\s+verificar\w*|sconosciut\w*|grav\w*|seri[ao]\b|important\w*|liev[ei]\b|leggier\w*|forte\b|nota\b|not[ae]\s+da\b|segnalat\w*|comunicat\w*|confermat\w*|verificat\w*|richiest\w*|riferit\w*|dichiarat\w*|indicat\w*|present[ei]\b|conosciut\w*|noted?\b|severe\b|serious\b|mild\b|bekannt\w*|schwer\w*|connue?s?\b|grave?s?\b)/i;
 
 // La nota è testo libero scritto a mano: si spezza su punti, punti e virgola e
 // a capo. Ogni pezzo si valuta da solo, così una negazione non "contagia" il
@@ -312,7 +326,10 @@ function marcata(frase, reSostanza) {
   // per non far passare un "free" che parla d'altro (free upgrade, free wifi).
   // In tedesco il suffisso resta attaccato: "glutenfrei" è una parola sola.
   if (/(?:frei|free)$/i.test(m[0])) return true;
-  if (/^[\s-]*free\b|^frei\b/i.test(frase.slice(inizio + m[0].length))) return true;
+  // `frei` va accettato anche staccato: i composti tedeschi arrivano qui già
+  // scomposti ("weizenfrei" diventa "weizen frei"), e prima solo `free` poteva
+  // avere uno spazio davanti.
+  if (/^[\s-]*(?:free|frei)\b/i.test(frase.slice(inizio + m[0].length))) return true;
   MARCATORE_DEBOLE.lastIndex = 0; // la regex è globale: lo stato va azzerato a ogni giro
   let d;
   while ((d = MARCATORE_DEBOLE.exec(frase)) !== null) {
@@ -339,7 +356,17 @@ function ripulisci(t) {
     .replace(CODA_ISTRUZIONE, '')
     .replace(CODA_ALTRA_FRASE, '')
     .replace(CONGIUNZIONE_FINALE, '');
-  let s = grezzo.replace(/\s+/g, ' ').trim().replace(new RegExp(`^(?:${PREPOSIZIONI}|(?:i|il|lo|la|le|gli|un|una)${NON_LETTERA})\\s+`, 'i'), '');
+  let s = grezzo.replace(/\s+/g, ' ').trim()
+    // Un inciso o le virgolette in testa: "Allergia (grave) ai pollini" dava un
+    // allergene chiamato «(grave) ai pollini», perché la guardia sulle parentesi
+    // scatta solo su quella CHIUSA e lo stacco della preposizione non partiva,
+    // visto che il termine cominciava con la parentesi (20/08/2026).
+    // Si toglie l'inciso e si riparte: quello che resta è la sostanza vera.
+    .replace(/^\((?:[^)]{0,30})\)\s*/, '')
+    .replace(/^\[(?:[^\]]{0,30})\]\s*/, '')
+    .replace(/^["“”«»']+\s*/, '')
+    .replace(/\s*["“”«»']+$/, '')
+    .replace(new RegExp(`^(?:${PREPOSIZIONI}|(?:i|il|lo|la|le|gli|un|una)${NON_LETTERA})\\s+`, 'i'), '');
   // Se la cattura è arrivata al limite, l'ultima parola è quasi certamente
   // tagliata a metà ("fiori fresch"): si butta invece di salvarla monca.
   // Il taglio non si applica se la coda amministrativa ha già accorciato il testo.
@@ -367,6 +394,28 @@ function ripulisci(t) {
 }
 
 // Proposte trovate in una nota: [{ termine, frase }], senza doppioni.
+// Il tedesco incolla la sostanza al marcatore in una parola sola —
+// Nussallergie, Laktoseintoleranz, Weizenallergie, weizenfrei — e il
+// riconoscimento cercava `allerg` all'INIZIO di una parola: la forma composta,
+// che in tedesco è la regola, non arrivava mai in cucina (20/08/2026).
+//
+// La correzione ovvia sarebbe cercare `allerg` anche dentro le parole, ma
+// farebbe scattare il marcatore su "cuscino ANALLERGICO", che significa
+// l'opposto. Quindi si va al contrario: si riconosce la parola che FINISCE col
+// marcatore e si stacca il pezzo davanti SOLO se è una sostanza già conosciuta.
+// Così "anallergico" resta fuori per costruzione (il pezzo davanti sarebbe
+// "an", che non è una sostanza), e lo stesso vale per "Sonnenallergie" o
+// "Lebensmittelallergie": il marcatore da solo, senza una sostanza scritta, non
+// deve proporre niente.
+const COMPOSTO_TEDESCO = /\b([a-zäöüß]{3,}?)(allergien?|intoleranz(?:en)?|unverträglichkeit(?:en)?|frei)\b/gi;
+
+function scomponiCompostiTedeschi(testo) {
+  return String(testo == null ? '' : testo).replace(
+    COMPOSTO_TEDESCO,
+    (tutto, prefisso, marcatore) => (SOSTANZE.some((s) => s.re.test(prefisso)) ? `${prefisso} ${marcatore}` : tutto)
+  );
+}
+
 function estraiAllergie(nota) {
   const out = [];
   const visti = new Set();
@@ -380,7 +429,7 @@ function estraiAllergie(nota) {
     out.push({ termine, frase: ritaglia(frase) });
   };
 
-  for (const frase of frasi(nota)) {
+  for (const frase of frasi(scomponiCompostiTedeschi(nota))) {
     if (NEGAZIONE.test(frase)) continue; // qui l'allergia viene esclusa, non dichiarata
     for (const a of AUTONOMI) if (a.re.test(frase)) aggiungi(a.termine, frase);
     let trovata = false;

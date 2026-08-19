@@ -567,3 +567,63 @@ test('le forme francesi con accenti e legature combaciano', () => {
   assert.deepStrictEqual(termini('ALLERGIE ALIMENTARI'), []);
   assert.deepStrictEqual(termini('allergica agli animali'), ['Animali']);
 });
+
+// --- Composti tedeschi, allergeni che non sono sostanze, piumino ------------
+// Decisione del 20/08/2026, ultimo blocco del capitolo allergie.
+
+test('il tedesco incolla la sostanza al marcatore, e ora si riconosce', () => {
+  // "Allergie gegen Nüsse" (staccato) funzionava già ed è l'ECCEZIONE: il
+  // tedesco costruisce quasi sempre in una parola sola.
+  assert.deepStrictEqual(termini('Nussallergie beim Kind, bitte beachten.'), ['Frutta a guscio']);
+  assert.deepStrictEqual(termini('Laktoseintoleranz.'), ['Lattosio']);
+  assert.deepStrictEqual(termini('Weizenallergie'), ['Glutine']);
+  assert.deepStrictEqual(termini('Glutenunverträglichkeit'), ['Glutine']);
+  assert.deepStrictEqual(termini('Erdnussallergie'), ['Arachidi']);
+  assert.deepStrictEqual(termini('Milchallergie'), ['Latticini']);
+  // il suffisso "frei" vale come "free", anche dopo la scomposizione
+  assert.deepStrictEqual(termini('Bitte weizenfrei essen'), ['Glutine']);
+  assert.deepStrictEqual(termini('Das Frühstück bitte nussfrei'), ['Frutta a guscio']);
+});
+
+test('la scomposizione del tedesco non inventa allergie', () => {
+  // È la trappola della correzione: cercare "allerg" DENTRO le parole farebbe
+  // scattare il marcatore su "anallergico", che significa l'opposto. Il pezzo
+  // davanti al marcatore deve essere una sostanza conosciuta, se no non si
+  // tocca niente.
+  assert.deepStrictEqual(termini('Cuscino anallergico per favore'), []);
+  assert.deepStrictEqual(termini('Sonnenallergie, gradisce il pesce a cena'), []);
+  assert.deepStrictEqual(termini('Lebensmittelallergie'), []);
+  assert.deepStrictEqual(termini('Zimmer alkoholfrei'), []);
+});
+
+test('un aggettivo o un participio non è un allergene', () => {
+  // "Grave" su un foglio che va in cucina fa smettere di fidarsi anche delle
+  // voci vere: è il danno peggiore, non il singolo caso.
+  for (const nota of [
+    'ALLERGIA GRAVE',
+    'Allergia seria',
+    'Allergia importante del bambino',
+    'Allergia nota da anni',
+    'Allergia segnalata dal cliente',
+    'Allergia comunicata dalla mamma',
+    'Allergia confermata in reception',
+    'Allergia verificata con la cucina',
+  ]) {
+    assert.deepStrictEqual(termini(nota), [], `doveva tacere: ${nota}`);
+  }
+});
+
+test('un inciso o le virgolette non entrano nel termine', () => {
+  assert.deepStrictEqual(termini('Allergia (grave) ai pollini'), ['Pollini']);
+  assert.deepStrictEqual(termini('Allergia [grave] ai pollini'), ['Pollini']);
+  assert.deepStrictEqual(termini('Allergia al "grano saraceno"'), ['Grano saraceno']);
+});
+
+test('il piumino è una coperta, la piuma è un allergene', () => {
+  // In un albergo di mare "niente piumino" vuol dire che fa caldo.
+  assert.deepStrictEqual(termini('Camera senza piumino, solo lenzuola: fa caldo.'), []);
+  assert.deepStrictEqual(termini('No piumone per favore, coperta leggera.'), []);
+  // e le forme vere restano
+  assert.deepStrictEqual(termini('Allergia alle piume del cuscino.'), ['Piume']);
+  assert.deepStrictEqual(termini('Allergic to feathers'), ['Piume']);
+});
