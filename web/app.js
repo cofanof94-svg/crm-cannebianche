@@ -1786,6 +1786,34 @@ function interruttoreAmbito(ambito) {
   return `<span class="scope-seg" role="group" aria-label="Ambito della preferenza">${opzioni}</span>`;
 }
 
+// Quale preferenza è aperta in modifica. Stessa forma del nucleo: una variabile
+// e un ramo nel disegno della riga, invece di una finestra a parte.
+//
+// Fino al 19/08/2026 una preferenza si poteva solo cancellare e riscrivere:
+// l'API accettava già la correzione di testo, reparto e categoria — e l'analisi
+// funzionale la dava per fatta — ma il pulsante non c'era. Rifarla da capo
+// perdeva autore e data, cioè proprio quello che serve a capire da dove viene.
+let prefEditId = null;
+
+function rigaPreferenzaInModifica(p) {
+  const opzioni = (elenco, scelto) => elenco.map((v) => `<option${v === scelto ? ' selected' : ''}>${esc(v)}</option>`).join('');
+  return `
+    <li class="pref-editing" data-pref="${p.id}">
+      <div class="pref-head">
+        <select class="pref-sel" data-field="reparto">${opzioni(REPARTI, p.reparto)}</select>
+        <select class="pref-sel" data-field="categoria">${opzioni(CATEGORIE, p.categoria)}</select>
+      </div>
+      <textarea class="pref-testo-edit" data-field="testo" rows="2" maxlength="400">${esc(p.testo)}</textarea>
+      <div class="nota-meta">
+        <span class="cell-muted">L'ambito si cambia con l'interruttore, senza entrare in modifica.</span>
+        <span class="nota-az">
+          <button type="button" class="btn btn-sm btn-primary" data-save-pref="${p.id}">Salva</button>
+          <button type="button" class="btn btn-sm" data-cancel-pref="${p.id}">Annulla</button>
+        </span>
+      </div>
+    </li>`;
+}
+
 async function caricaPreferenze(codCli) {
   $('#cli-preferenze').innerHTML = loaderRiga('Carico le preferenze…');
   const { body } = await api(`/api/clienti/${encodeURIComponent(codCli)}/preferenze`);
@@ -1793,7 +1821,7 @@ async function caricaPreferenze(codCli) {
   const cond = body.condivise || [];
   // Tag in cima e testo sotto: reparto, categoria e ambito sono tutti "che tipo
   // di preferenza è", quindi stanno insieme invece di pendere in fondo alla frase.
-  const proprie = pref.map((p) => `
+  const proprie = pref.map((p) => (p.id === prefEditId ? rigaPreferenzaInModifica(p) : `
     <li data-pref="${p.id}">
       <div class="pref-head">
         <span class="pref-tag">${esc(p.reparto)} · ${esc(p.categoria)}</span>
@@ -1802,9 +1830,12 @@ async function caricaPreferenze(codCli) {
       <div class="nota-testo">${esc(p.testo)}</div>
       <div class="nota-meta">
         <span>${esc(p.autore || '?')} · ${new Date(p.created_at).toLocaleString('it-IT')}</span>
-        <span class="nota-az"><button class="btn-icon danger" data-del-pref="${p.id}">Elimina</button></span>
+        <span class="nota-az">
+          <button class="btn-icon" data-edit-pref="${p.id}" title="Modifica">✎ Modifica</button>
+          <button class="btn-icon danger" data-del-pref="${p.id}">Elimina</button>
+        </span>
       </div>
-    </li>`).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
+    </li>`)).join('') || '<li class="nota-vuota">Nessuna preferenza registrata.</li>';
   // Preferenze 'nucleo' di altri membri del nucleo: sola lettura (si cambiano
   // sulla scheda di chi le possiede), quindi pastiglia ferma, non interruttore.
   const condivise = cond.length ? `<li class="pref-cond-head">👪 Condivise dal nucleo <span class="cell-muted">(sola lettura)</span>`
@@ -1834,8 +1865,29 @@ $('#pref-form').addEventListener('submit', async (e) => {
 });
 
 $('#cli-preferenze').addEventListener('click', async (e) => {
+  const edit = e.target.closest('[data-edit-pref]');
+  if (edit) { prefEditId = Number(edit.dataset.editPref); caricaPreferenze(clienteCorrente); return; }
+  const cancel = e.target.closest('[data-cancel-pref]');
+  if (cancel) { prefEditId = null; caricaPreferenze(clienteCorrente); return; }
+  const save = e.target.closest('[data-save-pref]');
+  if (save) {
+    const li = save.closest('[data-pref]');
+    const payload = {};
+    li.querySelectorAll('[data-field]').forEach((el) => { payload[el.dataset.field] = el.value.trim(); });
+    save.disabled = true; save.textContent = 'Salvataggio…';
+    const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze/${save.dataset.savePref}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    // Si ricarica dal server, che è la conferma che il dato c'è davvero. In
+    // caso di rifiuto la riga resta aperta col testo dentro: chi ha scritto
+    // trecento caratteri non deve riscriverli per colpa di un errore.
+    if (status === 200) { prefEditId = null; caricaPreferenze(clienteCorrente); }
+    else { save.disabled = false; save.textContent = 'Salva'; erroreSalvataggio(status, body, 'la preferenza'); }
+    return;
+  }
   const del = e.target.closest('[data-del-pref]');
-  if (del) { await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); return; }
+  if (del) {
+    if (prefEditId === Number(del.dataset.delPref)) prefEditId = null;
+    await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/preferenze/${del.dataset.delPref}`, { method: 'DELETE' }); caricaPreferenze(clienteCorrente); return;
+  }
   const opt = e.target.closest('[data-set-ambito]');
   if (opt) {
     const li = opt.closest('[data-pref]');

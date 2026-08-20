@@ -200,10 +200,12 @@ test('nessun form salva in silenzio quando la chiamata fallisce', async () => {
     assert.ok(APP.includes(`erroreSalvataggio(status, body, '${cosa}')`),
       `il salvataggio di "${cosa}" non segnala l'errore`);
   }
-  // Sono sei: se qualcuno ne aggiunge un settimo e lo dimentica, la lista sopra
+  // Sono sette: se qualcuno ne aggiunge un altro e lo dimentica, la lista sopra
   // non lo copre — almeno il conteggio non deve calare in silenzio.
   // L'apice finale esclude la riga di definizione della funzione.
-  assert.strictEqual((APP.match(/erroreSalvataggio\(status, body, '/g) || []).length, 6);
+  // Il settimo è la CORREZIONE di una preferenza (20/08/2026): "la preferenza"
+  // compare due volte, una per l'inserimento e una per la modifica in riga.
+  assert.strictEqual((APP.match(/erroreSalvataggio\(status, body, '/g) || []).length, 7);
   // E il messaggio dice che il testo è ancora lì: si riprova senza riscrivere.
   assert.match(APP, /Il testo è rimasto nel campo/);
   // Un 403 non va raddoppiato: il motivo lo ha già mostrato api().

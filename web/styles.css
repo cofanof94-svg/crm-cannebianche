@@ -716,6 +716,14 @@ details[open] > summary.sez-sum::before { transform: rotate(90deg); }
 .dup-tab td.num, .dup-tab th.num { text-align: right; }
 .dup-tab a { color: var(--brand-700); }
 
+/* --- Preferenza in modifica: stessa forma della riga del nucleo --- */
+.pref-editing .pref-head { gap: 8px; }
+.pref-sel { flex: 0 1 150px; font: inherit; font-size: 12.5px; padding: 4px 7px; border: 1px solid var(--border-strong); border-radius: 7px; }
+.pref-testo-edit {
+  width: 100%; margin: 7px 0; font: inherit; font-size: 13px; line-height: 1.45;
+  padding: 7px 9px; border: 1px solid var(--border-strong); border-radius: 8px; resize: vertical;
+}
+
 /* --- Nucleo di viaggio: righe editabili --- */
 .nucleo-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 0; border-top: 1px solid var(--border); }
 .nucleo-item:first-child { border-top: none; }
@@ -992,8 +1000,9 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
 body.sola-lettura :is(
   [data-add-prop], [data-ign-prop],
   [data-save-cli], [data-save-nucleo], [data-cancel-nucleo],
+  [data-save-pref], [data-cancel-pref],
   [data-del-compl], [data-del-intol], [data-del-lingua], [data-del-notepers], [data-del-nucleo], [data-del-pref],
-  [data-edit-compl], [data-edit-lingua], [data-edit-notepers], [data-edit-nucleo],
+  [data-edit-compl], [data-edit-lingua], [data-edit-notepers], [data-edit-nucleo], [data-edit-pref],
   [data-brief], [data-brief-cli], [data-classe-compl], [data-set-ambito],
   [data-merge], [data-unmerge], [data-confronta],
   /* Risolvi / Riapri un reclamo: cambia lo stato, quindi è una scrittura.
