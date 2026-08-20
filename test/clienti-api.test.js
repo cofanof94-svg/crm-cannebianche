@@ -596,6 +596,22 @@ test('note personali: PUT set salva e GET profilo rilegge; append accoda', async
   assert.match(app2.body.notePersonali, /Membro CdA Pirelli/);
 });
 
+test('note personali: un oggetto non diventa "[object Object]" a database', async () => {
+  // Era l'UNICO campo di testo dell'applicazione che saltava il controllo
+  // comune: un `String()` diretto salvava "[object Object]" per un oggetto e
+  // "a,b" per un array, con un 200 OK. E questa nota finisce nelle card, sul
+  // foglio dei reparti e nel CSV (20/08/2026).
+  const app = await makeApp();
+  const ag = await agente(app);
+  for (const testo of [{ a: 1 }, ['a', 'b'], true, { nested: { x: 1 } }]) {
+    const r = await ag.put('/api/clienti/47186/note-personali').send({ testo });
+    assert.strictEqual(r.status, 400, `doveva rifiutare: ${JSON.stringify(testo)}`);
+    assert.match(r.body.error, /non valido/i);
+  }
+  // Il testo vuoto NON è un tipo sbagliato: qui significa "cancella la nota".
+  assert.strictEqual((await ag.put('/api/clienti/47186/note-personali').send({ testo: '' })).status, 200);
+});
+
 test('data di nascita: esposta dal PMS, non modificabile dal CRM', async () => {
   const app = await makeApp();
   const ag = await agente(app);

@@ -550,7 +550,21 @@ function createClientiRouter(pmsDb, crmDb) {
   router.put('/clienti/:codCli/note-personali', async (req, res) => {
     const codCli = intParam(req.params.codCli);
     if (codCli === null) return res.status(400).json({ error: 'ID non valido' });
-    const testo = (req.body && req.body.testo != null ? String(req.body.testo) : '').trim();
+    // Il controllo di tipo passa da `campoTesto` come per ogni altro campo di
+    // testo dell'applicazione. Qui c'era un `String()` diretto, ed era l'unico
+    // campo scoperto: un oggetto diventava "[object Object]" e un array "a,b",
+    // salvati così com'erano con un 200 OK — e questa nota finisce nelle card,
+    // sul foglio dei reparti e nel CSV. `campoTesto` esiste esattamente per
+    // impedirlo, e il suo commento lo dice (20/08/2026).
+    // `obbligatorio: false` perché qui il testo vuoto ha un significato suo:
+    // cancella la nota. Il tetto NON si applica al testo in arrivo ma al
+    // RISULTATO, più sotto, per via dell'accodamento.
+    // `nome: 'Testo'` come gli altri campi: `campoTesto` compone "<nome> non
+    // valido", e con "Nota personale" ne uscirebbe una frase sgrammaticata.
+    // Il tetto vero della nota ha un messaggio suo, più sotto.
+    const c = campoTesto(req.body && req.body.testo, { max: Number.MAX_SAFE_INTEGER, nome: 'Testo', obbligatorio: false });
+    if (c.errore) return res.status(400).json({ error: c.errore });
+    const testo = c.valore;
     const mode = req.body && req.body.mode === 'append' ? 'append' : 'set';
     // Testo vuoto = cancellazione, e vale per tutta la persona: vedi
     // cancellaNotePersonali in src/crm/profilo.js.
