@@ -370,7 +370,10 @@ Numero di soggiorni, notti totali, LTV (arrangiamenti + extra), spesa media a so
 > C'era anche un test su quella regola, ed era verde: passava una riga **priva del campo** notti, che in JavaScript diventa `undefined` — l'unico dei tre valori possibili che funzionava. Un test che prova solo il caso che funziona è peggio di nessun test, perché dichiara una copertura che non c'è.
 >
 > Messo davanti al comportamento vero, Mik ha cambiato la regola invece di farla rispettare: se non si sa cosa sia una pratica, **non la si conta**. Che è anche ciò che il resto dell'applicazione faceva già.
+- **Nemmeno un voucher regalo è un soggiorno** — allineato il 20/08/2026 `[DECISO][TEST]`. Il gestionale lo registra come una prenotazione **lunga un anno**, perché quella è la sua validità. Il badge lo escludeva dal 13/08, la scheda no: lo stesso ospite aveva **3 soggiorni di là e 2 di qua**, e soprattutto il voucher si portava dietro le sue **365 notti** — «notti totali» diceva 374 e la media **124,7 notti a soggiorno**, in un albergo dove la stagione dura meno di duecento giorni. Come per i day use, **i suoi soldi restano** nel valore storico: è stato pagato davvero.
+  Non serve sapere se il gestionale, quando il voucher viene usato, crei una pratica nuova o riusi quella esistente: se ne crea una nuova il voucher resta lungo un anno ed è escluso, se riusa quella le date diventano quelle del soggiorno vero e la riga rientra da sola. **In entrambi i casi il taglio fa la cosa giusta** — la domanda che era rimasta aperta si è sciolta da sé.
 - Con queste regole il numero **coincide con il badge "Nª volta"** delle schede, che conta i soggiorni archiviati più quello in corso.
+- Il taglio delle **200 notti** è scritto in **tre punti** — nelle statistiche della scheda e dentro il SQL di due interrogazioni, dove non si può importare. Un test verifica che i tre valori restino uguali: se un domani si cambia in un punto solo, scheda e badge tornano a dare numeri diversi sullo stesso ospite `[TEST]`.
 
 > **Che cosa conta come "una volta"** `[DECISO][TEST]` — deciso il 13/08/2026 guardando l'archivio vero.
 >

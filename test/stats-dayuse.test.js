@@ -113,3 +113,60 @@ test('elenco vuoto: tutto a zero, nessun errore', () => {
   assert.strictEqual(s.ltv, 0);
   assert.strictEqual(s.primaVisita, null);
 });
+
+// --- Voucher regalo — allineato il 20/08/2026 --------------------------------
+// Il gestionale registra il voucher come una prenotazione lunga un anno, perché
+// quella è la sua validità. Il badge "Nª volta" lo escludeva dal 13/08, la
+// scheda no: lo stesso ospite aveva 3 soggiorni di là e 2 di qua. E il voucher
+// si portava dietro le sue 365 notti, quindi la media diceva 124,7 notti a
+// soggiorno in un albergo dove la stagione dura meno di duecento giorni.
+
+const VOUCHER = { dtarrivo: '2026-01-15', dtpartenza: '2027-01-15', notti: 365, arrangiamento: 300, extra: 0 };
+
+test('un voucher regalo non è un soggiorno, e non porta notti', () => {
+  const s = aggregaCumulativi([
+    sogg('2025-06-10', '2025-06-14', 4, 800, 120),
+    sogg('2026-07-01', '2026-07-06', 5, 950, 200),
+    VOUCHER,
+  ]);
+  assert.strictEqual(s.nSoggiorni, 2);
+  assert.strictEqual(s.nottiTotali, 9, 'le 365 notti del voucher non si sommano');
+  // I soldi restano: è stato pagato davvero, come per i day use.
+  assert.strictEqual(s.ltv, 2370);
+});
+
+test('il voucher si riconosce anche senza il campo notti', () => {
+  const { notti, ...senzaNotti } = VOUCHER;
+  const s = aggregaCumulativi([senzaNotti]);
+  assert.strictEqual(s.nSoggiorni, 0, 'la lunghezza si ricava dalle date');
+  assert.strictEqual(s.ltv, 300);
+});
+
+test('un soggiorno lungo ma sotto il limite resta un soggiorno', () => {
+  // Il taglio serve a togliere i voucher, non i soggiorni lunghi: qui la
+  // stagione dura meno di duecento giorni, e i voucher stanno tutti sui 365.
+  const s = aggregaCumulativi([sogg('2026-01-01', '2026-07-01', 181, 100, 0)]);
+  assert.strictEqual(s.nSoggiorni, 1);
+  assert.strictEqual(s.nottiTotali, 181);
+});
+
+test('il limite delle 200 notti è lo STESSO numero nei tre punti in cui è scritto', () => {
+  // Sta in tre file: qui, e dentro il SQL di analytics e di clienti, dove non si
+  // può importare. Se un domani si cambia in un punto solo, la scheda e il badge
+  // tornano a dare numeri diversi sullo stesso ospite — che è il difetto che
+  // questa correzione ha chiuso.
+  const fs = require('fs');
+  const path = require('path');
+  const leggi = (f, re) => {
+    const m = fs.readFileSync(path.join(__dirname, '..', f), 'utf8').match(re);
+    assert.ok(m, `limite non trovato in ${f}`);
+    return Number(m[1]);
+  };
+  const valori = {
+    'src/stats.js': leggi('src/stats.js', /const NOTTI_MAX_SOGGIORNO = (\d+);/),
+    'src/pms/analytics.js': leggi('src/pms/analytics.js', /const NOTTI_MAX = (\d+);/),
+    'src/pms/clienti.js': leggi('src/pms/clienti.js', /const NOTTI_MAX_SOGGIORNO = (\d+);/),
+  };
+  const distinti = [...new Set(Object.values(valori))];
+  assert.strictEqual(distinti.length, 1, `i limiti divergono: ${JSON.stringify(valori)}`);
+});

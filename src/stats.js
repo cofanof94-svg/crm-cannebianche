@@ -36,13 +36,41 @@
 // zero"), e non funzionava nemmeno: `Number(null)` e `Number('')` fanno ZERO,
 // quindi finivano fra i day use. Da qui il controllo esplicito sul valore
 // grezzo, prima di qualunque conversione a numero.
+// Sopra questo numero di notti non c'è un soggiorno ma un VOUCHER REGALO,
+// registrato come prenotazione lunga un anno perché quella è la sua validità.
+// Il badge "Nª volta" lo escludeva dal 13/08/2026, la scheda no: lo stesso
+// ospite risultava con 3 soggiorni di là e 2 di qua. E il voucher si portava
+// dietro le sue 365 notti, quindi "notti totali" diceva 374 e la media 124,7
+// notti a soggiorno, in un albergo dove la stagione dura meno di duecento
+// giorni (allineato il 20/08/2026).
+//
+// Non serve sapere se il gestionale, quando il voucher viene usato, crei una
+// pratica nuova o riusi questa: se ne crea una nuova il voucher resta lungo un
+// anno ed è escluso, se riusa questa le date diventano quelle del soggiorno
+// vero e la riga rientra da sola. In tutti e due i casi il taglio fa la cosa
+// giusta.
+//
+// Lo stesso numero è scritto in src/pms/analytics.js e src/pms/clienti.js, dove
+// finisce dentro il SQL e non si può importare da qui: un test verifica che i
+// tre valori restino uguali.
+const NOTTI_MAX_SOGGIORNO = 200;
+
+// 'voucher' è una categoria a sé e non un 'soggiorno': i suoi SOLDI restano nel
+// valore storico — è stato pagato davvero — ma non conta come una volta in cui
+// l'ospite è stato qui, e non porta notti.
 function classifica(r) {
-  if (r.dtarrivo && r.dtpartenza) {
-    return String(r.dtarrivo) === String(r.dtpartenza) ? 'dayuse' : 'soggiorno';
-  }
-  if (r.notti == null || String(r.notti).trim() === '') return 'sconosciuto';
   const n = Number(r.notti);
-  if (!Number.isFinite(n)) return 'sconosciuto';
+  const nottiNote = r.notti != null && String(r.notti).trim() !== '' && Number.isFinite(n);
+  if (nottiNote && n > NOTTI_MAX_SOGGIORNO) return 'voucher';
+  if (r.dtarrivo && r.dtpartenza) {
+    if (String(r.dtarrivo) === String(r.dtpartenza)) return 'dayuse';
+    // Senza il campo `notti` la lunghezza si ricava dalle date: un voucher
+    // dev'essere riconosciuto anche quando arriva senza quel campo.
+    const giorni = Math.round((Date.parse(`${r.dtpartenza}T00:00:00Z`) - Date.parse(`${r.dtarrivo}T00:00:00Z`)) / 86400000);
+    if (Number.isFinite(giorni) && giorni > NOTTI_MAX_SOGGIORNO) return 'voucher';
+    return 'soggiorno';
+  }
+  if (!nottiNote) return 'sconosciuto';
   return n > 0 ? 'soggiorno' : 'dayuse';
 }
 
@@ -53,7 +81,10 @@ function aggregaCumulativi(rows) {
   const n = soggiorni.length;
   const arr = tutte.reduce((s, r) => s + (Number(r.arrangiamento) || 0), 0);
   const ext = tutte.reduce((s, r) => s + (Number(r.extra) || 0), 0);
-  const notti = tutte.reduce((s, r) => s + (Number(r.notti) || 0), 0);
+  // Le notti si sommano SOLO sui soggiorni: un voucher ne porterebbe 365 e
+  // basta lui a mandare la media a tre cifre. I day use ne hanno zero, quindi
+  // per loro non cambia niente.
+  const notti = soggiorni.reduce((s, r) => s + (Number(r.notti) || 0), 0);
   const ltv = arr + ext;
   // Le date restano su TUTTE le righe: un day use è comunque una visita, e la
   // scheda le chiama così — "prima visita", "ultima visita". Le righe senza date
