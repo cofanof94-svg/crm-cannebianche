@@ -148,12 +148,23 @@ const NEGAZIONE = new RegExp([
   /\ballergies?\s*[:\-]\s*(?:none|no\b|n\/?a\b)/,
   // tedesco — `keine Allergien`, `nicht allergisch`, `ohne Allergien`
   /\bkeine\w*\s+(?:bekannten\s+|weiteren\s+|besonderen\s+)?(?:allergi|unverträglich|lebensmittelallergi)/,
+  // In tedesco la forma normale è la parola composta: `keine Nussallergie`, non
+  // `keine Allergie gegen Nüsse`. Qui il composto è già stato scomposto
+  // (`keine Nuss allergie`), quindi fra la negazione e il marcatore c'è la
+  // sostanza: una parola sola, senza pause in mezzo, perché `keine Nüsse,
+  // Allergie gegen Fisch` sono due affermazioni diverse e la seconda va tenuta.
+  /\b(?:keine\w*|ohne)\s+\w+\s+(?:allergi|intoleranz|unverträglichkeit)/,
   /\bnicht\s+allergisch/,
   /\bohne\s+allergi/,
   // francese — `aucune allergie`, `pas allergique`, `sans allergie`
   /\baucune?\w*\s+(?:autre\s+|particulière\s+)?(?:allergi|intoléran)/,
   /\bpas\s+allergique/,
   /\bsans\s+allergi/,
+  // `pas d'allergie au gluten` è il modo più comune di negare in francese ed era
+  // l'unico che mancava: senza questa riga la frase proponeva il glutine, cioè
+  // il contrario di quello che c'è scritto. L'apostrofo tipografico conta:
+  // arriva così da chi scrive su Word e lo incolla nel gestionale.
+  /\bpas\s+d['’]\s*(?:allergi|intol[ée]ran)/,
 ].map((r) => r.source).join('|'), 'i');
 
 // Coda dopo il marcatore, per i casi non in elenco: "allergica ai pollini".
@@ -314,9 +325,22 @@ function marcatoreVicino(frase, re, inizio, fine, maxParole, rompiSuPausa) {
   return false;
 }
 
+// La stessa sostanza può comparire più volte nella frase, e solo una delle volte
+// essere quella che conta: "servire il pesce al tavolo 4, la moglie non può
+// mangiare pesce". Guardando solo la prima occorrenza — quella innocua — il
+// divieto vero spariva senza lasciare traccia. Si provano tutte: basta che UNA
+// sia marcata.
 function marcata(frase, reSostanza) {
-  const m = frase.match(reSostanza);
-  if (!m) return false;
+  const g = new RegExp(reSostanza.source, 'gi');
+  let m;
+  while ((m = g.exec(frase)) !== null) {
+    if (m[0].length === 0) { g.lastIndex += 1; continue; }
+    if (marcataQui(frase, m)) return true;
+  }
+  return false;
+}
+
+function marcataQui(frase, m) {
   const inizio = m.index;
   const fineSostanza = inizio + m[0].length;
   if (marcatoreVicino(frase, MARCATORE_ALLERGIA, inizio, fineSostanza, PAROLE_FRA_ALLERGIA_E_SOSTANZA, false)) return true;
@@ -416,6 +440,17 @@ function scomponiCompostiTedeschi(testo) {
   );
 }
 
+// Una negazione vale per il pezzo di frase in cui è scritta, non per tutta la
+// frase. "Allergica al pesce, non ha altre allergie" dichiara un'allergia e poi
+// dice che non ce ne sono altre: saltando tutto, il pesce non arrivava in cucina.
+// Si spezza sulla virgola SOLO qui e SOLO quando una negazione c'è davvero: un
+// elenco ("allergie: arachidi, noci, sedano") non ne contiene nessuna e resta
+// intero, che è il motivo per cui `frasi` non spezza sulla virgola.
+function senzaNegazioni(frase) {
+  if (!NEGAZIONE.test(frase)) return frase;
+  return frase.split(',').filter((p) => !NEGAZIONE.test(p)).join(',').trim();
+}
+
 function estraiAllergie(nota) {
   const out = [];
   const visti = new Set();
@@ -429,14 +464,19 @@ function estraiAllergie(nota) {
     out.push({ termine, frase: ritaglia(frase) });
   };
 
-  for (const frase of frasi(scomponiCompostiTedeschi(nota))) {
-    if (NEGAZIONE.test(frase)) continue; // qui l'allergia viene esclusa, non dichiarata
-    for (const a of AUTONOMI) if (a.re.test(frase)) aggiungi(a.termine, frase);
+  // Si riconoscono le allergie sul testo lavorato (composti tedeschi scomposti,
+  // pezzi negati tolti), ma si MOSTRA la frase come è scritta nel gestionale:
+  // chi decide in due secondi deve leggere la nota vera, non una sua versione
+  // interna che nel PMS non esiste.
+  for (const originale of frasi(nota)) {
+    const frase = senzaNegazioni(scomponiCompostiTedeschi(originale));
+    if (!frase) continue; // la frase diceva solo che allergie non ce ne sono
+    for (const a of AUTONOMI) if (a.re.test(frase)) aggiungi(a.termine, originale);
     let trovata = false;
     for (const s of SOSTANZE) {
       if (!s.re.test(frase)) continue;
       if (!marcata(frase, s.re)) continue; // sostanza nominata, ma non come problema
-      aggiungi(s.termine, frase);
+      aggiungi(s.termine, originale);
       trovata = true;
     }
     // Marcatore esplicito ma sostanza fuori elenco: si propone comunque il testo
@@ -445,7 +485,7 @@ function estraiAllergie(nota) {
     // allergia"), o quando è metà di una parola composta ("allergy-friendly").
     if (!trovata && !MARCATORE_ANAFORICO.test(frase) && /\ballerg\w*|\bintolleran\w*/i.test(frase)) {
       const m = frase.match(DOPO_MARCATORE);
-      if (m && !CODA_COMPOSTA.test(m[1])) aggiungi(ripulisci(m[1]), frase);
+      if (m && !CODA_COMPOSTA.test(m[1])) aggiungi(ripulisci(m[1]), originale);
     }
   }
   return out;

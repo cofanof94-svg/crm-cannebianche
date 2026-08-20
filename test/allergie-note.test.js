@@ -627,3 +627,76 @@ test('il piumino è una coperta, la piuma è un allergene', () => {
   assert.deepStrictEqual(termini('Allergia alle piume del cuscino.'), ['Piume']);
   assert.deepStrictEqual(termini('Allergic to feathers'), ['Piume']);
 });
+
+// --- Regressioni trovate dal collaudo del 20/08/2026 -------------------------
+// Tre difetti che il collaudo a piu' revisori ha tirato fuori dalle correzioni
+// di questi giorni. Due riguardano la cucina in modo diretto: uno perdeva
+// un'allergia dichiarata, l'altro ne annunciava una che la nota NEGAVA.
+
+test('una negazione vale per il suo pezzo di frase, non per tutta la frase', () => {
+  // Il caso che perdeva il dato: l'allergia e' dichiarata prima della virgola,
+  // e la coda dice solo che non ce ne sono altre.
+  assert.deepStrictEqual(termini('Allergica al pesce, non ha altre allergie'), ['Pesce']);
+  assert.deepStrictEqual(termini('Allergica ai crostacei, non ha altre allergie ne intolleranze'), ['Crostacei']);
+  // e nell'ordine opposto
+  assert.deepStrictEqual(termini('Nessuna allergia alimentare, il bambino e allergico alle arachidi'), ['Arachidi']);
+  assert.deepStrictEqual(termini('No known allergies, the child is celiac'), ['Celiachia']);
+  // La negazione da sola continua a zittire tutto: e' il motivo per cui esiste.
+  assert.deepStrictEqual(termini('Nessuna allergia particolare'), []);
+  assert.deepStrictEqual(termini('Allergie: nessuna'), []);
+  // E gli elenchi non si spezzano sulla virgola, perche' non contengono negazioni.
+  assert.deepStrictEqual(
+    termini('Allergie del gruppo: arachidi, noci, sedano, sesamo e solfiti'),
+    ['Arachidi', 'Frutta a guscio', 'Sedano', 'Sesamo', 'Solfiti']
+  );
+});
+
+test('il tedesco composto si puo\' anche NEGARE, non solo dichiarare', () => {
+  // In tedesco "keine Nussallergie" e' la forma normale: la scomposizione del
+  // composto staccava la sostanza dal marcatore e la negazione non combaciava
+  // piu', cosi' una nota che diceva "nessuna allergia alle noci" finiva in
+  // cucina come allarme alle noci. Significato ribaltato.
+  assert.deepStrictEqual(termini('Keine Nussallergie'), []);
+  assert.deepStrictEqual(termini('Der Gast hat keine Weizenallergie'), []);
+  assert.deepStrictEqual(termini('Keine Laktoseintoleranz'), []);
+  assert.deepStrictEqual(termini('keine Erdnussallergie beim Kind'), []);
+  // La dichiarazione composta invece resta un allarme.
+  assert.deepStrictEqual(termini('Nussallergie'), ['Frutta a guscio']);
+  assert.deepStrictEqual(termini('Der Gast hat eine Erdnussallergie'), ['Arachidi']);
+  // Due affermazioni diverse separate dalla virgola: la seconda va tenuta.
+  assert.deepStrictEqual(termini('Keine Nusse, Allergie gegen Fisch'), ['Pesce']);
+});
+
+test('la stessa sostanza nominata due volte: conta la volta che la marca', () => {
+  // Si guardava solo la prima occorrenza. Se quella era innocua (il menu, la
+  // colazione del gruppo) il divieto vero che veniva dopo spariva del tutto.
+  assert.deepStrictEqual(
+    termini('Servire il pesce al tavolo 4, la moglie non puo mangiare pesce'),
+    ['Pesce']
+  );
+  assert.deepStrictEqual(
+    termini('A colazione mettere latticini per il gruppo, il bambino evita latticini'),
+    ['Latticini']
+  );
+  // e la sostanza nominata solo in modo innocuo resta fuori
+  assert.deepStrictEqual(termini('Servire il pesce al tavolo 4'), []);
+});
+
+test('il francese nega anche con "pas d\'allergie"', () => {
+  // Era l'unica forma francese scoperta, e proponeva il contrario di quello
+  // che c'era scritto.
+  assert.deepStrictEqual(termini("pas d'allergie au gluten"), []);
+  assert.deepStrictEqual(termini('pas d\u2019allergie aux crustaces'), []); // apostrofo tipografico
+  assert.deepStrictEqual(termini("pas d'intolerance au lactose"), []);
+  // e la dichiarazione francese vera resta
+  assert.deepStrictEqual(termini('allergique au gluten'), ['Glutine']);
+});
+
+test('la proposta mostra la nota come e\' scritta nel gestionale', () => {
+  // Il testo a giustificazione serve a decidere in due secondi: se e' una
+  // versione interna ("Keine Nuss allergie") chi legge giudica su una frase che
+  // nel PMS non esiste.
+  const p = estraiAllergie('Der Gast hat eine Erdnussallergie');
+  assert.strictEqual(p.length, 1);
+  assert.strictEqual(p[0].frase, 'Der Gast hat eine Erdnussallergie');
+});
