@@ -57,6 +57,21 @@ const permessiIgnoti = () => !currentUser || !Array.isArray(currentUser.permessi
 // l'attesa non si confonde mai con "non c'è niente".
 const loaderHTML = (testo = 'Caricamento…') => `<span class="caricamento"><span class="spinner"></span>${esc(testo)}</span>`;
 
+// L'attesa del briefing, in un posto solo perché compare in due (la card degli
+// arrivi e le note personali della scheda) e devono dire la stessa cosa.
+//
+// Il cerchietto che gira, nel linguaggio di chiunque, significa "qualche
+// secondo": il briefing cerca sul web con il modello più capace ed è la funzione
+// più lenta dell'applicazione. Senza avvisare, dopo un minuto l'operatore crede
+// che si sia bloccata e ricarica la pagina — buttando via una chiamata già
+// pagata (20/08/2026).
+//
+// Niente conto dei secondi e niente cifra promessa: non è stato misurato
+// abbastanza da poterla garantire, e un'attesa dichiarata che poi non si
+// rispetta è peggio di nessuna attesa dichiarata.
+const attesaBriefing = () => '<span class="spinner"></span><span class="ai-attesa">Ricerca su fonti pubbliche in corso…'
+  + '<small>Cerca su internet, quindi ci mette più delle altre funzioni: lascia la pagina aperta senza ricaricare.</small></span>';
+
 // Riquadro di stato a tutta larghezza (aree .state delle pagine).
 function mostraLoader(el, testo) {
   if (!el) return;
@@ -322,7 +337,7 @@ async function eseguiBriefing(btn) {
   const box = btn.closest('.arr-card').querySelector('.arr-brief-result');
   btn.disabled = true;
   box.hidden = false;
-  box.innerHTML = '<div class="ai-msg ai-loading"><span class="spinner"></span>Ricerca su fonti pubbliche in corso…</div>';
+  box.innerHTML = `<div class="ai-msg ai-loading">${attesaBriefing()}</div>`;
   // Errore o AI non configurata → si deve poter riprovare: il pulsante torna attivo.
   const riabilita = () => { btn.disabled = false; };
   try {
@@ -1724,7 +1739,7 @@ async function generaNotePers() {
   const btn = $('#btn-notepers-ai');
   const msg = $('#notepers-ai-msg');
   btn.disabled = true;
-  msg.innerHTML = '<span class="ai-msg ai-loading"><span class="spinner"></span>Ricerca su fonti pubbliche in corso…</span>';
+  msg.innerHTML = `<span class="ai-msg ai-loading">${attesaBriefing()}</span>`;
   // Errore o AI non configurata → riprovabile subito; una risposta valida no.
   const riabilita = () => { btn.disabled = false; };
   const fatto = () => {

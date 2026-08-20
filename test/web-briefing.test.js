@@ -99,3 +99,33 @@ test('anche titolo e url delle fonti vanno con escape', () => {
   assert.doesNotMatch(h, /onmouseover="alert/);
   assert.doesNotMatch(h, /<b>fonte<\/b>/);
 });
+
+// --- L'attesa dichiarata — 20/08/2026 ---------------------------------------
+// Il cerchietto che gira significa "qualche secondo" nel linguaggio di
+// chiunque, e il briefing cerca sul web: è la funzione più lenta
+// dell'applicazione (misurati oltre due minuti). Senza avvisare, dopo un minuto
+// l'operatore crede che si sia bloccata e ricarica — buttando via una chiamata
+// già pagata.
+
+test('l\'attesa del briefing è scritta in un posto solo', () => {
+  // Compare in due punti: la card degli arrivi e le note personali della
+  // scheda. Se il testo fosse copiato, prima o poi direbbero cose diverse.
+  const occorrenze = (SRC.match(/Ricerca su fonti pubbliche in corso/g) || []).length;
+  assert.strictEqual(occorrenze, 1, 'il messaggio dev\'essere in una funzione condivisa');
+  assert.match(SRC, /const attesaBriefing = \(\)/);
+  // ed entrambi i punti devono usarla
+  assert.strictEqual((SRC.match(/\$\{attesaBriefing\(\)\}/g) || []).length, 2);
+});
+
+test('l\'attesa avvisa che ci vuole tempo, senza promettere un numero', () => {
+  // Niente `\n` nel motivo: i file del progetto hanno fine-riga Windows, e un
+  // controllo che ci inciampa fallisce per il motivo sbagliato.
+  const m = SRC.match(/const attesaBriefing = \(\)[\s\S]*?<\/span>';/);
+  assert.ok(m, 'attesaBriefing non trovata');
+  const testo = m[0];
+  assert.match(testo, /internet/i, 'va detto perché è lenta');
+  assert.match(testo, /senza ricaricare/i, 'va detto cosa NON fare');
+  // Nessuna cifra promessa: non è stata misurata abbastanza da poterla
+  // garantire, e un'attesa dichiarata e non rispettata è peggio di nessuna.
+  assert.doesNotMatch(testo, /\d+\s*(secondi|minuti|s\b)/i);
+});

@@ -670,7 +670,12 @@ body { overflow-wrap: anywhere; }
 .aff-media { background: #f0ebe4; color: #9a8467; }
 .ai-motivo { display: block; font-size: 12px; color: var(--muted); padding-left: 26px; margin-top: 2px; }
 .ai-actions { display: flex; gap: 8px; margin-top: 10px; }
-.ai-loading { display: flex; align-items: center; }
+.ai-loading { display: flex; align-items: flex-start; }
+/* L'avviso sulla durata sta sotto la riga principale, in tono minore: deve
+   togliere il dubbio, non rubare la scena al messaggio che dice cosa sta
+   facendo. */
+.ai-attesa { display: block; }
+.ai-attesa small { display: block; font-size: 11.5px; color: var(--faint); margin-top: 3px; line-height: 1.4; }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--brand); border-radius: 50%; margin-right: 8px; animation: spin .7s linear infinite; vertical-align: -2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 /* Attesa: stesso indicatore ovunque nell'app (pagine, sezioni, modali, pulsanti) */
