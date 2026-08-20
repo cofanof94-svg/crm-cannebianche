@@ -598,6 +598,18 @@ const crmDb = {
     }
 
     // --- customer_travel_party + memoria delle esclusioni ---
+    // Il "gruppo nucleo": chi sta nel nucleo di questi codici, e chi li elenca
+    // nel proprio. Il finto non lo riconosceva affatto e rispondeva vuoto,
+    // quindi le preferenze condivise dal nucleo e le note di anagrafica degli
+    // altri membri non si sono mai potute vedere qui (aggiunto il 20/08/2026).
+    if (/AS c FROM customer_travel_party/.test(t)) {
+      const out = new Set();
+      for (const r of store.nucleo) {
+        if (ids.includes(r.pms_customer_id) && r.pms_occupant_id != null) out.add(r.pms_occupant_id);
+        if (r.pms_occupant_id != null && ids.includes(r.pms_occupant_id)) out.add(r.pms_customer_id);
+      }
+      return [...out].map((c) => ({ c }));
+    }
     if (/INSERT INTO customer_nucleo_scartati/.test(t)) { store.nucleoScartati.add(`${params.pmsCustomerId}|${params.pmsOccupantId}`); return []; }
     if (/FROM customer_nucleo_scartati/.test(t)) {
       return [...store.nucleoScartati]

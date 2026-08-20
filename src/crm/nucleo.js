@@ -43,13 +43,21 @@ async function updateMembro(db, id, { tipoRelazione, nome, cognome, nota }) {
 // Gruppo-nucleo di un ospite: sé stesso + i membri del suo nucleo (con
 // pms_occupant_id) + chi lo elenca nel proprio nucleo (un livello, bidirezionale).
 // Serve a condividere le preferenze 'nucleo' tra i familiari.
-async function getNucleoGroup(db, codCli) {
+// Accetta un codice singolo oppure TUTTI i codici di un ospite con più
+// anagrafiche fuse. Prima accettava solo il codice guardato, e siccome le
+// scritture del nucleo vanno sull'anagrafica principale (decisione del 12/08),
+// un ospite fuso vedeva il nucleo solo dal codice su cui le righe erano finite:
+// il familiare restava elencato nel riquadro, ma la sua preferenza condivisa e
+// le sue note di anagrafica sparivano (20/08/2026).
+async function getNucleoGroup(db, ids) {
+  const arr = [...new Set((Array.isArray(ids) ? ids : [ids]).map(Number).filter(Number.isInteger))];
+  if (!arr.length) return [];
+  const inl = inClause(arr);
   const rows = await db.query(
-    `SELECT pms_occupant_id AS c FROM customer_travel_party WHERE pms_customer_id = @codCli AND pms_occupant_id IS NOT NULL
-     UNION SELECT pms_customer_id FROM customer_travel_party WHERE pms_occupant_id = @codCli`,
-    { codCli }
+    `SELECT pms_occupant_id AS c FROM customer_travel_party WHERE pms_customer_id IN ${inl} AND pms_occupant_id IS NOT NULL
+     UNION SELECT pms_customer_id FROM customer_travel_party WHERE pms_occupant_id IN ${inl}`
   );
-  return [...new Set([codCli, ...rows.map((r) => r.c)])];
+  return [...new Set([...arr, ...rows.map((r) => r.c)])];
 }
 
 // Relazioni note per una lista di referenti (dashboard arrivi): righe

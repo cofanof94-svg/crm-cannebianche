@@ -91,3 +91,50 @@ test('su una scheda non fusa la cancellazione resta quella di sempre', async () 
   await ag.put(`/api/clienti/${A}/note-personali`).send({ testo: '' });
   assert.strictEqual((await profiloDi(ag, B)).note_personali, 'Di un altro cliente');
 });
+
+// --- Il nucleo di un ospite con più anagrafiche ------------------------------
+// Le scritture del nucleo vanno sull'anagrafica PRINCIPALE (decisione del
+// 12/08). Finché il gruppo nucleo si cercava col SOLO codice guardato, un
+// ospite fuso vedeva il familiare elencato nel riquadro ma perdeva la sua
+// preferenza condivisa e le sue note di anagrafica: il legame era scritto sul
+// principale, e lo si cercava sul duplicato (20/08/2026).
+
+const { getNucleoGroup } = require('../src/crm/nucleo');
+
+function crmConNucleo(righe) {
+  return {
+    async query(text) {
+      const m = String(text).match(/IN \(([\d,\s]+)\)/);
+      const ids = m ? m[1].split(',').map((s) => Number(s.trim())) : [];
+      const out = new Set();
+      for (const r of righe) {
+        if (ids.includes(r.pms_customer_id) && r.pms_occupant_id != null) out.add(r.pms_occupant_id);
+        if (r.pms_occupant_id != null && ids.includes(r.pms_occupant_id)) out.add(r.pms_customer_id);
+      }
+      return [...out].map((c) => ({ c }));
+    },
+  };
+}
+
+// Il legame è scritto sul PRINCIPALE 1001; la scheda si apre dal duplicato 1201.
+const LEGAMI = [{ pms_customer_id: 1001, pms_occupant_id: 1101 }];
+
+test('il nucleo si trova anche aprendo la scheda dal codice duplicato', async () => {
+  const db = crmConNucleo(LEGAMI);
+  const gruppo = await getNucleoGroup(db, [1001, 1201]);
+  assert.ok(gruppo.includes(1101), 'il familiare deve comparire anche partendo dal duplicato');
+});
+
+test('col solo codice duplicato il familiare si perdeva', async () => {
+  // È la riproduzione del difetto: serve a spiegare perché la funzione accetta
+  // una lista e non un codice.
+  const db = crmConNucleo(LEGAMI);
+  const soloDuplicato = await getNucleoGroup(db, 1201);
+  assert.deepStrictEqual(soloDuplicato, [1201]);
+});
+
+test('un codice singolo continua a funzionare come prima', async () => {
+  const db = crmConNucleo(LEGAMI);
+  assert.deepStrictEqual(await getNucleoGroup(db, 1001), [1001, 1101]);
+  assert.deepStrictEqual(await getNucleoGroup(db, []), []);
+});

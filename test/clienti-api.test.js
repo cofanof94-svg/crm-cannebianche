@@ -104,7 +104,10 @@ async function makeApp(opts = {}) {
         const n = nucleo.find((x) => x.id === params.id && ids.includes(x.pmsCustomerId));
         return n ? [{ id: n.id, pms_customer_id: n.pmsCustomerId, pms_occupant_id: n.pmsOccupantId != null ? n.pmsOccupantId : null }] : [];
       }
-      if (/pms_occupant_id AS c/.test(text)) { const s = new Set(); nucleo.forEach((n) => { if (n.pmsCustomerId === params.codCli && n.pmsOccupantId != null) s.add(n.pmsOccupantId); if (n.pmsOccupantId === params.codCli) s.add(n.pmsCustomerId); }); return [...s].map((c) => ({ c })); }
+      // Il gruppo nucleo si chiede per LISTA di codici (tutte le anagrafiche
+      // fuse dell'ospite), non più per codice singolo: dal 20/08 la lista
+      // arriva interpolata nella query, quindi si legge da `ids`.
+      if (/pms_occupant_id AS c/.test(text)) { const s = new Set(); nucleo.forEach((n) => { if (ids.includes(n.pmsCustomerId) && n.pmsOccupantId != null) s.add(n.pmsOccupantId); if (n.pmsOccupantId != null && ids.includes(n.pmsOccupantId)) s.add(n.pmsCustomerId); }); return [...s].map((c) => ({ c })); }
       if (/FROM customer_travel_party/.test(text)) return nucleo.filter((n) => ids.includes(n.pmsCustomerId)).map((n) => ({ id: n.id, tipo_relazione: n.tipoRelazione, nome: n.nome, cognome: n.cognome, nota: n.nota, pms_occupant_id: n.pmsOccupantId != null ? n.pmsOccupantId : null, autore: 'admin', created_at: 'x', autore_user_id: 1, pms_customer_id: n.pmsCustomerId }));
       if (/INSERT INTO customer_complaints/.test(text)) { const n = { id: complaints.length + 1, stato: 'aperto', ...params }; complaints.push(n); return [{ id: n.id }]; }
       if (/UPDATE customer_complaints/.test(text)) { const n = complaints.find((x) => x.id === params.id); if (n) { if (params.testo != null) n.testo = params.testo; if (params.stato != null) n.stato = params.stato; if (params.periodo !== undefined) n.periodo = params.periodo; if (params.followUp !== undefined) n.follow_up = params.followUp; if (params.reparto !== undefined) n.reparto = params.reparto; if (params.categoria !== undefined) n.categoria = params.categoria; return [{ id: n.id }]; } return []; }

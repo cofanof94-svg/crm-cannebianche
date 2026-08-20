@@ -161,7 +161,7 @@ function createClientiRouter(pmsDb, crmDb) {
       };
     }
     // Note PMS degli altri membri del nucleo (condivise, "del soggiorno").
-    const altriNucleo = (await getNucleoGroup(crmDb, codCli)).filter((c) => !membri.includes(c));
+    const altriNucleo = (await getNucleoGroup(crmDb, membri)).filter((c) => !membri.includes(c));
     let noteNucleo = [];
     if (altriNucleo.length) {
       const anags = await Promise.all(altriNucleo.map((c) => getCliente(pmsDb, c)));
@@ -267,7 +267,7 @@ function createClientiRouter(pmsDb, crmDb) {
     // Controllo duplicati esteso al NUCLEO: i consumi F&B sono condivisi, quindi una
     // preferenza già salvata su un altro membro del nucleo non va riproposta. La lista
     // "già registrate" (preferenze/intolleranze) copre self + gruppo di fusione + nucleo.
-    const nucleoIds = await getNucleoGroup(crmDb, codCli);
+    const nucleoIds = await getNucleoGroup(crmDb, membri);
     const idsDedup = [...new Set([...membri, ...nucleoIds])];
     const [gusti, spa, intolleranze, preferenze, anags] = await Promise.all([
       getGustiFB(pmsDb, membri),
@@ -543,7 +543,7 @@ function createClientiRouter(pmsDb, crmDb) {
     const { membri } = await getGruppo(crmDb, codCli);
     const preferenze = await listPreferenze(crmDb, membri);
     // Preferenze 'nucleo' degli ALTRI membri del nucleo familiare → in sola lettura.
-    const altri = (await getNucleoGroup(crmDb, codCli)).filter((c) => !membri.includes(c));
+    const altri = (await getNucleoGroup(crmDb, membri)).filter((c) => !membri.includes(c));
     let condivise = [];
     if (altri.length) {
       const rows = await listCondivise(crmDb, altri);
