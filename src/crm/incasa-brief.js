@@ -13,7 +13,13 @@
 const { arricchisciArrivi } = require('./arrivi-brief');
 
 function briefingInCasaVuoto(n) {
-  return { presenti: n || 0, partonoOggi: 0, vip: 0, alert: 0, reclami: 0, ricorrenze: 0, usciti: 0, dayUse: 0 };
+  // `totale` sono TUTTE le righe della lista; `presenti` è una categoria fra le
+  // altre — non day use, non uscito. La pastiglia "Oggi in hotel" mostra tutto,
+  // quindi il suo numero dev'essere `totale`: prima usava `presenti` e diceva 7
+  // su una lista di 9, perché quel contatore era nato quando la lista conteneva
+  // solo chi era in casa, prima che ci entrassero gli ospiti del giorno e
+  // restassero visibili gli usciti (20/08/2026).
+  return { totale: n || 0, presenti: n || 0, partonoOggi: 0, vip: 0, alert: 0, reclami: 0, ricorrenze: 0, usciti: 0, dayUse: 0 };
 }
 
 // Ospite del giorno: entra e esce in giornata, non dorme qui (SPA, piscina,
@@ -74,6 +80,7 @@ const parteOggi = (c) => c.statoPartenza === 'partenza' || c.statoPartenza === '
 // Riepilogo della giornata per le chip filtranti (contatori della lista mostrata).
 function calcolaBriefingInCasa(clienti) {
   const b = briefingInCasaVuoto(0);
+  b.totale = (clienti || []).length;
   for (const c of clienti || []) {
     const s = c.snapshot || {};
     // Gli ospiti del giorno hanno un contatore tutto loro: non sono "presenti"

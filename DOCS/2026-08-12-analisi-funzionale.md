@@ -264,7 +264,8 @@ Gestire l'ospite durante il soggiorno: chi c'è, in che camera, a che punto è d
 - Stessa banda di accoglienza degli Arrivi, stesse regole (§4).
 - Filtri: **Oggi in hotel** · Partono oggi · VIP · Alert · Ricorrenze · Reclami · Usciti · **Day use** `[CODICE]`.
 - **"Partono oggi"** comprende sia chi è ancora in camera con partenza odierna sia chi ha già fatto il check-out `[CODICE][TEST]`.
-- Il contatore **esclude** chi ha già fatto il check-out `[CODICE][TEST]`.
+- **Due numeri, e dicono due cose diverse** — dal 20/08/2026 `[DECISO][TEST]`. La pastiglia «Oggi in hotel» conta **tutte le righe della lista**, come fanno le altre sette: il numero è quante righe vedi cliccandola. La riga sotto aggiunge *«di cui N in camera»*, che esclude gli ospiti del giorno e chi ha già fatto il check-out — ed è il numero che serve al banco. Il secondo compare solo quando differisce dal primo.
+  Fino al 19/08 la pastiglia mostrava **solo** il secondo: diceva `7` su una lista di `9`, e il suo stesso suggerimento dichiarava di comprendere gli ospiti del giorno. Il contatore era nato quando la lista conteneva soltanto chi era in casa, prima che ci entrassero gli ospiti del giorno (13/08) e restassero visibili gli usciti (14/08): sono state aggiunte le loro pastiglie, ma quella «tutti» ha continuato a puntare al vecchio numero.
 - Con un filtro che non seleziona nulla il contatore dice **"0 di 5"**, non "5": diceva il numero pieno a schermo vuoto `[DOC][TEST]`.
 
 > **"Oggi in hotel" non è il numero della Home** `[DECISO]`. Questa lista comprende chi parte oggi, il riquadro "Restano stanotte" della Home no. Sono due domande diverse (vedi §3): i nomi lo dichiarano, invece di lasciar credere a un errore.

@@ -161,3 +161,48 @@ test('calcolaBriefingInCasa: gli ospiti del giorno hanno un contatore loro', () 
   assert.strictEqual(b.alert, 1);
   assert.strictEqual(b.vip, 1);
 });
+
+// --- "Oggi in hotel": il numero sono le righe che vedi — 20/08/2026 ---------
+// La pastiglia mostra TUTTO (pred: () => true) ma prendeva il numero da
+// `presenti`, che è una categoria fra le altre: diceva 7 su una lista di 9.
+// `presenti` era nato quando la lista conteneva solo chi era in casa, prima che
+// ci entrassero gli ospiti del giorno e restassero visibili gli usciti.
+
+test('il briefing porta il TOTALE delle righe accanto ai presenti', () => {
+  const b = calcolaBriefingInCasa([
+    { statoPartenza: 'incasa', snapshot: {} },
+    { statoPartenza: 'incasa', snapshot: {} },
+    { statoPartenza: 'partenza', snapshot: {} },
+    { statoPartenza: 'dayuse', dtarrivo: '2026-08-20', dtpartenza: '2026-08-20', snapshot: {} },
+    { statoPartenza: 'checkout', snapshot: {} },
+  ]);
+  assert.strictEqual(b.totale, 5, 'tutte le righe della lista');
+  assert.strictEqual(b.presenti, 3, 'senza day use e senza usciti');
+  assert.strictEqual(b.dayUse, 1);
+  assert.strictEqual(b.usciti, 1);
+  // I due numeri devono poter differire: è tutto il punto.
+  assert.notStrictEqual(b.totale, b.presenti);
+  // E il totale deve tornare con le categorie.
+  assert.strictEqual(b.presenti + b.dayUse + b.usciti, b.totale);
+});
+
+test('senza day use né usciti i due numeri coincidono', () => {
+  const b = calcolaBriefingInCasa([
+    { statoPartenza: 'incasa', snapshot: {} },
+    { statoPartenza: 'partenza', snapshot: {} },
+  ]);
+  assert.strictEqual(b.totale, 2);
+  assert.strictEqual(b.presenti, 2);
+});
+
+test('la pastiglia "Oggi in hotel" legge il totale, non i presenti', () => {
+  // Il numero sulla pastiglia dev'essere quante righe vedi cliccandola: è la
+  // regola che le altre sette rispettano già.
+  const fs = require('fs');
+  const path = require('path');
+  const APP = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const riga = APP.split('\n').find((l) => l.includes("key: 'all'") && l.includes('Oggi in hotel'));
+  assert.ok(riga, 'la pastiglia non si trova più');
+  assert.match(riga, /field: 'totale'/);
+  assert.match(riga, /pred: \(\) => true/, 'mostra tutto: se cambia, cambia anche il numero');
+});

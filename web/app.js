@@ -925,7 +925,7 @@ const INCASA_CHIPS = [
   // "Oggi in hotel" e non "In casa": questo elenco comprende anche chi parte oggi,
   // quindi dà un numero più alto del riquadro "Restano stanotte" della Home, che
   // conta le camere occupate la notte. Sono due domande diverse, e i nomi lo dicono.
-  { key: 'all', label: 'Oggi in hotel', field: 'presenti', pred: () => true, tip: 'Tutti i presenti oggi, compresi chi parte oggi e gli ospiti del giorno. È un numero diverso da «Restano stanotte» della Home, che conta solo le camere occupate stanotte.' },
+  { key: 'all', label: 'Oggi in hotel', field: 'totale', pred: () => true, tip: 'Tutte le righe della lista: chi è in camera, chi parte oggi, gli ospiti del giorno e chi ha già fatto il check-out. Quanti siano davvero in camera lo dice la riga qui sotto. È un numero diverso da «Restano stanotte» della Home, che conta solo le camere occupate stanotte.' },
   // "Partono oggi" = ancora in camera con partenza odierna + chi ha già fatto il
   // check-out. È il filtro che apre la Home cliccando su "Partenze oggi".
   { key: 'partenze', label: 'Partono oggi', field: 'partonoOggi', pred: (c) => c.statoPartenza === 'partenza' || c.statoPartenza === 'checkout', tip: 'Chi lascia l’hotel oggi, compresi quelli che hanno già fatto il check-out.' },
@@ -1024,9 +1024,16 @@ function renderInCasa() {
       : `0 di ${incasaAll.length}`;
     return;
   }
-  stato.textContent = lista.length === incasaAll.length
-    ? `${presenti} ${presenti === 1 ? 'presente' : 'presenti'}`
-    : `${lista.length} di ${incasaAll.length}`;
+  // Senza filtro il numero è quante righe si vedono — la stessa regola di tutte
+  // le pastiglie. "Di cui N in camera" si aggiunge solo quando i due numeri
+  // differiscono, cioè quando in lista c'è un ospite del giorno o un uscito:
+  // è l'informazione che serve al banco, e prima era l'unica mostrata, al posto
+  // del totale (20/08/2026).
+  stato.textContent = lista.length !== incasaAll.length
+    ? `${lista.length} di ${incasaAll.length}`
+    : (presenti === incasaAll.length
+      ? `${incasaAll.length} in hotel`
+      : `${incasaAll.length} in hotel · di cui ${presenti} in camera`);
   cards.innerHTML = lista.map(schedaInCasa).join('');
   msg.hidden = true; cards.hidden = false;
 }
