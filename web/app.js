@@ -2165,11 +2165,20 @@ function renderMerge() {
   const head = d.anagrafiche.map((a) => {
     const codice = linkCliente(a.codCli, `#${a.codCli}`, { nuovaScheda: true, titolo: `Apri l'anagrafica #${a.codCli} in una nuova scheda` });
     // In sola vista il principale è già deciso: niente radio da scegliere.
+    // Un'anagrafica già collegata a un altro principale NON può diventare lei
+    // il principale: il server lo rifiuta, perché risalendo la catena la
+    // richiesta diventa "collegala a sé stessa". Si dice qui, prima della
+    // scelta, invece di lasciare che l'operatore ci sbatta contro dopo aver
+    // premuto Conferma (20/08/2026).
+    const legataA = (d.giaCollegate || {})[a.codCli];
     const scelta = mergeSolaLettura
       ? `<span class="merge-princ">${codice}</span>`
-      : `<label class="merge-princ"><input type="radio" name="princ" value="${a.codCli}" ${a.codCli === princ ? 'checked' : ''}/> ${codice}</label>`;
+      : legataA
+        ? `<span class="merge-princ merge-princ-no" title="Già collegata all'anagrafica #${legataA}: per renderla principale, scollegala prima dal banner «Scheda fusa» della sua scheda.">${codice}</span>`
+        : `<label class="merge-princ"><input type="radio" name="princ" value="${a.codCli}" ${a.codCli === princ ? 'checked' : ''}/> ${codice}</label>`;
     return `<th class="${a.codCli === princ ? 'merge-princ-col' : ''}">${scelta}
-      ${a.codCli === princ ? '<span class="merge-badge">principale</span>' : ''}</th>`;
+      ${a.codCli === princ ? '<span class="merge-badge">principale</span>' : ''}
+      ${legataA && !mergeSolaLettura ? `<span class="merge-legata">collegata a #${legataA}</span>` : ''}</th>`;
   }).join('');
   const rows = CAMPI_MERGE.map(([k, label, fmt]) => {
     const conf = conflSet.has(k);

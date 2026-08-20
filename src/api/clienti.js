@@ -206,8 +206,23 @@ function createClientiRouter(pmsDb, crmDb) {
     const anagrafiche = await getAnagreConfronto(pmsDb, ids);
     if (anagrafiche.length < 2) return res.status(400).json({ error: 'Servono almeno due anagrafiche da confrontare' });
     const conflitti = calcolaConflitti(anagrafiche);
-    const suggerito = anagrafiche.reduce((best, a) => (a.nPrenotazioni > best.nPrenotazioni ? a : best), anagrafiche[0]).codCli;
-    res.json({ anagrafiche, conflitti, suggerito });
+    // Chi è già collegato a un altro principale NON può essere scelto come
+    // principale: il server lo rifiuterebbe, perché risalendo la catena la
+    // richiesta diventa "collega un codice a sé stesso". Meglio dirlo PRIMA
+    // della scelta che dopo, con un errore (20/08/2026).
+    const canonici = await getCanoniciByIds(crmDb, anagrafiche.map((a) => a.codCli));
+    const giaCollegate = {};
+    for (const a of anagrafiche) {
+      const c = canonici.get(a.codCli);
+      const principale = c && c.canonicalId;
+      if (principale && principale !== a.codCli) giaCollegate[a.codCli] = principale;
+    }
+    // Il suggerito si sceglie fra quelle SELEZIONABILI: proporre un principale
+    // che il server rifiuta sarebbe un invito a sbagliare.
+    const eleggibili = anagrafiche.filter((a) => !giaCollegate[a.codCli]);
+    const fra = eleggibili.length ? eleggibili : anagrafiche;
+    const suggerito = fra.reduce((best, a) => (a.nPrenotazioni > best.nPrenotazioni ? a : best), fra[0]).codCli;
+    res.json({ anagrafiche, conflitti, suggerito, giaCollegate });
   });
 
   // Fonde un codice (memberId) nel gruppo di un principale (canonicalId).
@@ -225,7 +240,16 @@ function createClientiRouter(pmsDb, crmDb) {
       return res.status(404).json({ error: `Anagrafica non trovata: ${!chiMuove ? memberId : canonicalId}` });
     }
     const r = await mergeInto(crmDb, { memberId, canonicalId, autoreUserId: req.session.user.id });
-    if (!r.ok) return res.status(400).json({ error: 'Fusione non valida (auto-fusione)' });
+    if (!r.ok) {
+      // Il messaggio dice cosa fare, non come si chiama l'errore: prima usciva
+      // "Fusione non valida (auto-fusione)" anche quando la richiesta era
+      // sensata — "rendi principale questo codice" — e l'operatore restava
+      // fermo senza sapere qual era il passo successivo.
+      const messaggio = r.motivo === 'principale-gia-collegato'
+        ? `L'anagrafica ${canonicalId} è già collegata alla ${r.principale}, quindi non può essere il principale. Per renderla tale, scollegala prima dal banner "Scheda fusa" della sua scheda.`
+        : 'Un\'anagrafica non si può collegare a sé stessa: scegli un principale diverso.';
+      return res.status(400).json({ error: messaggio });
+    }
     res.status(201).json({ ok: true, canonicalId: r.canonicalId });
   });
 

@@ -268,11 +268,15 @@ test('GET /api/duplicati: il gruppo associato esce dalla coda e torna dopo lo sc
   assert.strictEqual(riaperto.body.gestiti, 0);
 });
 
-test('POST /api/clienti/:codCli/merge rifiuta auto-fusione', async () => {
+test('POST /api/clienti/:codCli/merge rifiuta auto-fusione, e lo dice a parole', async () => {
   const app = await makeApp();
   const ag = await agente(app);
   const res = await ag.post('/api/clienti/47186/merge').send({ memberId: 47186, canonicalId: 47186 });
   assert.strictEqual(res.status, 400);
+  // Il messaggio deve dire cosa fare, non come si chiama l'errore: "auto-fusione"
+  // lasciava fermo chi lo leggeva (20/08/2026).
+  assert.match(res.body.error, /sé stessa/i);
+  assert.doesNotMatch(res.body.error, /auto-fusione/i);
 });
 
 test('merge: dato CRM di un duplicato appare nel gruppo; unmerge lo scollega', async () => {
@@ -358,6 +362,20 @@ test('GET /api/clienti/:codCli/confronto → anagrafiche, conflitti e principale
   assert.strictEqual(res.body.anagrafiche.length, 2);
   assert.strictEqual(res.body.suggerito, 47186); // più prenotazioni
   assert.deepStrictEqual(res.body.conflitti.map((c) => c.campo), ['codiceFiscale']);
+  assert.deepStrictEqual(res.body.giaCollegate, {}, 'nessuna delle due è già collegata altrove');
+});
+
+test('confronto: un\'anagrafica già collegata non può essere il principale suggerito', async () => {
+  // Il server la rifiuterebbe — risalendo la catena diventa "collegala a sé
+  // stessa" — quindi proporla sarebbe un invito a sbagliare. Si dice PRIMA
+  // della scelta, non con un errore dopo la conferma (20/08/2026).
+  const app = await makeApp();
+  const ag = await agente(app);
+  await ag.post('/api/clienti/47186/merge').send({ memberId: 47186, canonicalId: 55491 });
+  const res = await ag.get('/api/clienti/47186/confronto?ids=47186,55491');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body.giaCollegate, { 47186: 55491 }, 'la finestra deve sapere chi è già collegata e a chi');
+  assert.strictEqual(res.body.suggerito, 55491, 'il suggerito si sceglie fra quelle selezionabili');
 });
 
 test('GET /api/clienti/abc → 400', async () => {

@@ -191,3 +191,34 @@ test('separaGruppiDuplicati: non muta i gruppi in ingresso', () => {
   separaGruppiDuplicati(gruppi, [{ pms_customer_id: 11, canonical_id: 10 }]);
   assert.strictEqual(gruppi[0].fusiCount, undefined);
 });
+
+// --- Due rifiuti diversi, due messaggi diversi — 20/08/2026 -----------------
+// Uscivano tutti e due come "auto-fusione". Il secondo però non è un errore di
+// chi lo chiede: "rendi principale questo codice" è sensato, ed è il server che
+// risalendo la catena lo trasforma in "collegalo a sé stesso". L'operatore
+// leggeva un nome che non spiegava niente e restava fermo.
+
+// mergeInto risolve il principale con `WHERE pms_customer_id = @canonicalId`:
+// serve un finto che risponda a QUELLA domanda.
+function crmRisolvi(rows) {
+  return {
+    async query(text, params) {
+      if (/WHERE pms_customer_id = @canonicalId/.test(text)) {
+        return rows.filter((r) => r.pms_customer_id === params.canonicalId).map((r) => ({ canonical_id: r.canonical_id }));
+      }
+      return [];
+    },
+  };
+}
+
+test('mergeInto distingue "stessa anagrafica" da "principale già collegato"', async () => {
+  const stessa = await mergeInto(crmRisolvi([]), { memberId: 1001, canonicalId: 1001 });
+  assert.strictEqual(stessa.ok, false);
+  assert.strictEqual(stessa.motivo, 'stessa-anagrafica');
+
+  // 1201 è già collegata a 1001; si prova a farne il principale.
+  const gia = await mergeInto(crmRisolvi([{ pms_customer_id: 1201, canonical_id: 1001 }]), { memberId: 1001, canonicalId: 1201 });
+  assert.strictEqual(gia.ok, false);
+  assert.strictEqual(gia.motivo, 'principale-gia-collegato');
+  assert.strictEqual(gia.principale, 1001, 'il messaggio deve poter dire A CHI è collegata');
+});

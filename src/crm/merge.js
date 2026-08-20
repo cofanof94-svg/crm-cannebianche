@@ -105,7 +105,13 @@ async function mergeInto(crmDb, { memberId, canonicalId, autoreUserId = null }) 
     { canonicalId }
   );
   const principale = targetRow.length ? targetRow[0].canonical_id : canonicalId;
-  if (memberId === principale) return { ok: false, motivo: 'auto-fusione' };
+  // Due rifiuti diversi che prima uscivano con lo stesso nome. Il secondo non è
+  // un errore di chi lo chiede: "rendi principale 1201" è una richiesta sensata,
+  // ed è il server che, risalendo la catena, la trasforma in "collega 1001 a
+  // sé stesso". Chi guarda leggeva "auto-fusione" e non poteva capire cosa fare
+  // (20/08/2026). Il motivo torna a chi chiama, che ci scrive un messaggio vero.
+  if (memberId === canonicalId) return { ok: false, motivo: 'stessa-anagrafica', principale };
+  if (memberId === principale) return { ok: false, motivo: 'principale-gia-collegato', principale };
 
   await crmDb.query(
     `MERGE customer_merge AS t

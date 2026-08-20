@@ -450,6 +450,10 @@ dialog.modal-wide { width: min(780px, calc(100vw - 32px)); }
 .merge-coda { font-size: 12.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
 .merge-sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0 0 14px; }
 .merge-avviso { background: #f6e4e2; color: var(--danger); border-radius: 10px; padding: 9px 13px; font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+/* Anagrafica che non può fare da principale perché è già collegata altrove:
+   niente pallino da scegliere, e una riga che dice a chi è legata. */
+.merge-princ-no { opacity: .55; cursor: help; }
+.merge-legata { display: block; font-size: 10.5px; font-weight: 400; color: var(--faint); margin-top: 2px; }
 .merge-tab-wrap { overflow-x: auto; }
 .merge-tab { width: 100%; border-collapse: collapse; font-size: 13px; }
 .merge-tab th, .merge-tab td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
