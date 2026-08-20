@@ -286,8 +286,15 @@ async function getAnagraByIds(pmsDb, ids) {
 // qui la stagione dura meno di così, e i voucher stanno tutti sui 365 giorni.
 const NOTTI_MAX_SOGGIORNO = 200;
 
-const sqlStoricoByIds = (inl) => `
-SELECT c.codCli,
+// `gruppo` è l'espressione su cui si raggruppa: di norma il codice stesso, ma
+// per un ospite con più anagrafiche FUSE è quella principale. Il raggruppamento
+// deve stare QUI e non nel codice che chiama, perché la stessa pratica può
+// avere un codice come intestatario e l'altro come occupante: sommando i
+// risultati a valle verrebbe contata due volte, e il badge direbbe "5ª volta"
+// invece di "4ª". Dentro l'interrogazione il COUNT(DISTINCT codpratica) la
+// conta una volta sola, che è il numero giusto (20/08/2026).
+const sqlStoricoByIds = (inl, gruppo = 'c.codCli') => `
+SELECT ${gruppo} AS codCli,
   COUNT(DISTINCT CASE WHEN c.notti BETWEEN 1 AND ${NOTTI_MAX_SOGGIORNO} THEN c.codpratica END) AS n,
   CONVERT(varchar(10), MAX(CASE WHEN c.notti BETWEEN 1 AND ${NOTTI_MAX_SOGGIORNO} THEN c.dtpartenza END), 23) AS ultima,
   COUNT(DISTINCT CASE WHEN c.notti = 0 THEN c.codpratica END) AS visite
@@ -303,19 +310,49 @@ FROM (
    JOIN StorAlberg al ON al.codpratica = sp.codpratica
    WHERE sp.DataEliminazione IS NULL AND al.codcli IN ${inl}
 ) c
-GROUP BY c.codCli`;
+GROUP BY ${gruppo}`;
 
-async function getStoricoByIds(pmsDb, ids) {
+// `gruppi` (facoltativo): Map codice → tutti i codici della stessa persona, così
+// come la restituisce getGruppiByIds. Se c'è, la storia di un ospite con più
+// anagrafiche viene sommata sotto la sua principale; se manca, ogni codice sta
+// per sé — che è il comportamento di sempre.
+//
+// La mappa in uscita resta indicizzata per CODICE, non per gruppo: chi chiama
+// cerca con il codice che ha in mano (quello della prenotazione) e deve trovare
+// la storia intera senza sapere niente delle fusioni.
+async function getStoricoByIds(pmsDb, ids, gruppi) {
   const arr = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Number.isInteger))];
   const map = new Map();
   if (!arr.length) return map;
-  const rows = await pmsDb.query(sqlStoricoByIds(inClause(arr)), {});
+
+  // Il principale di un gruppo è il codice più piccolo: serve solo che la scelta
+  // sia STABILE, perché è la chiave su cui si raggruppa. Il principale "vero"
+  // del CRM qui non lo sappiamo, e non serve saperlo.
+  const membriDi = (id) => {
+    const m = gruppi && gruppi.get(id);
+    return Array.isArray(m) && m.length ? m.filter(Number.isInteger) : [id];
+  };
+  const chiaveDi = (id) => Math.min(...membriDi(id));
+
+  const rimappati = arr.filter((id) => chiaveDi(id) !== id);
+  const gruppo = rimappati.length
+    ? `CASE c.codCli ${rimappati.map((id) => `WHEN ${id} THEN ${chiaveDi(id)}`).join(' ')} ELSE c.codCli END`
+    : 'c.codCli';
+
+  const rows = await pmsDb.query(sqlStoricoByIds(inClause(arr), gruppo), {});
+  const perChiave = new Map();
   for (const r of rows) {
     const n = Number(r.n) || 0;
     const visite = Number(r.visite) || 0;
     // Anche chi non ha mai dormito qui entra nella mappa se è già venuto in
     // giornata: è proprio il caso che prima si perdeva.
-    if (n > 0 || visite > 0) map.set(r.codCli, { n, ultima: r.ultima || null, visite });
+    if (n > 0 || visite > 0) perChiave.set(Number(r.codCli), { n, ultima: r.ultima || null, visite });
+  }
+  // Ogni codice del gruppo punta alla stessa storia: la card intestata al
+  // duplicato deve dire "4ª volta" come quella intestata al principale.
+  for (const id of arr) {
+    const v = perChiave.get(chiaveDi(id));
+    if (v) map.set(id, v);
   }
   return map;
 }

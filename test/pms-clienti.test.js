@@ -157,3 +157,68 @@ test('chi non ha ne\' soggiorni ne\' giornate resta fuori dalla mappa', async ()
   const map = await getStoricoByIds(pms, [901]);
   assert.strictEqual(map.has(901), false);
 });
+
+// --- Badge "Nª volta" su un ospite con più anagrafiche ----------------------
+// Decisione del 20/08/2026. Prima lo storico si leggeva col SOLO codice della
+// prenotazione: una pratica intestata al duplicato faceva dire "prima volta" a
+// un cliente che la sua scheda dava a tre soggiorni — la stessa applicazione con
+// due risposte sullo stesso ospite, cioè proprio quello che la fusione esiste
+// per evitare.
+
+// Finto del gestionale: legge il raggruppamento dalla query e conta le pratiche
+// DISTINTE di ogni gruppo, come fa COUNT(DISTINCT codpratica) su SQL Server.
+function pmsConPratiche(pratiche) {
+  return {
+    async query(text) {
+      const m = text.match(/CASE c\.codCli ((?:WHEN \d+ THEN \d+ ?)+)ELSE c\.codCli END/);
+      const rimappa = new Map();
+      if (m) for (const w of m[1].matchAll(/WHEN (\d+) THEN (\d+)/g)) rimappa.set(Number(w[1]), Number(w[2]));
+      const per = new Map();
+      for (const p of pratiche) {
+        const k = rimappa.get(p.codCli) || p.codCli;
+        if (!per.has(k)) per.set(k, { codCli: k, prat: new Set(), ultima: null });
+        const g = per.get(k);
+        g.prat.add(p.codpratica);
+        if (!g.ultima || p.dtpartenza > g.ultima) g.ultima = p.dtpartenza;
+      }
+      return [...per.values()].map((g) => ({ codCli: g.codCli, n: g.prat.size, ultima: g.ultima, visite: 0 }));
+    },
+  };
+}
+
+// P4 sta sotto ENTRAMBI i codici: è la stessa pratica, con un codice
+// intestatario e l'altro occupante. È il caso che i duplicati producono.
+const PRATICHE = [
+  { codCli: 1001, codpratica: 'P1', dtpartenza: '2025-06-10' },
+  { codCli: 1001, codpratica: 'P2', dtpartenza: '2025-08-01' },
+  { codCli: 1201, codpratica: 'P3', dtpartenza: '2026-07-20' },
+  { codCli: 1001, codpratica: 'P4', dtpartenza: '2026-08-05' },
+  { codCli: 1201, codpratica: 'P4', dtpartenza: '2026-08-05' },
+];
+const GRUPPI = new Map([[1001, [1001, 1201]], [1201, [1001, 1201]]]);
+
+test('la storia si legge sul gruppo: il duplicato non risulta alla prima visita', () => {
+  const pms = pmsConPratiche(PRATICHE);
+  return getStoricoByIds(pms, [1001, 1201], GRUPPI).then((m) => {
+    assert.strictEqual(m.get(1201).n, 4, 'dal codice duplicato si deve vedere la storia intera');
+    assert.deepStrictEqual(m.get(1001), m.get(1201), 'i due codici devono dare la stessa risposta');
+  });
+});
+
+test('una pratica condivisa fra due codici si conta UNA volta', () => {
+  // È il motivo per cui il raggruppamento sta dentro l'interrogazione: sommando
+  // i risultati a valle, P4 verrebbe contata due volte e il badge direbbe "5ª".
+  const pms = pmsConPratiche(PRATICHE);
+  return getStoricoByIds(pms, [1001, 1201], GRUPPI).then((m) => {
+    assert.strictEqual(m.get(1001).n, 4);
+    assert.notStrictEqual(m.get(1001).n, 5, 'P4 è una pratica sola, non due');
+  });
+});
+
+test('senza fusioni ogni codice resta per sé, come prima', () => {
+  const pms = pmsConPratiche(PRATICHE);
+  return getStoricoByIds(pms, [1001, 1201]).then((m) => {
+    assert.strictEqual(m.get(1001).n, 3); // P1 P2 P4
+    assert.strictEqual(m.get(1201).n, 2); // P3 P4
+  });
+});

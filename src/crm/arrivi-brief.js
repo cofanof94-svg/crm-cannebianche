@@ -340,7 +340,11 @@ async function arricchisciArrivi(pmsDb, crmDb, arrivi) {
     listPreferenze(crmDb, allIds),
     listComplaints(crmDb, allIds),
     listIntolleranze(crmDb, allIds),
-    getRelazioniByIds(crmDb, idOspiti),
+    // `allIds` e non `idOspiti`: le relazioni del nucleo stanno sull'anagrafica
+    // PRINCIPALE (le scritture ci vanno tutte), quindi cercandole col codice
+    // della prenotazione un ospite fuso restava senza etichetta — "Coniuge",
+    // "Figlio-a" — mentre preferenze, allergie e note la trovavano (20/08/2026).
+    getRelazioniByIds(crmDb, allIds),
     listNotePersonali(crmDb, allIds),
   ]);
 
@@ -361,7 +365,12 @@ async function arricchisciArrivi(pmsDb, crmDb, arrivi) {
   // all'export, che deve dire se l'ospite è di ritorno o alla prima visita.
   // Sta qui e non solo in "In casa" perché è la stessa domanda su entrambe le
   // pagine: chi ho davanti, l'ho già avuto?
-  const storico = await getStoricoByIds(pmsDb, arrivi.map((a) => a.codCliente));
+  // `allIds` + `gruppi`: un ospite con più anagrafiche deve portarsi dietro la
+  // storia intera anche quando la prenotazione è intestata al suo codice
+  // duplicato. Prima si leggeva il solo codice della pratica, e la card diceva
+  // "prima volta" a un cliente che la scheda dava a tre soggiorni: la stessa
+  // applicazione, due risposte sullo stesso ospite (20/08/2026).
+  const storico = await getStoricoByIds(pmsDb, allIds, gruppi);
 
   const arriviArr = arrivi.map((a) => ({
     ...a,
