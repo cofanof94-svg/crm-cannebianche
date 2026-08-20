@@ -2210,13 +2210,50 @@ function renderMerge() {
 
 async function confermaMerge() {
   // Una POST per ogni membro da collegare: con più anagrafiche l'attesa si sente.
+  //
+  // Fino al 20/08/2026 l'esito delle richieste veniva buttato via e la finestra
+  // dichiarava l'unione riuscita SEMPRE. Bastava una sessione scaduta perché si
+  // chiudesse soddisfatta senza aver collegato niente, lasciando il gruppo nella
+  // coda senza nessuna spiegazione. E senza una rete intorno al ciclo, una
+  // caduta di rete lasciava il pulsante su "Unione in corso…" per sempre.
+  //
+  // Ora ci si ferma al primo rifiuto: si mostra il messaggio del server, si
+  // riattiva il pulsante e NON si avanza nella coda. Con più anagrafiche si dice
+  // anche quante erano già state collegate, se no non si capisce a che punto è
+  // rimasta l'operazione.
   const btn = $('#merge-conferma');
+  const originale = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>Unione in corso…`; }
   const membri = mergeData.anagrafiche.map((a) => a.codCli).filter((id) => id !== mergePrincipale);
+
+  const fermati = (messaggio, fatte) => {
+    const quante = fatte ? ` ${fatte} ${fatte === 1 ? 'anagrafica era già stata collegata' : 'anagrafiche erano già state collegate'}.` : '';
+    const box = $('#merge-dialog-body .merge-body');
+    if (box) {
+      const vecchio = box.querySelector('.merge-errore');
+      if (vecchio) vecchio.remove();
+      box.querySelector('.modal-actions').insertAdjacentHTML('beforebegin',
+        `<div class="merge-avviso merge-errore">⚠ Unione non completata: ${esc(messaggio)}${esc(quante)}</div>`);
+    }
+    if (btn) { btn.disabled = false; btn.innerHTML = originale; }
+  };
+
+  let fatte = 0;
   for (const m of membri) {
-    await api(`/api/clienti/${encodeURIComponent(mergePrincipale)}/merge`, {
-      method: 'POST', body: JSON.stringify({ memberId: m, canonicalId: mergePrincipale }),
-    });
+    let esito;
+    try {
+      esito = await api(`/api/clienti/${encodeURIComponent(mergePrincipale)}/merge`, {
+        method: 'POST', body: JSON.stringify({ memberId: m, canonicalId: mergePrincipale }),
+      });
+    } catch (e) {
+      fermati('il server non ha risposto. Controlla il collegamento e riprova.', fatte);
+      return;
+    }
+    if (esito.status !== 200 && esito.status !== 201) {
+      fermati((esito.body && esito.body.error) || `il server ha risposto ${esito.status}.`, fatte);
+      return;
+    }
+    fatte += 1;
   }
   avanzaMerge(true);
 }
