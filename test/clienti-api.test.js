@@ -448,6 +448,39 @@ test('complaint: il follow-up si salva risolvendo, si rilegge e sopravvive alla 
   assert.strictEqual(l2.body.complaints[0].follow_up, 'Omaggio SPA offerto');
 });
 
+test('complaint: riaprendo SCRIVENDO un follow-up, quel testo si salva', async () => {
+  // Era il caso in cui l'operatore fa la cosa giusta — spiega perché la prima
+  // soluzione non è bastata — e il testo veniva buttato via con un 200 OK.
+  // Il ramo che salvava il follow-up non si raggiungeva mai quando arrivava uno
+  // stato, e riaprendo il follow-up non entrava nemmeno nell'UPDATE (20/08/2026).
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'rumore', reparto: 'Rooms', categoria: 'Rumore' });
+  const id = c.body.complaint.id;
+  await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ stato: 'risolto', followUp: 'Primo tentativo: cambiata camera' });
+  const r = await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ stato: 'aperto', followUp: 'Non è bastato: torniamo sopra' });
+  assert.strictEqual(r.status, 200);
+  const l = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l.body.complaints[0].stato, 'aperto');
+  assert.strictEqual(l.body.complaints[0].follow_up, 'Non è bastato: torniamo sopra');
+});
+
+test('complaint: il follow-up non si può svuotare', async () => {
+  // La regola "non si risolve senza dire come è stato gestito" stava solo sul
+  // passaggio di stato: mandando il solo follow-up vuoto si arrivava a un
+  // reclamo risolto SENZA follow-up, cioè allo stato che la regola vieta.
+  const app = await makeApp();
+  const ag = await agente(app);
+  const c = await ag.post('/api/clienti/47186/complaints').send({ testo: 'x', reparto: 'F&B', categoria: 'Altro' });
+  const id = c.body.complaint.id;
+  await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ stato: 'risolto', followUp: 'Sistemato' });
+  const vuoto = await ag.patch(`/api/clienti/47186/complaints/${id}`).send({ followUp: '' });
+  assert.strictEqual(vuoto.status, 400);
+  assert.match(vuoto.body.error, /non si può svuotare/i);
+  const l = await ag.get('/api/clienti/47186/complaints');
+  assert.strictEqual(l.body.complaints[0].follow_up, 'Sistemato', 'il testo deve essere ancora lì');
+});
+
 test('complaint: il follow-up si corregge da solo, e troppo lungo → 400', async () => {
   const app = await makeApp();
   const ag = await agente(app);

@@ -433,11 +433,30 @@ function createClientiRouter(pmsDb, crmDb) {
     // dopo: la regola sta qui, non solo nella maschera, così vale per ogni client.
     if (stato === 'risolto' && !followUp) return res.status(400).json({ error: 'Follow-up mancante: descrivi come è stato gestito il problema' });
     if (followUp && followUp.length > FOLLOWUP_MAX) return res.status(400).json({ error: `Follow-up troppo lungo (max ${FOLLOWUP_MAX} caratteri)` });
+    // Il follow-up non si svuota. La regola "non si risolve senza dire come è
+    // stato gestito" stava solo sul PASSAGGIO di stato, quindi ci si arrivava da
+    // un'altra porta: mandando il solo follow-up vuoto su un reclamo già
+    // risolto, la stringa vuota diventava NULL e restava un reclamo risolto
+    // senza follow-up — esattamente lo stato che la regola vieta (20/08/2026).
+    // Chi ha scritto un follow-up sbagliato lo corregge riscrivendolo.
+    if (body.followUp != null && followUp === '') {
+      return res.status(400).json({ error: 'Il follow-up non si può svuotare: riscrivilo con il testo giusto.' });
+    }
     if (testo == null && stato == null && periodo == null && followUp == null && reparto == null && categoria == null) return res.status(400).json({ error: 'Niente da aggiornare' });
     let ok = true;
     if (testo != null) ok = await updateComplaintTesto(crmDb, id, testo);
     // Stato e follow-up nello stesso UPDATE: si risolve e si registra come, insieme.
-    if (ok && stato != null) ok = await setComplaintStato(crmDb, id, stato, stato === 'risolto' ? followUp : undefined);
+    //
+    // Il follow-up si salva SE è stato scritto, qualunque sia lo stato che lo
+    // accompagna. Prima passava solo insieme a "risolto": riaprendo un reclamo e
+    // spiegando perché la prima soluzione non era bastata, quel testo veniva
+    // buttato via — con un 200 OK, quindi senza che nessuno se ne accorgesse.
+    // Era il ramo `else if` a non essere mai raggiunto quando arrivava uno stato.
+    //
+    // Se invece NON è stato scritto, si passa `undefined` e la colonna non entra
+    // nemmeno nell'UPDATE: è la regola del §12, riaprire non cancella quello che
+    // era già stato tentato (20/08/2026).
+    if (ok && stato != null) ok = await setComplaintStato(crmDb, id, stato, followUp != null ? followUp : undefined);
     else if (ok && followUp != null) ok = await setComplaintFollowUp(crmDb, id, followUp);
     if (ok && periodo != null) ok = await setComplaintPeriodo(crmDb, id, periodo);
     if (ok && (reparto != null || categoria != null)) {
