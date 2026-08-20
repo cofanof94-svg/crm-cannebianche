@@ -1035,7 +1035,7 @@ function renderInCasa() {
     // Vedi renderArrivi: con un filtro che non seleziona nulla il totale da solo
     // fa credere che i presenti siano lì e non vengano mostrati.
     stato.textContent = incasaAll.length === 0
-      ? '0 presenti'
+      ? '0 in hotel'
       : `0 di ${incasaAll.length}`;
     return;
   }
@@ -1123,13 +1123,19 @@ function renderAvanzamento(c, data) {
 // senza il prefisso di una delle due pagine. Chi accoglie deve sapere che sta
 // per arrivare qualcuno alla quarta volta prima che entri dalla porta, non
 // scoprirlo il giorno dopo dalla lista dei presenti.
-function badgeStorico(s) {
+// `oggiEUnSoggiorno`: la riga che si sta guardando è una notte in hotel. Se non
+// lo è — un ospite del giorno venuto solo in SPA — "Nª volta" annuncerebbe un
+// soggiorno che non c'è: la sua storia si dice al passato, senza contarci dentro
+// oggi. È lo stesso errore di categoria tolto dalla scheda e dalle statistiche.
+function badgeStorico(s, oggiEUnSoggiorno = true) {
   if (!s) return '';
   const out = [];
   if (s.n) {
     const ultima = s.ultima ? ` · ultima ${fmtData(s.ultima)}` : '';
+    const quanti = `${s.n} ${s.n === 1 ? 'soggiorno' : 'soggiorni'}`;
     const tip = `${s.n} ${s.n === 1 ? 'soggiorno concluso' : 'soggiorni conclusi'} in hotel`;
-    out.push(`<span class="badge-ritorno" title="${tip}">${s.n + 1}ª volta${ultima}</span>`);
+    const testo = oggiEUnSoggiorno ? `${s.n + 1}ª volta` : quanti;
+    out.push(`<span class="badge-ritorno" title="${tip}">${testo}${ultima}</span>`);
   }
   // Le giornate (SPA, piscina, cene) stanno in un badge a parte e non si
   // sommano ai soggiorni: chi ha dormito qui una volta e poi è tornato sei
@@ -1209,7 +1215,7 @@ function schedaInCasa(c) {
         <span class="ic-spacer"></span>
         ${pill}
       </div>
-      <div class="ic-stay">${renderAvanzamento(c, incasaData)}${badgeStorico(c.storico)}</div>
+      <div class="ic-stay">${renderAvanzamento(c, incasaData)}${badgeStorico(c.storico, !dayUse)}</div>
       ${flagBlock}
       ${notaBlock}
       ${prefBlock}

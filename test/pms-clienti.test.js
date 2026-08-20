@@ -222,3 +222,53 @@ test('senza fusioni ogni codice resta per sé, come prima', () => {
     assert.strictEqual(m.get(1201).n, 2); // P3 P4
   });
 });
+
+// --- Il caso vero: la mappa dei gruppi NON copre tutti i codici -------------
+// Trovato dal collaudo a piu' revisori del 20/08/2026. Negli arrivi `gruppi`
+// viene costruita sui codici delle prenotazioni del giorno, mentre la storia si
+// chiede su quei codici PIU' tutti i membri dei loro gruppi. I test sopra
+// passavano una mappa che copriva tutti gli id — condizione che in esercizio
+// non si verifica mai — e nascondevano il difetto.
+
+test('la mappa dei gruppi copre solo il codice della prenotazione', () => {
+  // Pratica intestata a 1001, che e' anche l'unica chiave della mappa. Prima
+  // 1201 non trovava il proprio gruppo, restava per se' e la storia si spezzava.
+  const pms = pmsConPratiche(PRATICHE);
+  const soloUnaChiave = new Map([[1001, [1001, 1201]]]);
+  return getStoricoByIds(pms, [1001, 1201], soloUnaChiave).then((m) => {
+    assert.strictEqual(m.get(1001).n, 4, 'la storia del gruppo va sommata anche da questo lato');
+    assert.deepStrictEqual(m.get(1001), m.get(1201));
+  });
+});
+
+test('un gruppo di tre codici si somma tutto, da qualunque dei tre', () => {
+  // Caso reale Brolin: 48758 / 55491 / 31355.
+  const pratiche = [
+    { codCli: 48758, codpratica: 'B1', dtpartenza: '2023-07-10' },
+    { codCli: 48758, codpratica: 'B2', dtpartenza: '2024-07-10' },
+    { codCli: 31355, codpratica: 'B3', dtpartenza: '2025-07-10' },
+    { codCli: 55491, codpratica: 'B4', dtpartenza: '2026-07-10' },
+    { codCli: 55491, codpratica: 'B5', dtpartenza: '2026-08-01' },
+  ];
+  const membri = [48758, 55491, 31355];
+  // Come negli arrivi: la pratica di oggi e' intestata a 55491, quindi la mappa
+  // ha una chiave sola.
+  const gruppi = new Map([[55491, membri]]);
+  const pms = pmsConPratiche(pratiche);
+  return getStoricoByIds(pms, membri, gruppi).then((m) => {
+    for (const id of membri) {
+      assert.strictEqual(m.get(id).n, 5, `dal codice ${id} si devono vedere tutte e cinque`);
+    }
+    assert.strictEqual(m.get(55491).ultima, '2026-08-01');
+  });
+});
+
+test('un membro del gruppo non chiesto entra comunque nel conto', () => {
+  // Chi chiama passa un codice solo: la storia del gruppo dev'essere intera lo
+  // stesso, altrimenti la card mostra un numero piu' basso del vero.
+  const pms = pmsConPratiche(PRATICHE);
+  const gruppi = new Map([[1001, [1001, 1201]]]);
+  return getStoricoByIds(pms, [1001], gruppi).then((m) => {
+    assert.strictEqual(m.get(1001).n, 4);
+  });
+});

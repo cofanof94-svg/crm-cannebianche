@@ -325,21 +325,39 @@ async function getStoricoByIds(pmsDb, ids, gruppi) {
   const map = new Map();
   if (!arr.length) return map;
 
+  // `gruppi` arriva indicizzata sui codici che il chiamante aveva in mano — negli
+  // arrivi, quelli delle prenotazioni del giorno — mentre la storia si chiede su
+  // TUTTI i membri dei gruppi. Cercando con `gruppi.get(id)` un membro che non è
+  // anche una chiave non trovava niente, restava nel proprio secchiello e la sua
+  // metà di storia non veniva sommata: il raggruppamento funzionava solo quando
+  // la pratica era intestata al codice più alto di una coppia. L'indice inverso
+  // mette OGNI membro in grado di ritrovare il proprio gruppo.
+  const gruppoDi = new Map();
+  if (gruppi) {
+    for (const membri of gruppi.values()) {
+      const puliti = (Array.isArray(membri) ? membri : []).filter(Number.isInteger);
+      if (puliti.length < 2) continue; // un codice da solo non è un gruppo
+      for (const m of puliti) gruppoDi.set(m, puliti);
+    }
+  }
+
   // Il principale di un gruppo è il codice più piccolo: serve solo che la scelta
   // sia STABILE, perché è la chiave su cui si raggruppa. Il principale "vero"
   // del CRM qui non lo sappiamo, e non serve saperlo.
-  const membriDi = (id) => {
-    const m = gruppi && gruppi.get(id);
-    return Array.isArray(m) && m.length ? m.filter(Number.isInteger) : [id];
-  };
+  const membriDi = (id) => gruppoDi.get(id) || [id];
   const chiaveDi = (id) => Math.min(...membriDi(id));
 
-  const rimappati = arr.filter((id) => chiaveDi(id) !== id);
+  // Si interroga il PMS su tutti i membri dei gruppi coinvolti, non solo sui
+  // codici chiesti: sommare la storia di un gruppo di cui manca un pezzo darebbe
+  // un numero più basso del vero, ed è proprio il numero che va sulla card.
+  const daCercare = [...new Set(arr.flatMap(membriDi))].filter(Number.isInteger);
+
+  const rimappati = daCercare.filter((id) => chiaveDi(id) !== id);
   const gruppo = rimappati.length
     ? `CASE c.codCli ${rimappati.map((id) => `WHEN ${id} THEN ${chiaveDi(id)}`).join(' ')} ELSE c.codCli END`
     : 'c.codCli';
 
-  const rows = await pmsDb.query(sqlStoricoByIds(inClause(arr), gruppo), {});
+  const rows = await pmsDb.query(sqlStoricoByIds(inClause(daCercare), gruppo), {});
   const perChiave = new Map();
   for (const r of rows) {
     const n = Number(r.n) || 0;

@@ -89,20 +89,28 @@ test('lo zero DICHIARATO resta un day use', () => {
   assert.strictEqual(s.nSenzaDate, 0);
 });
 
-test('le tre categorie insieme, e nessuna riga persa per strada', () => {
+test('le categorie insieme, e nessuna riga persa per strada', () => {
   const righe = [
     sogg('2026-01-01', '2026-01-05', 4, 400, 50),   // soggiorno
     sogg('2026-02-01', '2026-02-01', 0, 0, 40),     // day use
     { dtarrivo: null, dtpartenza: null, notti: null, arrangiamento: 300, extra: 20 }, // sconosciuta
     sogg('2026-03-01', '2026-03-03', 2, 200, 10),   // soggiorno
+    // Il voucher regalo mancava dalla fixture, e così l'invariante qui sotto
+    // restava verde mentre in esercizio una riga finiva in nessuna categoria:
+    // `classifica` ha quattro esiti, l'aggregato ne esponeva tre.
+    sogg('2026-04-01', '2027-04-01', 365, 500, 0),  // voucher
   ];
   const s = aggregaCumulativi(righe);
   assert.strictEqual(s.nSoggiorni, 2);
   assert.strictEqual(s.nDayUse, 1);
   assert.strictEqual(s.nSenzaDate, 1);
-  assert.strictEqual(s.nSoggiorni + s.nDayUse + s.nSenzaDate, righe.length, 'una riga è finita in nessuna categoria');
-  // I soldi di tutte e quattro.
-  assert.strictEqual(s.ltv, 400 + 50 + 40 + 300 + 20 + 200 + 10);
+  assert.strictEqual(s.nVoucher, 1);
+  assert.strictEqual(
+    s.nSoggiorni + s.nDayUse + s.nSenzaDate + s.nVoucher, righe.length,
+    'una riga è finita in nessuna categoria'
+  );
+  // I soldi di tutte: il voucher è stato pagato davvero.
+  assert.strictEqual(s.ltv, 400 + 50 + 40 + 300 + 20 + 200 + 10 + 500);
   // Le medie si dividono per i due soggiorni veri.
   assert.strictEqual(s.spesaMediaSoggiorno, s.ltv / 2);
 });
@@ -169,4 +177,37 @@ test('il limite delle 200 notti è lo STESSO numero nei tre punti in cui è scri
   };
   const distinti = [...new Set(Object.values(valori))];
   assert.strictEqual(distinti.length, 1, `i limiti divergono: ${JSON.stringify(valori)}`);
+});
+
+// --- Date sporche: partenza prima dell'arrivo -------------------------------
+// Trovato dal collaudo a piu' revisori del 20/08/2026. Il taglio a 200 notti
+// controllava solo il limite alto: una riga con la partenza PRIMA dell'arrivo
+// passava per soggiorno e le sue notti negative si sommavano al totale, che
+// quindi CALAVA. Il badge "Nª volta" (SQL: `notti BETWEEN 1 AND 200`) l'ha
+// sempre esclusa: la stessa pratica aveva due risposte diverse.
+test('partenza prima dell\'arrivo: non e\' un soggiorno e non toglie notti', () => {
+  const righe = [
+    sogg('2026-01-01', '2026-01-05', 4, 400, 0),    // soggiorno vero
+    sogg('2026-02-10', '2026-02-07', -3, 100, 0),   // date invertite
+  ];
+  const s = aggregaCumulativi(righe);
+  assert.strictEqual(s.nSoggiorni, 1);
+  assert.strictEqual(s.nSenzaDate, 1, 'la riga sporca sta fra le sconosciute');
+  assert.strictEqual(s.nottiTotali, 4, 'le notti non devono mai calare');
+  assert.strictEqual(s.ltv, 500, 'i soldi restano: sono stati incassati');
+});
+
+test('le notti negative non arrivano nemmeno dal solo campo notti', () => {
+  // La strada dell'import passa il campo `notti` senza `dtpartenza`.
+  const s = aggregaCumulativi([{ dtarrivo: '2026-02-10', notti: -3, arrangiamento: 0, extra: 0 }]);
+  assert.strictEqual(s.nSoggiorni, 0);
+  assert.strictEqual(s.nDayUse, 0);
+  assert.strictEqual(s.nSenzaDate, 1);
+  assert.strictEqual(s.nottiTotali, 0);
+});
+
+test('una data illeggibile non diventa un soggiorno', () => {
+  const s = aggregaCumulativi([{ dtarrivo: '2026-13-45', dtpartenza: '2026-14-99', notti: null, arrangiamento: 0, extra: 0 }]);
+  assert.strictEqual(s.nSoggiorni, 0);
+  assert.strictEqual(s.nSenzaDate, 1);
 });

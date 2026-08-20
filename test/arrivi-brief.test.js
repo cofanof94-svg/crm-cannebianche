@@ -269,3 +269,26 @@ test('arricchisciArrivi: lista vuota → briefing a zero, nessuna query', async 
   assert.deepStrictEqual(enr.arrivi, []);
   assert.strictEqual(enr.briefing.arrivi, 0);
 });
+
+// --- La relazione va cercata sul gruppo di ENTRAMBI ------------------------
+// Trovato dal collaudo a piu' revisori del 20/08/2026. Il commit del 20/08 aveva
+// aperto il gruppo del solo referente: se erano le anagrafiche
+// dell'ACCOMPAGNATORE a essere doppie, l'etichetta spariva lo stesso.
+test('costruisciSnapshot: la relazione si ritrova anche se e\' l\'occupante a essere fuso', () => {
+  const ctx = ctxDiProva();
+  // 200 e 201 sono la stessa persona; la riga di nucleo fu scritta con 201,
+  // ma oggi il gestionale mette in camera il 200.
+  ctx.gruppi = new Map([[100, [100, 101]], [200, [200, 201]], [201, [200, 201]]]);
+  ctx.relBy = new Map([['100|201', 'Coniuge']]);
+  const arrivo = { codCliente: 100, dtarrivo: '2026-08-01', dtpartenza: '2026-08-10', ospiti: [{ codCli: 200 }] };
+  const s = costruisciSnapshot(arrivo, ctx);
+  assert.strictEqual(s.relazioni[200], 'Coniuge');
+});
+
+test('costruisciSnapshot: senza legame registrato non si inventa una relazione', () => {
+  const ctx = ctxDiProva();
+  ctx.gruppi = new Map([[100, [100, 101]], [200, [200, 201]]]);
+  ctx.relBy = new Map([['100|999', 'Coniuge']]);
+  const arrivo = { codCliente: 100, dtarrivo: '2026-08-01', dtpartenza: '2026-08-10', ospiti: [{ codCli: 200 }] };
+  assert.strictEqual(costruisciSnapshot(arrivo, ctx).relazioni[200], undefined);
+});

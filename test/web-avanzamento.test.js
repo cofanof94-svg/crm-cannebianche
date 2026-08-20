@@ -195,3 +195,26 @@ test('badge: chi non e\' mai stato qui non ha badge', () => {
   assert.strictEqual(badgeStorico({ n: 0, visite: 0 }), '');
   assert.strictEqual(badgeStorico(null), '');
 });
+
+// --- Il badge non annuncia un soggiorno che non c'e' -------------------------
+// Trovato dal collaudo del 20/08/2026. "Nª volta" vale N+1 perche' conta i
+// soggiorni conclusi PIU' quello in corso: su un ospite del giorno, venuto solo
+// per la SPA, quel +1 e' un soggiorno che nessuno sta facendo.
+test('ospite del giorno: la storia si dice al passato, senza contarci oggi', () => {
+  const html = badgeStorico({ n: 2, ultima: '2026-05-03', visite: 6 }, false);
+  assert.match(html, /2 soggiorni/);
+  assert.doesNotMatch(html, /3ª volta/);
+  assert.match(html, /ultima 03\/05\/2026/);
+  assert.match(html, /6 day use/, 'le giornate restano');
+});
+
+test('al singolare non dice "1 soggiorni"', () => {
+  assert.match(badgeStorico({ n: 1, ultima: null, visite: 0 }, false), /1 soggiorno</);
+});
+
+test('per chi dorme qui il badge resta quello di sempre', () => {
+  const html = badgeStorico({ n: 2, ultima: '2026-05-03', visite: 0 }, true);
+  assert.match(html, /3ª volta/);
+  // e senza l'argomento si comporta come prima: le altre schermate non cambiano
+  assert.strictEqual(badgeStorico({ n: 2, ultima: '2026-05-03', visite: 0 }), html);
+});

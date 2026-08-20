@@ -67,10 +67,17 @@ function classifica(r) {
     // Senza il campo `notti` la lunghezza si ricava dalle date: un voucher
     // dev'essere riconosciuto anche quando arriva senza quel campo.
     const giorni = Math.round((Date.parse(`${r.dtpartenza}T00:00:00Z`) - Date.parse(`${r.dtarrivo}T00:00:00Z`)) / 86400000);
-    if (Number.isFinite(giorni) && giorni > NOTTI_MAX_SOGGIORNO) return 'voucher';
+    // Date che non si riescono a leggere, o partenza PRIMA dell'arrivo: non si
+    // sa cosa siano, quindi non si contano. Contarle come soggiorni faceva anche
+    // di peggio, perché le notti negative si sommavano al totale e lo facevano
+    // CALARE. Il badge "Nª volta" (`c.notti BETWEEN 1 AND 200`) le ha sempre
+    // escluse: adesso le due strade dicono la stessa cosa.
+    if (!Number.isFinite(giorni) || giorni < 0) return 'sconosciuto';
+    if (giorni > NOTTI_MAX_SOGGIORNO) return 'voucher';
     return 'soggiorno';
   }
   if (!nottiNote) return 'sconosciuto';
+  if (n < 0) return 'sconosciuto'; // stessa regola quando arriva il solo campo `notti`
   return n > 0 ? 'soggiorno' : 'dayuse';
 }
 
@@ -100,6 +107,11 @@ function aggregaCumulativi(rows) {
     // righe dell'elenco trova un totale diverso da quello del riquadro
     // Soggiorni e pensa a un guasto.
     nSenzaDate: tutte.filter((r) => tipo.get(r) === 'sconosciuto').length,
+    // I voucher regalo. Non si mostrano sulla scheda — la (i) del riquadro dice
+    // che sono esclusi — ma vanno contati qui: `classifica` ha quattro esiti e
+    // se l'aggregato ne esponesse tre una riga finirebbe in nessuna categoria,
+    // e chi somma le voci non ritroverebbe le righe dell'elenco.
+    nVoucher: tutte.filter((r) => tipo.get(r) === 'voucher').length,
     nottiTotali: notti,
     totArrangiamenti: arr,
     totExtra: ext,

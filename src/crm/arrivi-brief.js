@@ -261,10 +261,20 @@ function costruisciSnapshot(a, ctx) {
   const relazioni = {};
   for (const o of a.ospiti || []) {
     if (!Number.isInteger(o.codCli) || o.codCli === a.codCliente) continue;
+    // Il gruppo va aperto su ENTRAMBI i lati del legame: le due anagrafiche
+    // possono essere quelle dell'accompagnatore, non solo del referente. Con il
+    // solo codice della prenotazione, "Coniuge" spariva dalla card a seconda di
+    // quale dei due codici il gestionale avesse usato quel giorno.
+    const membriOspite = ctx.gruppi.get(o.codCli) || [o.codCli];
+    let trovata = null;
     for (const anc of ancore) {
-      const rel = ctx.relBy.get(`${anc}|${o.codCli}`);
-      if (rel) { relazioni[o.codCli] = rel; break; }
+      for (const m of membriOspite) {
+        trovata = ctx.relBy.get(`${anc}|${m}`);
+        if (trovata) break;
+      }
+      if (trovata) break;
     }
+    if (trovata) relazioni[o.codCli] = trovata;
   }
 
   // Nota personale del REFERENTE (e delle sue anagrafiche fuse: stessa persona).
