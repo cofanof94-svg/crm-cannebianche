@@ -157,7 +157,19 @@ Di chi **scrive** si sapeva già tutto, perché preferenze, allergie, reclami e 
 
 Conseguenza da tenere presente leggendo Analytics (§20): il riquadro **"Chi usa l'applicazione"** conta gli **accessi riusciti**, non il lavoro fatto dentro. Dice chi entra, non quanto ci sta.
 
-**Le righe non vengono mai cancellate** e non esiste una pulizia periodica `[CODICE]`. Sono poche per costruzione — una per accesso — ma è un registro dell'attività del personale, e nessuno ha ancora deciso per quanto tempo conservarlo: **è una domanda aperta**, non una scelta presa.
+### Per quanto si conserva — deciso il 20/08/2026 `[DECISO]`
+
+**Si tiene tutto. Le righe non vengono mai cancellate e non esiste una pulizia periodica.**
+
+Non è una cosa capitata: è una scelta, e queste sono le ragioni per cui è stata presa così.
+
+**Il volume non è un argomento.** Dieci persone, quattro accessi al giorno, duecentocinquanta giorni lavorativi: circa **diecimila righe l'anno, sotto il megabyte**. Su un database che contiene decine di migliaia di anagrafiche non si nota, e fra vent'anni non si noterebbe ancora. Se lo spazio fosse il problema la risposta sarebbe ovvia, e non ci sarebbe niente da decidere.
+
+**Quello che si guadagna tenendo tutto** è il confronto fra stagioni: fra un anno si potrà dire se il CRM viene aperto più o meno dell'estate precedente. È una domanda che oggi non si può nemmeno porre, perché il registro è nato da poco.
+
+**Quello che va saputo** è che si tratta di un registro dell'**attività del personale**: dice chi entra, quando, e quante volte ha sbagliato la password. Conservarlo senza scadenza è una scelta che riguarda i dipendenti, non solo il database. Il giorno in cui in hotel dovesse essere valutata dal punto di vista della privacy del personale, questa pagina dice esattamente cosa c'è dentro e cosa no — ed è il motivo per cui la sezione «Che cosa NON resta scritto» è dettagliata quanto l'altra.
+
+**Un caso in cui la decisione va rivista**: se l'applicazione viene esposta su un indirizzo pubblico, i tentativi falliti smettono di essere solo quelli dei dipendenti — sulla rete pubblica i tentativi automatici verso qualunque pagina di accesso sono la norma. In quel caso il registro si riempie di righe che non riguardano nessuno, e il conteggio degli accessi falliti smette di dire qualcosa sull'adozione. Non serve cambiare la regola: basta ripulire **quella finestra**, una volta sola, quando l'esposizione finisce.
 
 ---
 
