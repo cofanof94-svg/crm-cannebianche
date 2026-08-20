@@ -1026,7 +1026,8 @@ body.sola-lettura :is(
 .an-chips { display: flex; gap: 6px; }
 .an-dal { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
 .an-dal input { font: inherit; font-size: 12.5px; padding: 4px 7px; border: 1px solid var(--border-strong); border-radius: 7px; }
-.an-vip { font-size: 12.5px; }
+/* Sta dentro il riquadro dei consumi, sopra le barre che restringe. */
+.an-vip { font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 9px; color: var(--muted); }
 .an-periodo-eco { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; }
 .an-periodo-eco span { margin-left: 8px; color: var(--faint); }
 

@@ -964,6 +964,7 @@ Ogni numero della pagina porta la sua definizione addosso, con la **iconcina (i)
 | Nazionalità degli ospiti | nazione dell'anagrafica | **persone** | sì |
 | Classificazioni VIP | come sono classificati i VIP del periodo | persone | sì |
 | Consumi F&B | quante volte un articolo è stato ordinato | ordinazioni | sì, **per data dell'ordinazione** |
+| Consumi F&B → «Solo ospiti VIP» | le sole ordinazioni addebitate a una camera occupata da un VIP | ordinazioni | sì |
 | SPA | trattamenti addebitati | addebiti | sì, per data dell'addebito |
 | Con preferenze / allergie / note personali | clienti che hanno almeno quella cosa nel CRM | persone | **no, complessivo** |
 | Scritto nel periodo | preferenze, allergie e reclami **registrati** nel periodo | righe scritte | sì |
@@ -1000,6 +1001,10 @@ Calcolare la copertura *sugli ospiti del periodo* — cioè quanti, fra chi ha s
 | Anagrafiche fuse | **Anagrafiche collegate** | "fuse" fa pensare a qualcosa di distruttivo: il collegamento è reversibile e non cancella niente (§15) |
 
 **Il grafico dell'andamento aveva un titolo solo per i lettori di schermo**: adesso si chiama "Soggiorni conclusi per mese" e dice che il mese è quello della partenza.
+
+**La spunta «Solo VIP» prometteva di filtrare la pagina e ne toccava un riquadro su sette** — deciso il 20/08/2026 `[DECISO]`. Stava nella barra in cima, accanto al selettore del periodo, ma il parametro arrivava alla sola interrogazione dei consumi: i cinque numeri, l'andamento, i canali, le nazionalità e la SPA restavano **identici cifra per cifra**, senza nessun avviso. La spunta è stata **spostata dentro il riquadro Consumi F&B**, che è l'unico posto in cui fa qualcosa, e adesso la promessa coincide con quello che succede. Da sapere leggendo quei numeri: il filtro guarda **chi occupava la camera**, non chi ha ordinato — se in una famiglia uno solo è VIP, contano tutte le ordinazioni di quella camera. È il massimo che il gestionale permetta, perché nelle comande il numero di pratica è vuoto (§8).
+
+Se un giorno servisse una vera **vista di segmento** — l'intera dashboard ristretta ai VIP — è un altro lavoro: cinque interrogazioni da modificare, di cui quella della SPA richiede la stessa catena di collegamenti dei consumi. E porta con sé due effetti da accettare: il riquadro «VIP» diventerebbe uguale a «Ospiti unici», e «Di ritorno» cambierebbe significato in «VIP di ritorno».
 
 **E scriveva un'etichetta per mese a qualunque lunghezza.** Su un periodo di più di due anni — "Tutto lo storico", ma anche due date digitate a mano — sarebbero state oltre cento scritte da dieci pixel sovrapposte: un grafico illeggibile che sembra un errore. Oltre i due anni i punti diventano gli **anni**, il titolo lo dice ("per anno") e le etichette cambiano di conseguenza. La regola sta sulla **durata**, non sul pulsante, così vale anche per il periodo personalizzato `[CODICE][TEST]`.
 

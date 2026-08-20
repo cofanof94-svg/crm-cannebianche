@@ -21,6 +21,13 @@
 
 let analyticsInited = false;
 let analyticsPeriodo = '12m';
+// La spunta "solo VIP" sta DENTRO il riquadro dei consumi, che è l'unico posto
+// in cui fa qualcosa: nella barra in cima prometteva di filtrare tutta la
+// pagina e ne toccava un riquadro su sette — gli altri sei restavano identici
+// cifra per cifra, senza nessun avviso (spostata il 20/08/2026).
+// Lo stato vive qui e non nell'elemento, perché il riquadro viene ridisegnato a
+// ogni caricamento e la casella sparirebbe insieme alla sua spunta.
+let analyticsSoloVip = false;
 
 const anNum = (n) => Number(n || 0).toLocaleString('it-IT');
 
@@ -119,7 +126,7 @@ const T = {
   canali: 'Da dove è arrivata la prenotazione: diretto, portali, tour operator, agenzie. Si contano i SOGGIORNI, non le persone — al contrario delle nazionalità qui accanto. Solo i primi otto canali.',
   nazioni: 'La nazione registrata in anagrafica, scritta con il codice del gestionale. Si contano le PERSONE, non i soggiorni — al contrario dei canali qui accanto. Chi non ce l’ha compare come «Non indicata»: si mostra apposta, nasconderla falserebbe le proporzioni.',
   vipClass: 'Come sono classificati gli ospiti VIP del periodo. Ogni ospite ha una classificazione sola, quindi compare in una riga sola; chi non è VIP non compare affatto. Solo le prime otto.',
-  consumi: 'Quante volte ciascun articolo è stato ordinato, e quanto ha fatto in tutto. Si contano le ordinazioni e non i pezzi, perché dicono cosa viene chiesto più spesso. Qui il periodo è quello dell’ordinazione, non del soggiorno, e comprende anche chi non ha dormito qui.',
+  consumi: 'Quante volte ciascun articolo è stato ordinato, non quanti pezzi. Il periodo è quello dell’ordinazione, non del soggiorno. La spunta «Solo ospiti VIP» vale SOLO per questo riquadro e guarda chi occupava la camera: se in famiglia uno solo è VIP, contano tutte le ordinazioni di quella camera.',
   spa: 'Trattamenti SPA addebitati nel periodo: quante volte ciascuno e quanto ha fatto. Sta in un riquadro a parte perché la SPA non passa dalle ordinazioni del ristorante, ed è esclusa dai consumi qui accanto per non contarla due volte.',
 
   crmSez: 'Qui non si misura l’andamento dell’hotel ma quanto il CRM ha imparato, e quanto viene usato. Salvo dove è scritto il contrario, questi numeri sono COMPLESSIVI: non cambiano cambiando il periodo scelto sopra.',
@@ -153,6 +160,9 @@ function renderAnalytics(d) {
   // grafico che non c'è.
   const perAnno = !!d.andamentoPerAnno;
   const trend = anAndamento(d.andamento, perAnno);
+  // La spunta sta accanto ai numeri che restringe, non in cima alla pagina: è
+  // l'unico riquadro su cui agisce, e da lassù sembrava valere per tutti.
+  const spuntaVip = `<label class="check an-vip"><input type="checkbox" id="an-vip"${d.soloVip ? ' checked' : ''} /> Solo ospiti VIP</label>`;
 
   const blocA = `
     <div class="an-kpis">
@@ -169,7 +179,7 @@ function renderAnalytics(d) {
       ${anSezione('Classificazioni VIP', anBarre(d.vip), 'persone', T.vipClass)}
     </div>
     <div class="an-griglia an-griglia-2">
-      ${anSezione('Consumi F&B', anBarre(d.consumi), d.soloVip ? 'solo ospiti VIP' : 'ordinazioni', T.consumi)}
+      ${anSezione('Consumi F&B', spuntaVip + anBarre(d.consumi), 'ordinazioni', T.consumi)}
       ${anSezione('SPA', anBarre(d.spa), 'trattamenti', T.spa)}
     </div>`;
 
@@ -234,7 +244,7 @@ async function loadAnalytics() {
   const da = $('#an-da').value;
   const a = $('#an-a').value;
   if (da && a) { p.set('da', da); p.set('a', a); } else { p.set('periodo', analyticsPeriodo); }
-  if ($('#an-vip').checked) p.set('vip', '1');
+  if (analyticsSoloVip) p.set('vip', '1');
 
   const { status, body } = await api(`/api/analytics?${p.toString()}`);
   if (status !== 200) {
@@ -272,7 +282,12 @@ function initAnalytics() {
         }
       });
     });
-    $('#an-vip').addEventListener('change', loadAnalytics);
+    // Delega su un contenitore fisso: la casella vive dentro il riquadro dei
+    // consumi, che viene ridisegnato a ogni caricamento — un ascoltatore
+    // attaccato a lei si perderebbe al primo aggiornamento.
+    $('#analytics-body').addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'an-vip') { analyticsSoloVip = e.target.checked; loadAnalytics(); }
+    });
     analyticsInited = true;
   }
   loadAnalytics();
