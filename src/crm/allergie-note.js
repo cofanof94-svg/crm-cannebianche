@@ -95,7 +95,20 @@ const MARCATORE_DIVIETO = /\bevita\w*|\bvietat\w*|\bnon pu(?:ò|o)(?![a-zà-öø
 // Quante parole possono stare fra il marcatore e la sostanza. Misurate: sotto le
 // otto la famiglia "allergia" comincia a perdere gli elenchi; sopra le quattro
 // la famiglia "divieto" ricomincia a raccogliere frasi che parlano d'altro.
-const PAROLE_FRA_ALLERGIA_E_SOSTANZA = 10;
+//
+// La finestra dell'allergia è passata da 10 a 20 il 21/08/2026, misurando sulle
+// 43.271 note vere del gestionale. A dieci si perdeva questa, che è il tipo di
+// nota per cui la funzione esiste:
+//
+//   "La signora Giulia è allergica al nichel ai salicilati, quindi al pomodoro e
+//    anche la frutta secca (noci, mandorle, nocciole) ed i crostacei/molluschi"
+//
+// Il nichel sta dentro le dieci parole, la frutta a guscio e i crostacei no: in
+// cucina arrivava un'allergia su quattro. Provate tutte le larghezze da 10 a 60:
+// **cambia quella nota e nessun'altra**, e da 20 in su non cambia più niente. Il
+// limite resta perché in una frase lunghissima un marcatore non deve qualificare
+// una sostanza che parla d'altro — ma venti parole non costano nulla.
+const PAROLE_FRA_ALLERGIA_E_SOSTANZA = 20;
 const PAROLE_FRA_DIVIETO_E_SOSTANZA = 4;
 const MARCATORE_DEBOLE = /\bno\b|\bniente\b|\bsenza\b|\bohne\b|\bsans\b|\bwithout\b/gi;
 const PAROLE_FRA_DEBOLE_E_SOSTANZA = 2;

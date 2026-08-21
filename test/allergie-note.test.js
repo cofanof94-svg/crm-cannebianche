@@ -700,3 +700,35 @@ test('la proposta mostra la nota come e\' scritta nel gestionale', () => {
   assert.strictEqual(p.length, 1);
   assert.strictEqual(p[0].frase, 'Der Gast hat eine Erdnussallergie');
 });
+
+// --- Misurato sulle 43.271 note vere del gestionale, 21/08/2026 -------------
+// La finestra fra la parola "allergia" e la sostanza era di dieci parole, e su
+// tutto l'archivio perdeva ESATTAMENTE una nota — ma era il tipo di nota per cui
+// la funzione esiste: un'ospite con quattro allergie dichiarate in una frase
+// sola. In cucina ne arrivava una.
+//
+// Il nome e' tolto: e' un dato sanitario di una persona vera, la frase no.
+// Provate tutte le larghezze da 10 a 60 sulle note vere: cambia quella nota e
+// nessun'altra, e da 20 in su non cambia piu' niente.
+test('un elenco lungo di allergie in una frase sola non si perde per strada', () => {
+  const nota = 'La signora e\' allergica al nichel ai salicilati, quindi al pomodoro '
+    + 'e anche la frutta secca (noci, mandorle, nocciole) ed i crostacei/molluschi.';
+  const t = termini(nota);
+  for (const atteso of ['Nichel', 'Frutta a guscio', 'Crostacei', 'Molluschi']) {
+    assert.ok(t.includes(atteso), `manca ${atteso}: in cucina ne arriva una su quattro (trovate: ${t.join(', ')})`);
+  }
+});
+
+test('il limite di distanza c\'e\' ancora: un marcatore non qualifica tutta la pagina', () => {
+  // Venti parole sono tante ma non infinite: oltre, la parola "allergia" non
+  // deve piu' tirarsi dietro una sostanza che sta parlando d'altro.
+  const lontana = 'Allergia al nichel. ' + 'nota di servizio '.repeat(20) + 'servire il pesce alla griglia';
+  assert.deepStrictEqual(termini(lontana), ['Nichel']);
+});
+
+test('i falsi positivi tolti restano tolti', () => {
+  // Le cinque note vere che il collaudo sulle note del gestionale ha smesso di
+  // segnalare: erano tutte sbagliate.
+  assert.deepStrictEqual(termini('REPEAT - NO PIUMINI, SOLO LENZUOLA E COPERTE DI COTONE'), []);
+  assert.deepStrictEqual(termini('NO PIUMINI. SOLO LENZUOLA E COPERTE DI COTONE'), []);
+});
