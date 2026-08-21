@@ -129,6 +129,22 @@ nascita è tornata in sola lettura dal PMS. Verificare prima che sia vuota.
 > ⚠️ **Restano le tre qui sotto**, scritte dopo quella giornata e mai girate sul
 > database vero.
 
+### ✅ Fatte il 21/08/2026, sul database vero
+
+- **`analytics:inizio`** — lo storico parte dal **2 giugno 2011**, in 197 ms.
+  Quindici anni, sotto il limite dei venti: nessun taglio. Le etichette del
+  grafico per anno sono anni veri, quindi anche il `CONVERT(varchar(4))` va.
+- **`getStoricoByIds`** — i due codici del gruppo Brolin danno ora la stessa
+  storia (9 soggiorni, ultima 04/07/2026); senza raggruppamento davano 6 e 3.
+  ⚠️ **Da decidere:** nel CRM il gruppo è di **due** anagrafiche, non tre. Il
+  codice 31355 non è collegato e sta per conto suo con 5 soggiorni, ultimo nel
+  2022. O non è mai stato unito, o è stato scollegato: va guardato.
+- **`sqlConsumi` con "Solo ospiti VIP"** — 803 voci, nessuna sopra il proprio
+  totale: il filtro è corretto. Ma era **inutilizzabile** per lentezza, ed è
+  stato riscritto (vedi §4).
+- **Nazionalità** — decodificate dalla tabella `Nazioni`. Vedi §4.
+- **Allergie sulle note vere** — misurate. Vedi §4.
+
 ### Le tre che restano
 
 - [ ] **`getStoricoByIds` — il raggruppamento per gruppo** (`src/pms/clienti.js`).
@@ -337,17 +353,53 @@ eseguita. Due cose da guardare:
 - **quale data torna**: se è assurda (un anno molto anteriore all'hotel) è scattato il
   limite a vent'anni, e vale la pena trovare la prenotazione che la causa.
 
-### Dashboard Analytics — decodificare le nazionalità
-Il riquadro "Nazionalità degli ospiti" mostra il **codice** dell'anagrafica (`I`, `GB`,
-`D`…) invece del nome della nazione: chi sta al banco non deve indovinare che `I` è
-l'Italia. Il gestionale ha una tabella `Nazioni`, ma i nomi delle sue colonne non sono
-documentati da nessuna parte, e tirare a indovinare la join significherebbe spegnere il
-riquadro in produzione.
+### ✅ Dashboard Analytics — nazionalità decodificate (21/08/2026)
 
-**Da fare in hotel, in due minuti:** leggere le colonne di `Nazioni`
-(`SELECT TOP 5 * FROM Nazioni`), poi aggiungere la LEFT JOIN in `sqlNazioni`
-(`src/pms/analytics.js`) con fallback sul codice quando la decodifica manca, come già
-fa `sqlVip` con `TabVip`.
+Il riquadro mostrava il **codice** dell'anagrafica (`I`, `GB`, `PBS`). La tabella
+`Nazioni` ha 246 righe, colonne `codnaz` e `desnaz`, e su tutta l'anagrafica **solo
+quattro righe in tutto** non si decodificano (`IT`, `ITA`, e una `Ù` che è un errore
+di battitura): per quelle resta il codice, come già fa `sqlVip` con `TabVip`.
+
+Nello stesso riquadro è saltato fuori un secondo difetto: la voce **"Non"** su 291
+ospiti non era un codice ma "Non indicata" **tagliata a tre lettere**, perché `ISNULL`
+eredita il tipo del primo argomento e `Anagra.CodNaz` è `nvarchar(3)`. Ora `COALESCE`,
+che calcola il tipo su tutti i rami. Le altre due `ISNULL` con ripiego testuale del
+file sono al sicuro: partono da colonne `nvarchar(50)`.
+
+Le etichette lunghe ci stanno: "STATI UNITI D'AMERICA" chiede 160 px in una colonna
+da 177. Sotto i ~420 px di riquadro viene troncata, con il testo pieno nel titolo.
+
+### ✅ Analytics — "Solo ospiti VIP" era inutilizzabile (21/08/2026)
+
+Il filtro era **corretto** (803 voci, nessuna sopra il proprio totale) ma su tutto lo
+storico superava il limite dei quindici secondi e la pagina andava in errore.
+
+Due cause che si nascondevano a vicenda: il `TOP 12` con `ORDER BY` su un aggregato
+faceva scegliere a SQL Server un piano pessimo, e la lista delle camere VIP si
+costruiva su quindici anni per poi buttarne via quasi tutto. **Servivano tutte e due
+le correzioni insieme:** da sole si danneggiano — il solo taglio sulle date peggiorava.
+
+Pagina intera, dodici mesi con la spunta: **9.765 ms → 1.311 ms**. Tutto lo storico: da
+timeout a 11.986 ms, che resta lento e vicino al limite. Se un giorno dà fastidio, è
+lì che si torna.
+
+### ✅ Allergie — misurate sulle 43.271 note vere (21/08/2026)
+
+Confronto fra la versione precedente al blocco di modifiche e quella attuale, su ogni
+nota di anagrafica e di prenotazione:
+
+| | |
+|---|---|
+| Note lette | 43.271 |
+| Note con almeno una proposta | 394 (0,9 %) |
+| Falsi positivi tolti | 5 |
+| Allergie perse | **0** |
+| Proposte nuove | 0 |
+
+I cinque tolti erano `NO PIUMINI, SOLO LENZUOLA` letto come allergia alle piume (tre
+volte) e due parole che allergeni non sono. Nel farlo è emersa **una** nota che perdeva
+tre allergie su quattro: la finestra fra "allergia" e la sostanza è passata da 10 a 20
+parole, dopo aver misurato che cambia quella nota e nessun'altra.
 
 Analisi originale della dashboard, se serve: [2026-08-10-analytics-dashboard-analisi.md](2026-08-10-analytics-dashboard-analisi.md).
 
