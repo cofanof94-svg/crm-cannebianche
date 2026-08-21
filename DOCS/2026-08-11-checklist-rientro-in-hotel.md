@@ -43,10 +43,11 @@ Sono le uniche cose che richiedono ancora l'hotel o una decisione.
       dopo le prove di ieri **nessun account reception attivo**: chi sta al banco
       non ha con cosa entrare. Serve l'elenco delle persone con il ruolo di
       ciascuna. Le password le imposta Mik, minimo 8 caratteri.
-- [ ] **Il credito AI è esaurito.** Restano non collaudate: Suggerisci
-      preferenze, Genera note personali, e soprattutto un caso *"Profilo
-      professionale"* vero da LinkedIn — che si può fare **solo in hotel**,
-      perché serve il nome di un ospite reale.
+- [ ] **Briefing AI su un profilo LinkedIn vero.** ~~Il credito è esaurito~~ — il
+      credito c'è, verificato il 19/08: Briefing, Suggerisci preferenze e Genera
+      note personali funzionano tutti. Resta **solo** il caso *"Profilo
+      professionale"*, che si può provare unicamente qui perché serve il nome di
+      un ospite reale.
 - [ ] **Il foglio per i reparti** stampato con i volumi veri: sta in un A4?
 - [ ] **Fusione anagrafiche** sul caso reale Brolin (48758 / 55491 / 31355),
       compreso lo scollegamento.
@@ -145,7 +146,10 @@ nascita è tornata in sola lettura dal PMS. Verificare prima che sia vuota.
 - **Nazionalità** — decodificate dalla tabella `Nazioni`. Vedi §4.
 - **Allergie sulle note vere** — misurate. Vedi §4.
 
-### Le tre che restano
+### Le tre query nuove — provate il 21/08, esito qui sopra
+
+> Le caselle restano vuote apposta: sono **come si riprova**, non cose da fare.
+> Vanno ricontrollate se qualcuno tocca queste query.
 
 - [ ] **`getStoricoByIds` — il raggruppamento per gruppo** (`src/pms/clienti.js`).
       Il `CASE c.codCli WHEN … THEN …` ora comprende **tutti** i membri dei gruppi
