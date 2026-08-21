@@ -274,8 +274,16 @@ tu.** Ogni chiamata ha un costo, quindi si premono quando servono.
 | Pulsante | Dove | Cosa fa |
 |---|---|---|
 | **Briefing AI** | scheda negli Arrivi | cerca informazioni **pubbliche** sull'ospite |
+| **Genera note personali** | scheda ospite | la **stessa ricerca**, scritta dentro il campo |
 | **Suggerisci preferenze** | scheda ospite | legge consumi e note e propone preferenze |
-| **Genera note personali** | scheda ospite | scrive la nota biografica |
+
+> **Briefing AI** e **Genera note personali** fanno **la stessa identica ricerca**:
+> cambia solo dove finisce la risposta. Il Briefing te la mostra nella scheda
+> dell'arrivo e ti lascia decidere se salvarla; Genera note personali te la scrive
+> direttamente nel campo, in coda a quello che c'è già.
+>
+> Su uno stesso ospite **usane uno solo**: premerli tutti e due fa partire due
+> ricerche uguali, e si pagano tutte e due.
 
 ### Sul Briefing
 
