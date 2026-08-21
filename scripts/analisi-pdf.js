@@ -301,4 +301,11 @@ function main() {
   if (process.env.ANALISI_TIENI_HTML) console.log(`HTML tenuto: ${TEMPORANEO}`);
 }
 
-main();
+// Il convertitore markdown→HTML e la ricerca di Chrome servono anche al manuale
+// della reception (`scripts/manuale-pdf.js`), che ha però una copertina e uno
+// stile suoi: sono due documenti per due lettori diversi. Si condivide la parte
+// che è davvero la stessa, non l'impaginazione.
+module.exports = { blocchi, chrome, esc, inline };
+
+// Lanciato a mano genera il PDF dell'analisi; richiesto da un altro script, no.
+if (require.main === module) main();
