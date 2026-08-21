@@ -324,6 +324,18 @@ function initArrivi(resetOggi) {
       if (prop) { gestisciProposta(prop, renderArrivi); return; }
       const salva = e.target.closest('[data-save-cli]');
       if (salva) { salvaBriefingNelProfilo(salva); return; }
+      // La spunta di conferma arma il pulsante accanto a lei, e nient'altro.
+      // Si guarda l'etichetta e non la casella: cliccando sul testo il clic
+      // arriva prima dall'etichetta, e cercando solo la casella si perderebbe.
+      const conf = e.target.closest('.brief-conferma');
+      if (conf) {
+        const casella = conf.querySelector('[data-conferma-cli]');
+        const btn = conf.closest('.brief-card').querySelector('[data-incerta]');
+        // Il clic sull'etichetta cambia la casella DOPO questo gestore: si legge
+        // lo stato al giro successivo, quando il valore è quello vero.
+        setTimeout(() => { if (btn && casella) btn.disabled = !casella.checked; }, 0);
+        return;
+      }
       const btn = e.target.closest('[data-brief-cli]');
       if (btn) eseguiBriefing(btn);
     });
@@ -341,6 +353,9 @@ const briefingTesti = {}; // cache cli → briefing (per il "Salva nel profilo" 
 const chiaveBrief = (cli) => `arrivi:brief:${cli}`;
 const chiaveSalvaBrief = (cli) => `arrivi:salva:${cli}`;
 const BRIEF_FATTO_TIT = 'Briefing già generato: esci e rientra negli arrivi per rifarlo';
+// Riga che accompagna una nota salvata su un'identità che l'AI non ha confermato.
+// Corta apposta: finisce nelle card, sul foglio dei reparti e nel CSV.
+const NOTA_CONFERMATA = '(identità confermata in reception, non dall\'AI)';
 
 async function eseguiBriefing(btn) {
   const cli = btn.dataset.briefCli;
@@ -370,8 +385,13 @@ async function salvaBriefingNelProfilo(btn) {
   const b = briefingTesti[cli];
   if (!b || !b.testo || aiGiaFatto(chiaveSalvaBrief(cli))) return; // un secondo clic accodava la nota due volte
   btn.disabled = true;
+  // Se l'identità non era certa e la conferma l'ha data una persona, la nota lo
+  // dice. Senza, fra sei mesi chi legge "Head UHNW at UBS" non ha modo di sapere
+  // se era un'identificazione sicura o il giudizio di qualcuno in reception — e
+  // sono due cose diverse quando decidi come rivolgerti a un ospite.
+  const testo = btn.dataset.incerta ? `${b.testo}\n${NOTA_CONFERMATA}` : b.testo;
   const { status, body } = await api(`/api/clienti/${encodeURIComponent(cli)}/note-personali`, {
-    method: 'PUT', body: JSON.stringify({ testo: b.testo, mode: 'append' }),
+    method: 'PUT', body: JSON.stringify({ testo, mode: 'append' }),
   });
   if (status !== 200) { btn.disabled = false; btn.textContent = 'Errore nel salvataggio'; return; }
   aiSegnaFatto(chiaveSalvaBrief(cli));
@@ -454,15 +474,29 @@ function renderBriefResult(b, cli) {
       ? ' disabled title="Già aggiunto alle Note personali del profilo">✓ Salvato nel profilo'
       : ' title="Aggiungi alle Note personali del profilo">💾 Salva nel profilo'}</button>`
     : '';
+  // Identità incerta: l'AI non salva da sola, ma chi ha aperto le fonti sì.
+  // Il blocco secco era la regola giusta con il difetto sbagliato: chiedeva di
+  // verificare e poi non lasciava concludere la verifica, così l'unica strada
+  // era ricopiare la nota a mano sulla scheda — o rifare (e ripagare) la stessa
+  // ricerca da lì. La spunta ARMA il pulsante invece di aprire una finestra da
+  // chiudere: una casella da spuntare non si preme per riflesso.
+  const conferma = !b.salvabile && b.pubblico && b.testo && cli && !salvato
+    ? `<label class="check brief-conferma">
+        <input type="checkbox" data-conferma-cli="${esc(cli)}" />
+        Ho aperto le fonti e confermo che è questa persona
+      </label>
+      <button type="button" class="brief-save" data-save-cli="${esc(cli)}" data-incerta="1" disabled
+        title="Spunta la conferma qui sopra">💾 Salva nel profilo</button>`
+    : '';
   const avviso = b.identificazione === 'incerta'
-    ? '<div class="brief-avviso">Apri la fonte e verifica che sia la persona giusta: finché l\'identità non è certa non si salva nel profilo.</div>'
+    ? '<div class="brief-avviso">Apri la fonte e verifica che sia la persona giusta: l\'AI non lo scrive in anagrafica da sola.</div>'
     : '';
   return `<div class="brief-card">
     ${esito}
     <div class="brief-testo">${esc(b.testo || '')}</div>
     ${avviso}
     ${fontiBlock}
-    ${salva}
+    ${salva}${conferma}
     <div class="brief-disclaimer">⚠ Generato dall'AI su fonti pubbliche — verificare prima dell'uso.</div>
   </div>`;
 }
@@ -1708,6 +1742,10 @@ $('#lingua-box').addEventListener('click', async (e) => {
 //     edit (textarea + Genera con AI + Salva + Annulla). Dopo il salvataggio si
 //     torna in vista → la nota "salvata" è evidente.
 let notePersEdit = false;
+// Testo di un briefing con identità NON confermata dall'AI: resta da parte
+// finché una persona non dice che è l'ospite giusto. Si svuota appena inserito,
+// così un secondo clic non lo accoda due volte.
+let notePersIncerta = '';
 let notePersData = { testo: null, autore: null, data: null };
 const CHIAVE_AI_NOTEPERS = 'scheda:notepers';
 const NOTEPERS_AI_TIT = 'Già generato su questa anagrafica: riapri la scheda per rifarlo';
@@ -1791,8 +1829,18 @@ async function generaNotePers() {
       const link = (body.fonti || []).slice(0, 6)
         .map((f) => `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.titolo || f.url)}</a>`)
         .join(' · ');
-      msg.innerHTML = '<span class="notepers-incerta">⚠ Trovato un profilo compatibile, ma l\'identità non è confermata (possibile omonimia): non lo inserisco da solo. Apri la fonte e, se è la persona giusta, scrivilo a mano.</span>'
-        + (link ? `<span class="notepers-fonti">${link}</span>` : '');
+      // Stessa regola della card degli arrivi: l'AI non scrive da sola, ma chi
+      // ha aperto le fonti può inserire il testo. La spunta arma il pulsante, e
+      // il pulsante riempie soltanto il campo: per salvare serve comunque Salva.
+      // Due passi voluti, nessuno dei due per riflesso.
+      notePersIncerta = body.testo || '';
+      msg.innerHTML = '<span class="notepers-incerta">⚠ Trovato un profilo compatibile, ma l\'identità non è confermata (possibile omonimia): non lo inserisco da solo. Apri le fonti e, se è la persona giusta, confermalo qui sotto.</span>'
+        + (link ? `<span class="notepers-fonti">${link}</span>` : '')
+        + `<label class="check notepers-conferma">
+             <input type="checkbox" id="notepers-conferma" /> Ho aperto le fonti e confermo che è questa persona
+           </label>
+           <button type="button" class="btn btn-sm" id="btn-notepers-inserisci" disabled
+             title="Spunta la conferma qui sopra">Inserisci nel campo</button>`;
       return;
     }
     const ta = $('#cli-note-personali');
@@ -1813,6 +1861,27 @@ $('#notepers-box').addEventListener('click', async (e) => {
   if (e.target.closest('[data-del-notepers]')) { await salvaNotePers(''); return; }
   if (e.target.closest('#btn-notepers-salva')) { await salvaNotePers(($('#cli-note-personali').value || '').trim()); return; }
   if (e.target.closest('#btn-notepers-ai')) { await generaNotePers(); return; }
+  // Identità incerta: la spunta arma il pulsante, il pulsante riempie il campo.
+  if (e.target.closest('.notepers-conferma')) {
+    setTimeout(() => {
+      const b = $('#btn-notepers-inserisci');
+      const c = $('#notepers-conferma');
+      if (b && c) b.disabled = !c.checked;
+    }, 0);
+    return;
+  }
+  if (e.target.closest('#btn-notepers-inserisci')) {
+    const ta = $('#cli-note-personali');
+    if (ta && notePersIncerta) {
+      const attuale = ta.value.trim();
+      const testo = `${notePersIncerta}\n${NOTA_CONFERMATA}`;
+      ta.value = attuale ? `${attuale}\n\n${testo}` : testo;
+      ta.focus();
+      $('#notepers-ai-msg').innerHTML = '<span class="notepers-ok">✓ Inserito. Rileggi e premi Salva.</span>';
+      notePersIncerta = '';
+    }
+    return;
+  }
 });
 
 // --- Preferenze (reparto + categoria + testo + ambito) ---

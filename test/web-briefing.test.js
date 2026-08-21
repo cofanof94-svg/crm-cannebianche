@@ -72,13 +72,45 @@ test('profilo professionale: si vede da dove viene il dato, e si può salvare', 
   assert.match(h, /linkedin/);
 });
 
-test('identità incerta: niente pulsante di salvataggio, e si dice perché', () => {
+test('identità incerta: si salva solo dopo aver confermato, e si dice perché', () => {
+  // Regola cambiata il 21/08/2026, in hotel. Prima il pulsante non c'era del
+  // tutto: l'applicazione chiedeva di aprire le fonti e verificare, e poi non
+  // lasciava concludere la verifica. Chi aveva controllato doveva ricopiare la
+  // nota a mano sulla scheda, o rifare (e ripagare) la stessa ricerca da li'.
+  //
+  // Adesso il pulsante c'e' ma nasce SPENTO, e lo accende una spunta: l'AI
+  // continua a non scrivere da sola in anagrafica, la persona che ha guardato le
+  // fonti si'.
   const h = risultato({ testo: 'Ruolo: consulente', fonti: [{ url: 'https://www.linkedin.com/in/mrossi', titolo: 'LinkedIn' }], pubblico: true, identificazione: 'incerta', salvabile: false });
   assert.match(h, /brief-esito-inc/);
-  assert.doesNotMatch(h, /brief-save/); // la regola che conta
   assert.match(h, /brief-avviso/);
   assert.match(h, /verifica/i);
   assert.match(h, /linkedin/); // la fonte resta, serve proprio a verificare
+
+  // La regola che conta: il pulsante non e' premibile finche' non si conferma.
+  assert.match(h, /data-conferma-cli/, 'serve la spunta di conferma');
+  const bottone = /<button[^>]*data-save-cli[^>]*>/.exec(h);
+  assert.ok(bottone, 'il pulsante deve esistere');
+  assert.match(bottone[0], /\bdisabled\b/, 'deve nascere spento');
+  assert.match(bottone[0], /data-incerta/, 'e deve sapere di essere un caso incerto');
+});
+
+test('identità certa: nessuna spunta da mettere, il pulsante è già attivo', () => {
+  const h = risultato({ testo: 'Ruolo: imprenditore', fonti: [], pubblico: true, identificazione: 'pubblica', salvabile: true });
+  assert.doesNotMatch(h, /data-conferma-cli/, 'attrito solo dove serve');
+  const bottone = /<button[^>]*data-save-cli[^>]*>/.exec(h);
+  assert.ok(bottone);
+  assert.doesNotMatch(bottone[0], /\bdisabled\b/);
+  assert.doesNotMatch(bottone[0], /data-incerta/);
+});
+
+test('una nota confermata a mano lo dichiara', () => {
+  // Senza, fra sei mesi chi legge "Head UHNW at UBS" non sa se fosse
+  // un'identificazione sicura o il giudizio di qualcuno in reception.
+  assert.match(SRC, /const NOTA_CONFERMATA = /);
+  assert.match(SRC, /identità confermata in reception, non dall/);
+  // e viene aggiunta SOLO nel caso incerto
+  assert.match(SRC, /btn\.dataset\.incerta \? `\$\{b\.testo\}\\n\$\{NOTA_CONFERMATA\}` : b\.testo/);
 });
 
 test('nessuna informazione: nessuna etichetta, nessun salvataggio', () => {

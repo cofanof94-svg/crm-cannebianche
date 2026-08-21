@@ -1005,6 +1005,9 @@ a.ic-name:hover { border-bottom-color: var(--accent); }
 body.sola-lettura :is(
   [data-add-prop], [data-ign-prop],
   [data-save-cli], [data-save-nucleo], [data-cancel-nucleo],
+  /* Confermare un'identita' incerta e' una scrittura come le altre: la spunta e
+     il pulsante che arma non devono essere premibili in sola lettura. */
+  [data-conferma-cli], #btn-notepers-inserisci,
   [data-save-pref], [data-cancel-pref],
   [data-del-compl], [data-del-intol], [data-del-lingua], [data-del-notepers], [data-del-nucleo], [data-del-pref],
   [data-edit-compl], [data-edit-lingua], [data-edit-notepers], [data-edit-nucleo], [data-edit-pref],
@@ -1110,3 +1113,15 @@ a.an-minore:hover { background: var(--sand-050); }
 .an-kpis .an-kpi:last-child .info::after,
 .an-griglia > .an-sez:last-child .info::after,
 .an-minori > *:last-child .info::after { left: auto; right: 0; transform: none; }
+
+/* Conferma dell'identità su un briefing incerto. La spunta arma il pulsante che
+   la segue: si vedono insieme, e finché non è spuntata il pulsante resta spento
+   e non lascia dubbi sul perché. */
+.brief-conferma, .notepers-conferma {
+  display: flex; align-items: center; gap: 7px; margin-top: 10px;
+  font-size: 12.5px; color: var(--brand); cursor: pointer;
+}
+.brief-conferma input, .notepers-conferma input { cursor: pointer; }
+.brief-conferma + .brief-save { margin-top: 6px; }
+#btn-notepers-inserisci { margin-top: 6px; }
+#btn-notepers-inserisci:disabled { cursor: default; opacity: .55; }
