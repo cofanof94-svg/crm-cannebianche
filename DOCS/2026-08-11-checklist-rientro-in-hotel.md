@@ -60,7 +60,27 @@ Sono le uniche cose che richiedono ancora l'hotel o una decisione.
 
 ---
 
+## 0-ter. Deciso di NON fare (21/08/2026)
+
+Il collaudo a più revisori del 20-21/08 ha chiuso 22 difetti su 27. **I cinque
+rimasti non si fanno**, per decisione di Mik. Sono scritti qui perché a ogni
+revisione futura risalteranno di nuovo: sono noti, e la risposta è già data.
+
+| Non si fa | Cos'è | Gravità |
+|---|---|---|
+| Virgola nella finestra "allergia" | «Intolleranza al lattosio, per il bambino preparare **latte di soia**» propone lattosio *e soia*. Stringere la regola spezzerebbe gli elenchi (*«allergie: arachidi, noci, sedano»*), che sono il modo più comune di scriverne più di una | media |
+| Determinanti inglesi | «Please note **the** allergy to kiwi» non propone niente quando la sostanza è fuori elenco: `the`/`his`/`her` servono a scartare «comunicare *questa* allergia» | media |
+| Modifica di una preferenza persa | Con una riga aperta in modifica, qualunque altro clic nel riquadro Preferenze ricarica dal server e butta via il testo riscritto, senza avviso | media |
+| Pastiglia e casella di ricerca | Cercando in "In casa" le pastiglie continuano a mostrare il totale. La riga sotto dice già *"2 di 9"*, quindi si capisce | bassa |
+| Spunta "Solo VIP" durante il ricalcolo | Sta dentro il riquadro che si ridisegna, quindi sparisce per un secondo insieme a tutto il resto | bassa |
+
+---
+
 ## 1. Da fare PRIMA di mettere in produzione
+
+> ✅ **FATTO il 13/08/2026.** Le due migrazioni obbligatorie sono state eseguite e
+> verificate, e `crm-ruoli.sql` è risultata non necessaria. Questa sezione resta
+> come documentazione di cosa fanno gli script, non come cosa da fare.
 
 Due migrazioni sul DB CRM (`HolidayCanneBianche_CRM`). **Senza queste la sezione
 Complaints va in errore**: l'app chiede colonne che non esistono ancora.
@@ -102,21 +122,14 @@ nascita è tornata in sola lettura dal PMS. Verificare prima che sia vuota.
 
 ## 2. Query mai eseguite su SQL Server vero
 
-Da guardare al primo avvio: se una è sbagliata, l'errore si vede subito.
+> ✅ **Quelle dell'11/08 sono state provate il 13/08**, tutte senza errori:
+> `listNotePersonali`, `getStoricoByIds`, `getAnagreConfronto`,
+> `cancellaNotePersonali` e `cancellaLingua`.
+>
+> ⚠️ **Restano le tre qui sotto**, scritte dopo quella giornata e mai girate sul
+> database vero.
 
-- [ ] `listNotePersonali` — `src/crm/profilo.js` (SELECT su `customer_profile`)
-- [ ] `getStoricoByIds` — `src/pms/clienti.js` (COUNT DISTINCT su StorAlberg/StorPrenota)
-- [ ] `getAnagreConfronto` — `src/pms/duplicati.js`
-- [ ] **`cancellaNotePersonali` e `cancellaLingua`** — `src/crm/profilo.js` (12/08, due
-      UPDATE su `customer_profile`). Si provano premendo **Elimina** sulla nota
-      personale e sulla lingua di un ospite qualsiasi: se la query è sbagliata
-      l'errore si vede subito
-
-⚠️ Attenzione particolare a `getStoricoByIds`: il rischio non è l'errore SQL ma il
-**doppio conteggio** fra prenotazioni correnti e concluse. Verificare su un ospite di
-cui si conosce il numero reale di soggiorni che il badge "Nª volta" dica il vero.
-
-### Due query riscritte il 21/08/2026 dopo il collaudo a più revisori
+### Le tre che restano
 
 - [ ] **`getStoricoByIds` — il raggruppamento per gruppo** (`src/pms/clienti.js`).
       Il `CASE c.codCli WHEN … THEN …` ora comprende **tutti** i membri dei gruppi
@@ -137,6 +150,15 @@ cui si conosce il numero reale di soggiorni che il badge "Nª volta" dica il ver
       numero dev'essere **minore o uguale** a quello senza: è un sottoinsieme. Se
       qualcuno è più alto, la query è ancora sbagliata.
       *(Prima della correzione poteva essere più alto: è così che il difetto si vede.)*
+
+- [ ] **`analytics:inizio`** (`src/pms/analytics.js`) — la `MIN(dtpartenza)` su
+      `StorPrenota` + `Prenota` che alimenta il periodo **"Tutto lo storico"**.
+      **Come si prova:** aprire Analytics e premere *Tutto lo storico*. Due cose da
+      guardare: che **non sia lenta** (è un aggregato su tutto l'archivio) e **quale
+      data d'inizio compare** — se è assurda è scattato il limite dei vent'anni, e va
+      capito perché. Nello stesso schermo si vede anche se le etichette del grafico
+      per anno sono numeri veri (`2019`, `2020`…) e non `****`: quella è l'unica
+      riga di SQL che nessuno ha potuto provare, un `CONVERT(varchar(4), …)`.
 
 ---
 
