@@ -124,9 +124,10 @@ LEFT JOIN TabVip tv ON LTRIM(RTRIM(tv.codvip)) = LTRIM(RTRIM(a.CodVip))
 GROUP BY ISNULL(NULLIF(LTRIM(RTRIM(tv.desvip)), ''), LTRIM(RTRIM(a.CodVip)))
 ORDER BY COUNT(DISTINCT s.codCli) DESC`;
 
-// Consumi F&B. Si contano le ORDINAZIONI, non i pezzi: "quante volte è stato
-// chiesto" dice cosa piace, mentre la quantità premia ciò che si serve a
-// bottiglia. `soloVip` taglia sugli ospiti con una classificazione VIP.
+// Quante voci di consumo mostra il riquadro. Prima era un `TOP 12` dentro il
+// SQL: vedi `sqlConsumi` per il motivo per cui è dovuto uscire.
+const VOCI_CONSUMI = 12;
+
 // Le camere occupate da almeno un VIP, con la finestra in cui lo erano. Serve
 // solo alla spunta "Solo ospiti VIP".
 //
@@ -142,18 +143,26 @@ ORDER BY COUNT(DISTINCT s.codCli) DESC`;
 // soggiorni non ancora archiviati sparivano dal filtro. Sui periodi corti
 // ("7 giorni", "30 giorni") sono la parte più grossa. Anche qui, la CTE
 // `SOGGIORNI` di questo file e `gusti.js` uniscono già corrente e archiviato.
+// Le date: la CTE si limita alle occupazioni che si SOVRAPPONGONO al periodo
+// chiesto. Non cambia una riga del risultato — l'EXISTS più sotto pretende già
+// una comanda che stia dentro tutt'e due gli intervalli, e due intervalli che
+// non si sovrappongono non possono contenerne una — ma senza questo taglio la
+// lista si costruisce su quindici anni di archivio per poi buttarne via il 99%.
+// Misurato sui dati veri il 21/08/2026: da 9,5 secondi a meno di uno.
 const CAMERE_VIP = `
   SELECT DISTINCT ad.codcam AS cam, CAST(ad.dtarrivo AS date) AS arr, CAST(ad.dtpartenza AS date) AS par
   FROM StorAlbergDay ad
   JOIN StorAlberg al ON al.codalb = ad.codalb
   JOIN Anagra av ON av.CodCli = al.codcli AND ISNULL(LTRIM(RTRIM(av.CodVip)), '') <> ''
   WHERE ISNULL(ad.codcam, '') <> ''
+    AND CAST(ad.dtpartenza AS date) >= @da AND CAST(ad.dtarrivo AS date) <= @a
   UNION
   SELECT DISTINCT ad.codcam, CAST(ad.dtarrivo AS date), CAST(ad.dtpartenza AS date)
   FROM AlbergDay ad
   JOIN Alberg al ON al.codalb = ad.codalb
   JOIN Anagra av ON av.CodCli = al.codcli AND ISNULL(LTRIM(RTRIM(av.CodVip)), '') <> ''
-  WHERE ISNULL(ad.codcam, '') <> ''`;
+  WHERE ISNULL(ad.codcam, '') <> ''
+    AND CAST(ad.dtpartenza AS date) >= @da AND CAST(ad.dtarrivo AS date) <= @a`;
 
 // Consumi F&B. Si contano le ORDINAZIONI, non i pezzi: "quante volte è stato
 // chiesto" dice cosa piace, mentre la quantità premia ciò che si serve a
@@ -163,10 +172,17 @@ const CAMERE_VIP = `
 // una volta sola, quindi non può moltiplicare le righe qualunque cosa ci sia
 // dentro. Con i join servirebbe un DISTINCT, e un DISTINCT sbagliato non si
 // vede — si vede solo il numero gonfio.
+//
+// Qui NON c'è il TOP, e le prime voci si prendono dopo (VOCI_CONSUMI). Non è una
+// preferenza di stile: misurato sui dati veri il 21/08/2026, un `TOP 12` con
+// `ORDER BY` su un aggregato fa scegliere a SQL Server un piano che punta a
+// tirare fuori in fretta le prime righe, e con l'EXISTS quel piano è disastroso.
+// Su dodici mesi: 9,8 secondi con il TOP, 1,1 senza. Su tutto lo storico il TOP
+// supera il limite di quindici secondi e la pagina va in errore.
 const sqlConsumi = (soloVip) => `
 -- analytics:consumi
 ${soloVip ? `WITH camereVip AS (${CAMERE_VIP})` : ''}
-SELECT TOP 12 LEFT(ISNULL(ma.desart, ac.CodArt), 60) AS voce,
+SELECT LEFT(ISNULL(ma.desart, ac.CodArt), 60) AS voce,
   ISNULL(ma.flgFoodBeverage, '') AS tipo,
   COUNT(1) AS n, CAST(SUM(ac.impoEur) AS int) AS euro
 FROM StorComanda co
@@ -270,7 +286,9 @@ async function getDettagliPeriodo(pmsDb, { da, a, soloVip = false, perAnno = fal
     canali: classifica(canali),
     nazioni: classifica(nazioni),
     vip: classifica(vip),
-    consumi: classifica(consumi),
+    // Il taglio alle prime voci si fa qui e non nel SQL: vedi il commento su
+    // `sqlConsumi`. Le righe sono poche centinaia e già ordinate dal database.
+    consumi: classifica(consumi).slice(0, VOCI_CONSUMI),
     spa: classifica(spa),
     andamento: (andamento || []).map((r) => ({ mese: r.mese, n: numero(r.n) })),
     // La pagina deve sapere se i punti sono mesi o anni: le etichette si

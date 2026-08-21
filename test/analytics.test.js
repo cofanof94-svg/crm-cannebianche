@@ -322,3 +322,21 @@ test('le camere VIP si cercano nel corrente E nell\'archivio, una volta ciascuna
   assert.strictEqual((cte.match(/SELECT DISTINCT/g) || []).length, 2);
   assert.match(cte, /\n\s*UNION\n/, 'UNION, non UNION ALL');
 });
+
+test('la query dei consumi non ha un TOP: il taglio si fa dopo', () => {
+  // Misurato sul database vero il 21/08/2026. Un `TOP 12` con `ORDER BY` su un
+  // aggregato fa scegliere a SQL Server un piano che punta a produrre in fretta
+  // le prime righe; con l'EXISTS del filtro VIP quel piano e' disastroso. Su
+  // dodici mesi: 9,8 secondi con il TOP, 1,1 senza. Su tutto lo storico il TOP
+  // superava il limite di quindici secondi e la pagina andava in errore.
+  //
+  // Rimetterlo sembra un'ottimizzazione ed e' il contrario: questa guardia
+  // esiste perche' il difetto non si vede leggendo la query.
+  const i = SQL_ANALYTICS.indexOf('const sqlConsumi');
+  const j = SQL_ANALYTICS.indexOf('ORDER BY COUNT(1) DESC`;', i);
+  const corpo = SQL_ANALYTICS.slice(i, j);
+  assert.doesNotMatch(corpo, /SELECT\s+TOP/i, 'niente TOP dentro sqlConsumi');
+  // e il taglio deve esserci comunque, altrimenti il riquadro mostra tutto
+  assert.match(SQL_ANALYTICS, /const VOCI_CONSUMI = \d+/);
+  assert.match(SQL_ANALYTICS, /classifica\(consumi\)\.slice\(0, VOCI_CONSUMI\)/);
+});
