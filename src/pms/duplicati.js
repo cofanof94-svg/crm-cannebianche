@@ -4,17 +4,32 @@
 // Cognome+Nome+data di nascita (intercetta anche i casi con CF diversi/mancanti,
 // es. lo stesso ospite inserito con CF italiano e CF estero). La conferma della
 // fusione resta all'operatore.
+//
+// "Non vuoto" però non basta. Nell'anagrafica vera ci sono schede salvate con un
+// SEGNAPOSTO al posto del codice fiscale — un punto — messo lì solo per far
+// passare il salvataggio. Due schede con lo stesso punto risultavano "stesso
+// codice fiscale, alta confidenza", e il 3 agosto due ospiti diversi (uno
+// svizzero e uno di Dubai) sono stati fusi davvero: da quel momento soggiorni,
+// spesa, preferenze e ALLERGIE dell'uno comparivano sulla scheda dell'altro.
+//
+// Misurato il 21/08/2026 su tutta l'anagrafica: 91 gruppi "stesso CF", di cui
+// UNO solo è un segnaposto. Il filtro toglie quello e lascia gli altri novanta.
+// Cinque caratteri come soglia: il codice fiscale italiano ne ha 16 e la partita
+// IVA 11, ma un identificativo estero può essere corto — sotto i cinque però non
+// è un identificativo, è un carattere di riempimento.
+const CF_MIN = 5;
+const cfValido = (col) => `LEN(LTRIM(RTRIM(${col}))) >= ${CF_MIN}`;
 
 const SQL_CANDIDATI = `
 SELECT a.CodCli AS codCli, a.Cognome, a.Nome,
   CONVERT(varchar(10), a.dtNascita, 23) AS dtNascita, a.CodFis AS codiceFiscale,
-  CASE WHEN ISNULL(a.CodFis,'') <> '' AND a.CodFis = me.CodFis THEN 'CF' ELSE 'anagrafica' END AS match,
+  CASE WHEN ${cfValido('a.CodFis')} AND a.CodFis = me.CodFis THEN 'CF' ELSE 'anagrafica' END AS match,
   (SELECT COUNT(1) FROM Prenota p WHERE p.codclinterm = a.CodCli)
     + (SELECT COUNT(1) FROM StorPrenota sp WHERE sp.codclinterm = a.CodCli) AS nPrenotazioni
 FROM Anagra a
 CROSS JOIN (SELECT CodFis, Cognome, Nome, dtNascita FROM Anagra WHERE CodCli = @codCli) me
 WHERE a.CodCli <> @codCli AND (
-  (ISNULL(a.CodFis,'') <> '' AND a.CodFis = me.CodFis)
+  (${cfValido('a.CodFis')} AND a.CodFis = me.CodFis)
   OR (a.dtNascita IS NOT NULL AND a.dtNascita = me.dtNascita
       AND a.Cognome = me.Cognome AND a.Nome = me.Nome)
 )
@@ -79,7 +94,7 @@ function calcolaConflitti(anagrafiche, campi = CAMPI_CONFLITTO) {
 const SQL_TUTTI_GRUPPI = `
 SELECT 'CF' AS tipo, MAX(Cognome) AS cognome, MAX(Nome) AS nome, CodFis AS chiave,
   COUNT(1) AS n, STRING_AGG(CAST(CodCli AS varchar(12)), ',') AS membri
-FROM Anagra WHERE ISNULL(CodFis,'') <> '' GROUP BY CodFis HAVING COUNT(1) > 1
+FROM Anagra WHERE ${cfValido('CodFis')} GROUP BY CodFis HAVING COUNT(1) > 1
 UNION ALL
 SELECT 'anagrafica', Cognome, Nome,
   CONCAT(Cognome, '|', Nome, '|', CONVERT(varchar(10), dtNascita, 23)),

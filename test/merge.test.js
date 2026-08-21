@@ -222,3 +222,32 @@ test('mergeInto distingue "stessa anagrafica" da "principale già collegato"', a
   assert.strictEqual(gia.motivo, 'principale-gia-collegato');
   assert.strictEqual(gia.principale, 1001, 'il messaggio deve poter dire A CHI è collegata');
 });
+
+// --- Il codice fiscale segnaposto (21/08/2026) ------------------------------
+// Nell'anagrafica vera ci sono schede salvate con un PUNTO al posto del codice
+// fiscale, messo solo per far passare il salvataggio. Due schede con lo stesso
+// punto risultavano "stesso codice fiscale, alta confidenza": il 3 agosto due
+// ospiti diversi — uno svizzero e uno di Dubai — sono stati fusi davvero, e da
+// quel momento soggiorni, spesa, preferenze e ALLERGIE dell'uno comparivano
+// sulla scheda dell'altro.
+//
+// Misurato su tutta l'anagrafica: 91 gruppi "stesso CF", uno solo segnaposto.
+
+test('un codice fiscale troppo corto non fa "stesso CF"', async () => {
+  const pms = fakePms([]);
+  await getDuplicatiCandidati(pms, 20438);
+  const sql = pms.calls[0].text;
+  // Non basta "diverso da vuoto": serve una lunghezza minima.
+  assert.doesNotMatch(sql, /ISNULL\(a\.CodFis,''\) <> ''/, 'il solo controllo sul vuoto lascia passare i segnaposto');
+  assert.match(sql, /LEN\(LTRIM\(RTRIM\(a\.CodFis\)\)\) >= \d+/);
+});
+
+test('anche l\'elenco di tutti i gruppi scarta i segnaposto', async () => {
+  const pms = fakePms([]);
+  await getTuttiGruppiDuplicati(pms);
+  const sql = pms.calls[0].text;
+  assert.match(sql, /LEN\(LTRIM\(RTRIM\(CodFis\)\)\) >= \d+/);
+  assert.doesNotMatch(sql, /WHERE ISNULL\(CodFis,''\) <> '' GROUP BY CodFis/);
+  // Il criterio per nome+data di nascita resta com'era: non c'entra col CF.
+  assert.match(sql, /GROUP BY Cognome, Nome, dtNascita/);
+});
