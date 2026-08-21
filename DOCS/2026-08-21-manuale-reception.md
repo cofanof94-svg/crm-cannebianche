@@ -63,7 +63,7 @@ trattamento, numero di pratica. Sotto, solo quello che c'è davvero.
 | **Nª volta** | quante volte l'ospite è stato qui, contando anche questa |
 | **N day use** | quante volte è venuto solo in giornata (SPA, piscina, ristorante) |
 | **VIP** | classificazione dall'anagrafica del gestionale |
-| **🎂** | compie gli anni durante il soggiorno |
+| **🎂 Compleanno** | compie gli anni durante il soggiorno — non solo oggi |
 | **reclami** | ha già segnalato qualcosa in passato |
 | **nota personale** | chi è, in una riga |
 
