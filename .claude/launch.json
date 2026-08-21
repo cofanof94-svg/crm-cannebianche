@@ -6,6 +6,12 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "set PORT=3210 && node scripts/dev-mock.js"],
       "port": 3210
+    },
+    {
+      "name": "crm-vero",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set PORT=3211 && node src/server.js"],
+      "port": 3211
     }
   ]
 }

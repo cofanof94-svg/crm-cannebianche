@@ -340,3 +340,22 @@ test('la query dei consumi non ha un TOP: il taglio si fa dopo', () => {
   assert.match(SQL_ANALYTICS, /const VOCI_CONSUMI = \d+/);
   assert.match(SQL_ANALYTICS, /classifica\(consumi\)\.slice\(0, VOCI_CONSUMI\)/);
 });
+
+test('le nazioni si mostrano per nome, e il ripiego non viene troncato', () => {
+  const i = SQL_ANALYTICS.indexOf('const NAZIONE');
+  const j = SQL_ANALYTICS.indexOf('ORDER BY COUNT(DISTINCT s.codCli) DESC`;', SQL_ANALYTICS.indexOf('const sqlNazioni'));
+  assert.ok(i > 0 && j > i);
+  const corpo = SQL_ANALYTICS.slice(i, j);
+  // La decodifica: senza la JOIN il riquadro mostra `I`, `GB`, `PBS`.
+  assert.match(corpo, /LEFT JOIN Nazioni/);
+  assert.match(corpo, /z\.desnaz/);
+  // Il ripiego sul codice resta, per le pochissime righe che non si decodificano.
+  assert.match(corpo, /a\.CodNaz/);
+  // COALESCE e non ISNULL: `ISNULL` prende il tipo del PRIMO argomento, e
+  // `Anagra.CodNaz` e' nvarchar(3), quindi "Non indicata" ci veniva tagliata
+  // dentro e finiva a schermo come "Non". Verificato sul database vero il
+  // 21/08/2026. Se qualcuno rimette ISNULL, il difetto torna e non si vede
+  // leggendo la query.
+  assert.match(corpo, /COALESCE\(/);
+  assert.doesNotMatch(corpo, /ISNULL\(\s*NULLIF\(LTRIM\(RTRIM\(a\.CodNaz\)\)/);
+});

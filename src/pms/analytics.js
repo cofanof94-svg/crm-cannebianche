@@ -102,13 +102,32 @@ ORDER BY COUNT(*) DESC`;
 // Provenienza degli ospiti. Il campo è popolato all'80%: il "Non indicato" si
 // mostra insieme agli altri invece di nasconderlo, altrimenti le percentuali
 // sarebbero calcolate su una base che chi guarda non conosce.
+// Il nome della nazione, non il suo codice: chi sta al banco non deve indovinare
+// che `PBS` sono i Paesi Bassi. La tabella `Nazioni` del gestionale ha 246 righe
+// e i codici combaciano quasi sempre — misurato il 21/08/2026 su tutta l'anagrafica,
+// solo QUATTRO righe in tutto hanno un codice che non si decodifica (`IT`, `ITA`,
+// `Ù`). Per quelle si mostra il codice, come fa già `sqlVip` con `TabVip`.
+//
+// COALESCE e non ISNULL, e non è una preferenza di stile: `ISNULL` prende il TIPO
+// del primo argomento, qui `Anagra.CodNaz`, che è `nvarchar(3)`. Il ripiego
+// "Non indicata" ci veniva tagliato dentro e finiva a schermo come **"Non"** —
+// un'etichetta che non vuol dire niente su 292 ospiti. `COALESCE` diventa un CASE
+// e il tipo si calcola su tutti i rami. Provato sul database vero.
+const NAZIONE = `COALESCE(
+  NULLIF(LTRIM(RTRIM(z.desnaz)), ''),
+  NULLIF(LTRIM(RTRIM(a.CodNaz)), ''),
+  'Non indicata')`;
+
 const sqlNazioni = `
 -- analytics:nazioni
 WITH s AS (${SOGGIORNI})
-SELECT TOP 8 ISNULL(NULLIF(LTRIM(RTRIM(a.CodNaz)), ''), 'Non indicata') AS voce,
+SELECT TOP 8 ${NAZIONE} AS voce,
        COUNT(DISTINCT s.codCli) AS n
-FROM s LEFT JOIN Anagra a ON a.CodCli = s.codCli
-GROUP BY ISNULL(NULLIF(LTRIM(RTRIM(a.CodNaz)), ''), 'Non indicata')
+FROM s
+LEFT JOIN Anagra a ON a.CodCli = s.codCli
+LEFT JOIN Nazioni z ON LTRIM(RTRIM(z.codnaz)) = LTRIM(RTRIM(a.CodNaz))
+  AND ISNULL(LTRIM(RTRIM(a.CodNaz)), '') <> ''
+GROUP BY ${NAZIONE}
 ORDER BY COUNT(DISTINCT s.codCli) DESC`;
 
 // Le classificazioni VIP sono 27 e descritte: è la dimensione più ricca che il
