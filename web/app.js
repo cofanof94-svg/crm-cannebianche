@@ -15,7 +15,9 @@ async function api(path, opts = {}) {
   // che non dice la cosa importante: devi rientrare.
   // La chiamata di accesso è l'eccezione ovvia: lì il 401 vuol dire "password
   // sbagliata" e lo gestisce il modulo, se no si scaccerebbe chi sta entrando.
-  if (res.status === 401 && !String(path).includes('/api/auth/login')) showLogin();
+  if (res.status === 401 && !String(path).includes('/api/auth/login')) {
+    showLogin('Sessione scaduta: rientra per continuare. Quello che non era ancora salvato va riscritto.');
+  }
   return { status: res.status, body };
 }
 
@@ -166,10 +168,19 @@ async function refresh() {
   route();
 }
 
-function showLogin() {
+// `motivo`: perché ci si è ritrovati qui. All'avvio e uscendo apposta non c'è
+// niente da spiegare; quando la sessione cade mentre si lavora sì, altrimenti la
+// schermata di accesso compare nuda e sembra un guasto.
+function showLogin(motivo) {
   currentUser = null;
+  // Una finestra aperta con showModal() rende inerte tutto il resto della
+  // pagina: senza chiuderla non si potrebbe nemmeno scrivere nel modulo di
+  // accesso. E quella dell'export sta fuori da #app, quindi resterebbe anche
+  // visibile, sopra il login.
+  document.querySelectorAll('dialog[open]').forEach((d) => d.close());
   $('#app').hidden = true;
   $('#login-view').hidden = false;
+  $('#login-error').textContent = motivo || '';
 }
 
 // --- router hash ---
@@ -401,6 +412,10 @@ function motivoAiNonDisponibile(body) {
 // Il testo resta nel campo apposta: si riprova senza riscrivere tutto.
 function erroreSalvataggio(status, body, cosa) {
   if (status === 403) return; // il perché lo ha già detto api()
+  // 401: api() ha già riportato al login, e il campo dove stava il testo non
+  // esiste più. Dire "il testo è rimasto nel campo" sarebbe una promessa falsa,
+  // per giunta scritta sopra la schermata di accesso. Lì il motivo è già detto.
+  if (status === 401) return;
   const dett = body && body.error ? ` ${String(body.error)}` : '';
   avviso(`Non è stato possibile salvare ${cosa}.${dett} Il testo è rimasto nel campo: puoi riprovare.`);
 }
@@ -1382,6 +1397,13 @@ async function salvaUtente(e) {
 }
 
 async function eliminaUtente(id) {
+  // È l'unica azione dell'applicazione che cancella qualcosa per sempre, e stava
+  // a un clic solo, accanto a "Modifica". Chi ha dei dati collegati era salvato
+  // per caso, dal vincolo del database; gli account nuovi del personale — che
+  // dati collegati non ne hanno ancora — sparivano al primo clic sbagliato.
+  const u = usersCache.find((x) => x.id === id);
+  const chi = u ? `${u.username}${u.nome || u.cognome ? ` (${[u.nome, u.cognome].filter(Boolean).join(' ')})` : ''}` : `#${id}`;
+  if (!confirm(`Eliminare l'utente ${chi}?\n\nL'account e la sua password vengono cancellati e non si possono recuperare. Per togliere l'accesso senza cancellare, basta metterlo "non attivo" da Modifica.`)) return;
   const res = await api(`/api/admin/users/${id}`, { method: 'DELETE' });
   if (res.status === 200) loadUsers();
   else alert(res.body.error || 'Impossibile eliminare l\'utente');
@@ -1507,6 +1529,10 @@ async function loadCliente(codCli) {
   aiAzzera('scheda'); // aprire una scheda rende di nuovo disponibili i pulsanti AI (suggerimenti, note personali)
   resetAiButton();
   nucleoEditId = null; // esci da eventuale edit-mode del nucleo
+  // Stessa cosa per le preferenze, che hanno la stessa forma: una riga lasciata
+  // aperta si riapriva sulla scheda successiva — e sull'anagrafica fusa, che
+  // condivide gli stessi id, come se qualcun altro la stesse correggendo.
+  prefEditId = null;
   // Sezioni CRM indipendenti (endpoint e nodi DOM distinti): caricate in parallelo.
   await Promise.all([
     caricaGusti(codCli), caricaSpa(codCli), caricaDuplicati(codCli), caricaLingua(codCli), caricaIntolleranze(codCli),
@@ -2272,6 +2298,9 @@ function renderMerge() {
     return `<tr><td class="merge-lbl">${esc(label)}${conf ? ' <span class="merge-warn" title="Dati diversi tra le anagrafiche">⚠</span>' : ''}</td>${tds}</tr>`;
   }).join('');
   const elenco = [...conflSet].map((c) => LABEL_CAMPO[c] || c).join(', ');
+  const bloccoNessunPrincipale = (!mergeSolaLettura && princ == null)
+    ? '<div class="merge-avviso">⚠ Nessuna di queste anagrafiche può fare da principale: sono già collegate ad altre schede. Per unirle qui, scollegale prima dal banner «Scheda fusa» della loro scheda.</div>'
+    : '';
   const avviso = !conflSet.size ? ''
     : mergeSolaLettura
       // Su un gruppo già fuso il conflitto non blocca niente: è un'informazione, e
@@ -2279,8 +2308,16 @@ function renderMerge() {
       ? `<div class="merge-avviso">⚠ Queste anagrafiche hanno dati diversi (${esc(elenco)}). Se non fossero la stessa persona, si scollegano dal banner della scheda.</div>`
       : `<div class="merge-avviso">⚠ Dati in conflitto (${esc(elenco)}): assicurati che sia la stessa persona e scegli il principale prima di confermare.</div>`;
   const codaInfo = mergeCoda ? `<span class="merge-coda">Gruppo ${mergeCoda.idx + 1} di ${mergeCoda.gruppi.length}</span>` : '';
+  // Nessuna anagrafica selezionabile: non c'è un principale, quindi non c'è
+  // niente da confermare. Il pulsante sparisce e si dice come uscirne, invece
+  // di offrire un'unione che il server farebbe in un posto che non si vede.
+  const nessunPrincipale = !mergeSolaLettura && princ == null;
   const azioni = mergeSolaLettura
     ? '<button type="button" class="btn btn-primary" id="merge-annulla">Chiudi</button>'
+    : nessunPrincipale
+      ? (mergeCoda
+        ? '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla tutto</button><button type="button" class="btn btn-primary" id="merge-salta">Vai al prossimo</button>'
+        : '<button type="button" class="btn btn-primary" id="merge-annulla">Chiudi</button>')
     : mergeCoda
       ? '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla tutto</button><button type="button" class="btn" id="merge-salta">Salta</button><button type="button" class="btn btn-primary" id="merge-conferma">Conferma unione</button>'
       : '<button type="button" class="btn btn-ghost" id="merge-annulla">Annulla</button><button type="button" class="btn btn-primary" id="merge-conferma">Conferma unione</button>';
@@ -2291,6 +2328,7 @@ function renderMerge() {
   $('#merge-dialog-body').innerHTML = `<div class="merge-body">
     <div class="merge-head"><span class="modal-title">${esc(titolo)}</span>${codaInfo}</div>
     <p class="merge-sub">${sottotitolo}</p>
+    ${bloccoNessunPrincipale}
     ${avviso}
     <div class="merge-tab-wrap"><table class="merge-tab"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
     <div class="modal-actions">${azioni}</div>
@@ -2639,7 +2677,8 @@ $('#cli-complaints').addEventListener('click', async (e) => {
     // Risolvere passa dalla maschera del follow-up; riaprire no: lì non c'è
     // niente da raccontare, e il follow-up già scritto resta dov'è.
     if (toggle.dataset.stato === 'risolto') {
-      await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${toggle.dataset.toggleCompl}`, { method: 'PATCH', body: JSON.stringify({ stato: 'aperto' }) });
+      const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${toggle.dataset.toggleCompl}`, { method: 'PATCH', body: JSON.stringify({ stato: 'aperto' }) });
+      if (status !== 200) { erroreSalvataggio(status, body, 'la riapertura del complaint'); return; }
       caricaComplaints(clienteCorrente);
       return;
     }
@@ -2658,7 +2697,12 @@ $('#cli-complaints').addEventListener('click', async (e) => {
       if (nuovoFu == null) return;
       if (nuovoFu.trim()) patch.followUp = nuovoFu.trim();
     }
-    await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify(patch) });
+    // Era l'unica scrittura della scheda che non guardava l'esito: se il server
+    // rifiutava (periodo troppo lungo, follow-up oltre il limite) la lista si
+    // ridisegnava identica e a schermo non compariva niente — sembrava salvato,
+    // e il testo appena riscritto era perso.
+    const { status, body } = await api(`/api/clienti/${encodeURIComponent(clienteCorrente)}/complaints/${edit.dataset.editCompl}`, { method: 'PATCH', body: JSON.stringify(patch) });
+    if (status !== 200) { erroreSalvataggio(status, body, 'la modifica del complaint'); return; }
     caricaComplaints(clienteCorrente);
   }
 });

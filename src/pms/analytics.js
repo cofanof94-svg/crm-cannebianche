@@ -127,21 +127,60 @@ ORDER BY COUNT(DISTINCT s.codCli) DESC`;
 // Consumi F&B. Si contano le ORDINAZIONI, non i pezzi: "quante volte è stato
 // chiesto" dice cosa piace, mentre la quantità premia ciò che si serve a
 // bottiglia. `soloVip` taglia sugli ospiti con una classificazione VIP.
+// Le camere occupate da almeno un VIP, con la finestra in cui lo erano. Serve
+// solo alla spunta "Solo ospiti VIP".
+//
+// Perché una CTE con DISTINCT e non tre JOIN in fondo alla query dei consumi,
+// com'era prima: `StorAlberg` ha UNA RIGA PER OCCUPANTE, non per camera. Con i
+// join, una camera con due VIP dentro faceva contare due volte ogni ordinazione
+// di quella camera, e sommare due volta i suoi euro — quindi la spunta poteva
+// dare numeri PIÙ ALTI di quelli senza spunta: un sottoinsieme più grande
+// dell'insieme. È lo stesso motivo per cui `src/pms/gusti.js` costruisce la sua
+// CTE `stays` con DISTINCT.
+//
+// E l'UNION con `AlbergDay`/`Alberg`: il ramo guardava solo l'archivio, quindi i
+// soggiorni non ancora archiviati sparivano dal filtro. Sui periodi corti
+// ("7 giorni", "30 giorni") sono la parte più grossa. Anche qui, la CTE
+// `SOGGIORNI` di questo file e `gusti.js` uniscono già corrente e archiviato.
+const CAMERE_VIP = `
+  SELECT DISTINCT ad.codcam AS cam, CAST(ad.dtarrivo AS date) AS arr, CAST(ad.dtpartenza AS date) AS par
+  FROM StorAlbergDay ad
+  JOIN StorAlberg al ON al.codalb = ad.codalb
+  JOIN Anagra av ON av.CodCli = al.codcli AND ISNULL(LTRIM(RTRIM(av.CodVip)), '') <> ''
+  WHERE ISNULL(ad.codcam, '') <> ''
+  UNION
+  SELECT DISTINCT ad.codcam, CAST(ad.dtarrivo AS date), CAST(ad.dtpartenza AS date)
+  FROM AlbergDay ad
+  JOIN Alberg al ON al.codalb = ad.codalb
+  JOIN Anagra av ON av.CodCli = al.codcli AND ISNULL(LTRIM(RTRIM(av.CodVip)), '') <> ''
+  WHERE ISNULL(ad.codcam, '') <> ''`;
+
+// Consumi F&B. Si contano le ORDINAZIONI, non i pezzi: "quante volte è stato
+// chiesto" dice cosa piace, mentre la quantità premia ciò che si serve a
+// bottiglia. `soloVip` taglia sugli ospiti con una classificazione VIP.
+//
+// Il filtro VIP è un EXISTS e non un JOIN apposta: un EXISTS risponde sì o no
+// una volta sola, quindi non può moltiplicare le righe qualunque cosa ci sia
+// dentro. Con i join servirebbe un DISTINCT, e un DISTINCT sbagliato non si
+// vede — si vede solo il numero gonfio.
 const sqlConsumi = (soloVip) => `
 -- analytics:consumi
+${soloVip ? `WITH camereVip AS (${CAMERE_VIP})` : ''}
 SELECT TOP 12 LEFT(ISNULL(ma.desart, ac.CodArt), 60) AS voce,
   ISNULL(ma.flgFoodBeverage, '') AS tipo,
   COUNT(1) AS n, CAST(SUM(ac.impoEur) AS int) AS euro
 FROM StorComanda co
 JOIN StorAddebitiComanda ac ON ac.CodComanda = co.CodComanda AND ISNULL(ac.flgEliminato, '') <> 'S'
 LEFT JOIN MagArtico ma ON ma.codart = ac.CodArt
-${soloVip ? `JOIN StorComandaDettCamere dc ON dc.codComanda = co.CodComanda
-JOIN StorAlbergDay ad ON ad.codcam = dc.CodCam AND CAST(co.dtComanda AS date) BETWEEN CAST(ad.dtarrivo AS date) AND CAST(ad.dtpartenza AS date)
-JOIN StorAlberg al ON al.codalb = ad.codalb
-JOIN Anagra av ON av.CodCli = al.codcli AND ISNULL(LTRIM(RTRIM(av.CodVip)), '') <> ''` : ''}
 WHERE ISNULL(co.flgEliminata, '') <> 'S'
   AND CAST(co.dtComanda AS date) BETWEEN @da AND @a
   AND ISNULL(ma.codgrpmerCAT, '') NOT LIKE 'SPA%'
+${soloVip ? `  AND EXISTS (
+    SELECT 1 FROM StorComandaDettCamere dc
+    JOIN camereVip cv ON cv.cam = dc.CodCam
+    WHERE dc.codComanda = co.CodComanda
+      AND CAST(co.dtComanda AS date) BETWEEN cv.arr AND cv.par
+  )` : ''}
 GROUP BY ac.CodArt, ma.desart, ma.flgFoodBeverage
 ORDER BY COUNT(1) DESC`;
 

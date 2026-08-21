@@ -378,6 +378,26 @@ test('confronto: un\'anagrafica già collegata non può essere il principale sug
   assert.strictEqual(res.body.suggerito, 55491, 'il suggerito si sceglie fra quelle selezionabili');
 });
 
+test('confronto: se nessuna può essere il principale, non se ne propone una', async () => {
+  // Trovato dal collaudo del 20/08/2026. Quando TUTTE le anagrafiche del
+  // confronto appartengono già a un altro gruppo, il suggerito ripiegava su una
+  // non selezionabile: la finestra mostrava una colonna col bollino
+  // "principale" e insieme la scritta "non può essere il principale", senza
+  // nemmeno un pulsante di scelta. E la conferma non veniva rifiutata: il
+  // server risaliva la catena e collegava a un codice che nel confronto non
+  // compariva mai.
+  const app = await makeApp();
+  const ag = await agente(app);
+  await ag.post('/api/clienti/47186/merge').send({ memberId: 47186, canonicalId: 1001 });
+  await ag.post('/api/clienti/55491/merge').send({ memberId: 55491, canonicalId: 1201 });
+  const res = await ag.get('/api/clienti/47186/confronto?ids=47186,55491');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.suggerito, null, 'nessun principale da proporre');
+  assert.deepStrictEqual(res.body.giaCollegate, { 47186: 1001, 55491: 1201 });
+  // Le anagrafiche si vedono lo stesso: il confronto resta utile a capire.
+  assert.strictEqual(res.body.anagrafiche.length, 2);
+});
+
 test('GET /api/clienti/abc → 400', async () => {
   const app = await makeApp();
   const ag = await agente(app);

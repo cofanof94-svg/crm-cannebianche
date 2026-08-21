@@ -21,6 +21,13 @@
 
 let analyticsInited = false;
 let analyticsPeriodo = '12m';
+// Il periodo scelto con i pulsanti si RISOLVE in due date, che finiscono nei
+// campi perché si veda su cosa si sta guardando. Ma quelle date non sono una
+// scelta dell'operatore: prenderle per tali congelava il periodo al primo
+// caricamento — bastava spuntare "Solo ospiti VIP" perché l'intestazione
+// smettesse di dire "tutto lo storico" e dicesse "3754 giorni", con il pulsante
+// ancora acceso. Qui si tiene distinto chi ha scritto quelle date.
+let analyticsDateManuali = false;
 // La spunta "solo VIP" sta DENTRO il riquadro dei consumi, che è l'unico posto
 // in cui fa qualcosa: nella barra in cima prometteva di filtrare tutta la
 // pagina e ne toccava un riquadro su sette — gli altri sei restavano identici
@@ -243,7 +250,7 @@ async function loadAnalytics() {
   const p = new URLSearchParams();
   const da = $('#an-da').value;
   const a = $('#an-a').value;
-  if (da && a) { p.set('da', da); p.set('a', a); } else { p.set('periodo', analyticsPeriodo); }
+  if (analyticsDateManuali && da && a) { p.set('da', da); p.set('a', a); } else { p.set('periodo', analyticsPeriodo); }
   if (analyticsSoloVip) p.set('vip', '1');
 
   const { status, body } = await api(`/api/analytics?${p.toString()}`);
@@ -256,7 +263,7 @@ async function loadAnalytics() {
   corpo.hidden = false;
   // Le date del periodo scelto tornano nei campi: si vede su cosa si sta
   // guardando, e da lì si può ritoccare a mano.
-  if (!da || !a) { $('#an-da').value = body.periodo.da; $('#an-a').value = body.periodo.a; }
+  if (!analyticsDateManuali) { $('#an-da').value = body.periodo.da; $('#an-a').value = body.periodo.a; }
 }
 
 function initAnalytics() {
@@ -265,6 +272,7 @@ function initAnalytics() {
       const b = e.target.closest('[data-periodo]');
       if (!b) return;
       analyticsPeriodo = b.dataset.periodo;
+      analyticsDateManuali = false;
       // Il predefinito vince sul personalizzato: lasciare le date vecchie nei
       // campi farebbe credere che il periodo mostrato sia quello.
       $('#an-da').value = '';
@@ -277,6 +285,7 @@ function initAnalytics() {
     ['#an-da', '#an-a'].forEach((sel) => {
       $(sel).addEventListener('change', () => {
         if ($('#an-da').value && $('#an-a').value) {
+          analyticsDateManuali = true;
           $$('#an-periodi .chip').forEach((c) => c.classList.remove('is-on'));
           loadAnalytics();
         }

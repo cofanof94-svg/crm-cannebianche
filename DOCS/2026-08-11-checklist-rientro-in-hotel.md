@@ -116,6 +116,28 @@ Da guardare al primo avvio: se una è sbagliata, l'errore si vede subito.
 **doppio conteggio** fra prenotazioni correnti e concluse. Verificare su un ospite di
 cui si conosce il numero reale di soggiorni che il badge "Nª volta" dica il vero.
 
+### Due query riscritte il 21/08/2026 dopo il collaudo a più revisori
+
+- [ ] **`getStoricoByIds` — il raggruppamento per gruppo** (`src/pms/clienti.js`).
+      Il `CASE c.codCli WHEN … THEN …` ora comprende **tutti** i membri dei gruppi
+      coinvolti, non solo i codici chiesti: prima un membro che non era anche una
+      chiave della mappa restava per sé e la sua metà di storia non veniva sommata.
+      **Come si prova:** aprire gli arrivi di un giorno in cui c'è un ospite con più
+      anagrafiche (caso reale Brolin 48758 / 55491 / 31355) e controllare che il
+      badge "Nª volta" dica lo stesso numero della sua scheda, **da qualunque delle
+      sue anagrafiche** si arrivi.
+
+- [ ] **`sqlConsumi` con la spunta "Solo ospiti VIP"** (`src/pms/analytics.js`).
+      Era fatta di JOIN, e `StorAlberg` ha una riga **per occupante**: una camera con
+      due VIP dentro faceva contare due volte ogni sua ordinazione. Adesso è un
+      `EXISTS` su una CTE `camereVip` con `DISTINCT`, e comprende anche i soggiorni
+      **non ancora archiviati** (`AlbergDay`/`Alberg`), che prima sparivano dal filtro.
+      **Come si prova, in un minuto:** su Analytics, stesso periodo, leggere il
+      riquadro Consumi F&B **senza** spunta e **con** spunta. Con la spunta ogni
+      numero dev'essere **minore o uguale** a quello senza: è un sottoinsieme. Se
+      qualcuno è più alto, la query è ancora sbagliata.
+      *(Prima della correzione poteva essere più alto: è così che il difetto si vede.)*
+
 ---
 
 ## 3. Verifiche con dati veri, funzione per funzione

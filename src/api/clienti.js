@@ -68,7 +68,10 @@ function campoTesto(valore, { max, nome, obbligatorio = true }) {
     return obbligatorio ? { errore: `${nome} mancante` } : { valore: '' };
   }
   if (typeof valore !== 'string' && typeof valore !== 'number') {
-    return { errore: `${nome} non valido` };
+    // "Lingua non valido" e "Nota non valido" li legge un operatore, non un
+    // programmatore: la frase si compone senza concordanza, e non si sceglie il
+    // nome del campo per far tornare la grammatica.
+    return { errore: `Valore non valido per il campo ${nome}` };
   }
   const t = String(valore).trim();
   if (!t && obbligatorio) return { errore: `${nome} mancante` };
@@ -220,8 +223,16 @@ function createClientiRouter(pmsDb, crmDb) {
     // Il suggerito si sceglie fra quelle SELEZIONABILI: proporre un principale
     // che il server rifiuta sarebbe un invito a sbagliare.
     const eleggibili = anagrafiche.filter((a) => !giaCollegate[a.codCli]);
-    const fra = eleggibili.length ? eleggibili : anagrafiche;
-    const suggerito = fra.reduce((best, a) => (a.nPrenotazioni > best.nPrenotazioni ? a : best), fra[0]).codCli;
+    // Se NESSUNA è selezionabile — capita quando ogni anagrafica del confronto
+    // appartiene già a un altro gruppo — non c'è un principale da proporre.
+    // Ripiegare su una qualsiasi metteva a schermo una colonna con il bollino
+    // "principale" e insieme la scritta "non può essere il principale", senza
+    // nemmeno un pulsante di scelta; e la conferma non veniva rifiutata: il
+    // server risaliva la catena e collegava a un codice che nel confronto non
+    // compariva. Meglio dire che qui non c'è niente da confermare.
+    const suggerito = eleggibili.length
+      ? eleggibili.reduce((best, a) => (a.nPrenotazioni > best.nPrenotazioni ? a : best), eleggibili[0]).codCli
+      : null;
     res.json({ anagrafiche, conflitti, suggerito, giaCollegate });
   });
 
@@ -414,7 +425,11 @@ function createClientiRouter(pmsDb, crmDb) {
     // Stessi controlli dell'inserimento anche qui. Il follow-up aveva già il suo
     // tetto (FOLLOWUP_MAX, più sotto): resta quello, per non spostare un limite
     // che è già in uso.
-    for (const [campo, max, etichetta] of [['testo', Number.MAX_SAFE_INTEGER, 'Testo'], ['periodo', LIMITI.periodo, 'Periodo']]) {
+    // `followUp` era l'unico campo di testo rimasto fuori da questo controllo:
+    // un oggetto ci passava, diventava "[object Object]" e RISOLVEVA il reclamo,
+    // perché la regola "non si risolve senza dire come" si accontenta di un
+    // valore non vuoto. Stesso difetto chiuso sulla nota personale.
+    for (const [campo, max, etichetta] of [['testo', Number.MAX_SAFE_INTEGER, 'Testo'], ['periodo', LIMITI.periodo, 'Periodo'], ['followUp', FOLLOWUP_MAX, 'Follow-up']]) {
       if (body[campo] == null) continue;
       const c = campoTesto(body[campo], { max, nome: etichetta, obbligatorio: false });
       if (c.errore) return res.status(400).json({ error: c.errore });
@@ -432,7 +447,8 @@ function createClientiRouter(pmsDb, crmDb) {
     // Risolvere senza dire cosa è stato fatto lascia un dato inutile a chi legge
     // dopo: la regola sta qui, non solo nella maschera, così vale per ogni client.
     if (stato === 'risolto' && !followUp) return res.status(400).json({ error: 'Follow-up mancante: descrivi come è stato gestito il problema' });
-    if (followUp && followUp.length > FOLLOWUP_MAX) return res.status(400).json({ error: `Follow-up troppo lungo (max ${FOLLOWUP_MAX} caratteri)` });
+    // La lunghezza la controlla già il giro qui sopra, e dice anche quanti
+    // caratteri sono stati scritti — come fanno tutti gli altri campi.
     // Il follow-up non si svuota. La regola "non si risolve senza dire come è
     // stato gestito" stava solo sul PASSAGGIO di stato, quindi ci si arrivava da
     // un'altra porta: mandando il solo follow-up vuoto su un reclamo già
@@ -562,7 +578,12 @@ function createClientiRouter(pmsDb, crmDb) {
     // `nome: 'Testo'` come gli altri campi: `campoTesto` compone "<nome> non
     // valido", e con "Nota personale" ne uscirebbe una frase sgrammaticata.
     // Il tetto vero della nota ha un messaggio suo, più sotto.
-    const c = campoTesto(req.body && req.body.testo, { max: Number.MAX_SAFE_INTEGER, nome: 'Testo', obbligatorio: false });
+    // Il campo dev'esserci. La stringa vuota vuol dire "cancella", ed è una
+    // scelta esplicita di chi preme Elimina; un corpo che il campo non ce l'ha
+    // proprio non è una scelta, e cancellava lo stesso — su TUTTE le anagrafiche
+    // della persona, con un 200 OK e nessun modo di tornare indietro.
+    if (!req.body || req.body.testo == null) return res.status(400).json({ error: 'Testo mancante' });
+    const c = campoTesto(req.body.testo, { max: Number.MAX_SAFE_INTEGER, nome: 'Testo', obbligatorio: false });
     if (c.errore) return res.status(400).json({ error: c.errore });
     const testo = c.valore;
     const mode = req.body && req.body.mode === 'append' ? 'append' : 'set';

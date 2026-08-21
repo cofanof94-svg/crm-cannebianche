@@ -77,3 +77,16 @@ test('modificare NON passa dalla cancellazione: si usa la correzione', () => {
   assert.match(blocco, /method: 'PATCH'/, 'il salvataggio dev\'essere una correzione');
   assert.doesNotMatch(blocco, /method: 'DELETE'/);
 });
+
+// --- Uscire dalla scheda chiude la modifica --------------------------------
+// Trovato dal collaudo del 20/08/2026. `nucleoEditId` si azzera aprendo un'altra
+// scheda, `prefEditId` no: una riga lasciata aperta si ripresentava in modifica
+// sull'ospite successivo — e sull'anagrafica fusa, che condivide gli stessi id,
+// come se qualcun altro la stesse correggendo in quel momento.
+test('cambiando scheda la riga in modifica si chiude', () => {
+  const inizio = SRC.indexOf('async function loadCliente(');
+  assert.notStrictEqual(inizio, -1);
+  const corpo = SRC.slice(inizio, SRC.indexOf('\n}', inizio));
+  assert.match(corpo, /nucleoEditId = null/, 'il nucleo si azzerava gia\'');
+  assert.match(corpo, /prefEditId = null/, 'anche le preferenze devono azzerarsi');
+});

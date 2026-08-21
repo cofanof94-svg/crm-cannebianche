@@ -4,6 +4,8 @@ const request = require('supertest');
 const { createApp } = require('../src/app');
 const { hashPassword } = require('../src/auth/password');
 const { risolviPeriodo } = require('../src/api/analytics');
+const fs = require('fs');
+const path = require('path');
 
 // --- Periodi -----------------------------------------------------------------
 
@@ -268,4 +270,55 @@ test('se i duplicati non si contano, la pagina si apre lo stesso', async () => {
   const res = await ag.get('/api/analytics?periodo=7g');
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.body.crm.duplicati, null);
+});
+
+// --- Date che rispettano la forma ma non esistono ---------------------------
+// Trovate dal collaudo del 20/08/2026. "2026-02-31" passava il controllo (quattro
+// cifre, due, due) e arrivava fino a SQL Server, che non riesce a convertirla:
+// la pagina rispondeva 500 "Errore interno del server" invece di dire cosa non va.
+test('il 31 febbraio non e\' una data: 400, non un errore del server', () => {
+  for (const [da, a] of [['2026-02-31', '2026-03-01'], ['2026-13-45', '2026-99-99'], ['2026-01-01', '2026-06-31']]) {
+    const r = risolviPeriodo({ da, a }, '2026-08-13');
+    assert.ok(r.errore, `${da} → ${a} doveva essere rifiutata`);
+  }
+  // I giorni che esistono continuano a passare, bisestili compresi.
+  assert.strictEqual(risolviPeriodo({ da: '2024-02-29', a: '2024-03-01' }, '2026-08-13').durata, 2);
+  assert.strictEqual(risolviPeriodo({ da: '2026-06-01', a: '2026-06-30' }, '2026-08-13').durata, 30);
+});
+
+// --- "Solo ospiti VIP": il filtro non deve moltiplicare le ordinazioni -------
+// Trovato dal collaudo del 20/08/2026. Il filtro era fatto di JOIN in fondo alla
+// query, e `StorAlberg` ha una riga PER OCCUPANTE: una camera con due VIP dentro
+// faceva contare due volte ogni ordinazione di quella camera. La spunta poteva
+// quindi dare numeri piu' alti di quelli senza spunta — un sottoinsieme piu'
+// grande dell'insieme. E guardava solo l'archivio, quindi sui periodi corti
+// spariva la parte piu' grossa.
+//
+// La query non si puo' eseguire da qui (il server finto la riconosce per
+// espressione regolare e non ne valida la sintassi): si controlla la FORMA, che
+// e' dove stava il difetto. Il conteggio vero va confrontato in hotel.
+const SQL_ANALYTICS = fs.readFileSync(path.join(__dirname, '..', 'src', 'pms', 'analytics.js'), 'utf8');
+
+test('il filtro VIP passa da un EXISTS, che non puo\' moltiplicare le righe', () => {
+  const i = SQL_ANALYTICS.indexOf('const sqlConsumi');
+  const j = SQL_ANALYTICS.indexOf('ORDER BY COUNT(1) DESC`;', i);
+  assert.ok(i > 0 && j > i);
+  const corpo = SQL_ANALYTICS.slice(i, j);
+  assert.match(corpo, /AND EXISTS \(/, 'il filtro dev\'essere un EXISTS');
+  // Nessun JOIN condizionato alla spunta: sarebbe di nuovo una moltiplicazione.
+  assert.doesNotMatch(corpo, /soloVip \? `JOIN/, 'un JOIN condizionale moltiplica le righe');
+});
+
+test('le camere VIP si cercano nel corrente E nell\'archivio, una volta ciascuna', () => {
+  const i = SQL_ANALYTICS.indexOf('const CAMERE_VIP');
+  const j = SQL_ANALYTICS.indexOf('`;', i);
+  assert.ok(i > 0);
+  const cte = SQL_ANALYTICS.slice(i, j);
+  for (const t of ['StorAlbergDay', 'StorAlberg', 'AlbergDay', 'Alberg']) {
+    assert.ok(cte.includes(t), `manca ${t}: un pezzo di soggiorni resta fuori dal filtro`);
+  }
+  // DISTINCT su entrambi i rami e UNION (non UNION ALL): una camera con due VIP
+  // dentro deve restare UNA riga.
+  assert.strictEqual((cte.match(/SELECT DISTINCT/g) || []).length, 2);
+  assert.match(cte, /\n\s*UNION\n/, 'UNION, non UNION ALL');
 });

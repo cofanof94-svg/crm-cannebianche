@@ -19,6 +19,17 @@ const PERIODI = { '7g': 7, '30g': 30, '3m': 91, '12m': 365 };
 const ANNI_MAX_STORICO = 20;
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+// La forma non basta: "2026-13-45" e "2026-02-31" la rispettano ma non sono
+// giorni esistenti. Passavano fino a SQL Server, che non riesce a convertirli e
+// fa rispondere 500 — un errore del server per un dato scritto male. Si
+// riconoscono confrontando la data ricostruita con quella scritta: il 31
+// febbraio, ricostruito, diventa il 3 marzo e non combacia più.
+function dataVera(iso) {
+  if (!ISO.test(iso || '')) return false;
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (!Number.isFinite(d.getTime())) return false; // "2026-13-45": non è nemmeno una data
+  return giorno(d) === iso;
+}
 const giorno = (d) => d.toISOString().slice(0, 10);
 // Aritmetica sulle date in UTC: sommare ore locali fa sbagliare di un giorno
 // nelle notti di cambio ora, e una dashboard che sposta il periodo due volte
@@ -39,6 +50,9 @@ const sposta = (iso, giorni) => giorno(new Date(new Date(`${iso}T00:00:00Z`).get
 function risolviPeriodo(query, oggi) {
   const { da, a, periodo } = query || {};
   if (ISO.test(da || '') && ISO.test(a || '')) {
+    // Una data sola continua a ripiegare sul periodo predefinito (vedi sotto):
+    // qui ci si arriva solo quando ci sono entrambe, e allora devono esistere.
+    if (!dataVera(da) || !dataVera(a)) return { errore: 'Date non valide: controlla giorno e mese' };
     if (da > a) return { errore: 'La data iniziale è successiva alla finale' };
     return conDurata(da, a);
   }

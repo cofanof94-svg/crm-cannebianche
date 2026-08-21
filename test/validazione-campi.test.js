@@ -195,19 +195,85 @@ test('nessun form salva in silenzio quando la chiamata fallisce', async () => {
   // significava credere di aver registrato un'allergia che non c'è.
   // Le etichette sono quelle che l'operatore legge nell'avviso: "Non è stato
   // possibile salvare la preferenza."
-  const salvataggi = ['la preferenza', "l\\'allergia", 'il componente del nucleo', 'il reclamo', 'la lingua preferita', 'la nota personale'];
+  const salvataggi = ['la preferenza', "l\\'allergia", 'il componente del nucleo', 'il reclamo', 'la lingua preferita', 'la nota personale',
+    // Le due scritture del reclamo che si fanno dai `prompt()` invece che da un
+    // form: erano le uniche a non guardare l'esito, e un 400 ridisegnava la
+    // lista identica senza dire niente (collaudo del 20/08/2026).
+    'la modifica del complaint', 'la riapertura del complaint'];
   for (const cosa of salvataggi) {
     assert.ok(APP.includes(`erroreSalvataggio(status, body, '${cosa}')`),
       `il salvataggio di "${cosa}" non segnala l'errore`);
   }
-  // Sono sette: se qualcuno ne aggiunge un altro e lo dimentica, la lista sopra
+  // Sono nove: se qualcuno ne aggiunge un altro e lo dimentica, la lista sopra
   // non lo copre — almeno il conteggio non deve calare in silenzio.
   // L'apice finale esclude la riga di definizione della funzione.
   // Il settimo è la CORREZIONE di una preferenza (20/08/2026): "la preferenza"
   // compare due volte, una per l'inserimento e una per la modifica in riga.
-  assert.strictEqual((APP.match(/erroreSalvataggio\(status, body, '/g) || []).length, 7);
+  assert.strictEqual((APP.match(/erroreSalvataggio\(status, body, '/g) || []).length, 9);
   // E il messaggio dice che il testo è ancora lì: si riprova senza riscrivere.
   assert.match(APP, /Il testo è rimasto nel campo/);
+  // Ma NON quando la sessione è scaduta: lì il campo non esiste più, perché
+  // api() ha già riportato al login. Una promessa falsa è peggio del silenzio.
+  assert.match(APP, /if \(status === 401\) return;/);
   // Un 403 non va raddoppiato: il motivo lo ha già mostrato api().
   assert.match(APP, /if \(status === 403\) return;/);
+});
+
+// --- Collaudo a piu' revisori del 20/08/2026 --------------------------------
+
+test('il follow-up di un reclamo e\' un testo, non un oggetto', async () => {
+  const ag = await entra();
+  const creato = await ag.post(`/api/clienti/${CLI}/complaints`)
+    .send({ testo: 'Doccia fredda', reparto: 'Rooms', categoria: 'Manutenzione' });
+  assert.strictEqual(creato.status, 201);
+  const id = creato.body.complaint.id;
+
+  // Era l'ultimo campo di testo scoperto: un oggetto passava, diventava
+  // "[object Object]" e per giunta RISOLVEVA il reclamo, perche' la regola
+  // "non si risolve senza dire come" si accontenta di un valore non vuoto.
+  for (const valore of [{ nota: 'ciao' }, ['a', 'b'], true]) {
+    const r = await ag.patch(`/api/clienti/${CLI}/complaints/${id}`).send({ stato: 'risolto', followUp: valore });
+    assert.strictEqual(r.status, 400, `followUp ${JSON.stringify(valore)} doveva essere rifiutato`);
+    assert.match(r.body.error, /non valido/i);
+  }
+  // e il reclamo e' rimasto aperto
+  const lista = await ag.get(`/api/clienti/${CLI}/complaints`);
+  assert.strictEqual(lista.body.complaints.find((c) => c.id === id).stato, 'aperto');
+
+  // Il tetto ora dice anche quanti caratteri sono stati scritti, come gli altri.
+  const troppo = await ag.patch(`/api/clienti/${CLI}/complaints/${id}`).send({ stato: 'risolto', followUp: lungo(501) });
+  assert.strictEqual(troppo.status, 400);
+  assert.match(troppo.body.error, /massimo 500 caratteri \(ne hai scritti 501\)/);
+
+  // Un follow-up vero risolve.
+  assert.strictEqual((await ag.patch(`/api/clienti/${CLI}/complaints/${id}`)
+    .send({ stato: 'risolto', followUp: 'Cambio camera effettuato' })).status, 200);
+});
+
+test('la nota personale non si cancella per omissione', async () => {
+  const ag = await entra();
+  assert.strictEqual((await ag.put(`/api/clienti/${CLI}/note-personali`)
+    .send({ testo: 'Direttore LUISS', mode: 'set' })).status, 200);
+
+  // Un corpo che il campo non ce l'ha proprio non e' una scelta: cancellava la
+  // nota su TUTTE le anagrafiche della persona, con un 200 e nessun ritorno.
+  for (const corpo of [{}, { mode: 'set' }, { testo: null }]) {
+    const r = await ag.put(`/api/clienti/${CLI}/note-personali`).send(corpo);
+    assert.strictEqual(r.status, 400, `${JSON.stringify(corpo)} doveva essere rifiutato`);
+  }
+  const dopo = await ag.get(`/api/clienti/${CLI}/profilo`);
+  assert.match(String(dopo.body.profilo.note_personali || ''), /Direttore LUISS/, 'la nota deve essere ancora li\'');
+
+  // La stringa vuota invece cancella davvero: e' il pulsante Elimina.
+  assert.strictEqual((await ag.put(`/api/clienti/${CLI}/note-personali`).send({ testo: '', mode: 'set' })).status, 200);
+});
+
+test('i messaggi di errore non sono sgrammaticati sui campi femminili', async () => {
+  const ag = await entra();
+  const l = await ag.put(`/api/clienti/${CLI}/profilo`).send({ lingua: { it: 1 } });
+  assert.strictEqual(l.status, 400);
+  assert.doesNotMatch(l.body.error, /Lingua non valido/, 'un operatore legge questa frase');
+  const n = await ag.post(`/api/clienti/${CLI}/nucleo`).send({ tipoRelazione: 'Coniuge', nome: 'Anna', nota: ['x'] });
+  assert.strictEqual(n.status, 400);
+  assert.doesNotMatch(n.body.error, /Nota non valido/);
 });
