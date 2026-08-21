@@ -79,6 +79,20 @@ sono frasi trovate nelle annotazioni del gestionale, con scritto da dove vengono
 **Leggi sempre la frase prima di confermare.** «Menù senza glutine per il gruppo,
 da confermare con la cucina» non è un'allergia di chi ha prenotato.
 
+### ✨ Briefing AI
+
+Su ogni scheda, in alto. Cerca su internet informazioni **pubbliche** sull'ospite
+che sta per arrivare — chi è, che ruolo ha — e ti mostra **da dove** le ha prese.
+
+Non salva niente da solo: leggi, e se serve premi *Salva nel profilo*.
+
+> È la funzione più lenta dell'applicazione, perché cerca davvero. **Lascia la
+> pagina aperta senza ricaricare**, altrimenti riparte da capo. Ogni ricerca ha un
+> costo: premilo quando ti serve, non per provare.
+>
+> Come si legge il risultato, e perché a volte non si può salvare: capitolo
+> **Le funzioni AI**.
+
 ### La barra in alto
 
 - **Cerca** — pratica, camera o nome
@@ -161,7 +175,15 @@ Si scrive nel campo e si preme **Aggiungi**. Sotto possono comparire le stesse
 Chi è l'ospite: cariche, ruoli, come si vuol essere chiamato. Compare nelle
 schede degli elenchi e sul foglio dei reparti.
 
-Si scrive a mano, oppure la genera l'AI (vedi *Le funzioni AI*).
+Si scrive a mano, oppure con **✨ Genera note personali**: fa la stessa ricerca del
+Briefing AI e ti scrive il risultato **dentro il campo**, in coda a quello che c'è
+già. Poi rileggi e premi **Salva** — finché non salvi, non è scritto da nessuna
+parte.
+
+> Se l'AI non è sicura di aver trovato la persona giusta **non scrive niente**: ti
+> mostra i link e decidi tu. Su **uno stesso ospite** usa questo *oppure* il
+> Briefing degli Arrivi, non tutti e due: è la stessa ricerca, e si paga due volte.
+> Capitolo **Le funzioni AI**.
 
 ### Preferenze
 
@@ -174,6 +196,13 @@ Ogni preferenza ha un **reparto** (Rooms, F&B, SPA, Front office), una
 | **Nucleo** | anche per chi viaggia con lui: compare sulle loro schede e nelle schede degli elenchi |
 
 Si correggono **in riga**, con la matita: non serve cancellare e riscrivere.
+
+**✨ Suggerisci preferenze** legge i consumi F&B e le note dell'ospite e propone
+preferenze e intolleranze già scritte per bene. **Non cerca su internet**: guarda
+solo quello che sappiamo già di lui, quindi è rapida.
+
+> Le proposte non sono salvate: compaiono in elenco e **confermi tu quelle
+> giuste**, una per una. Quelle che non confermi spariscono.
 
 ### Complaints
 
@@ -268,8 +297,12 @@ nota sull'ospite e note della prenotazione. **Importi e tariffe restano fuori.**
 
 ## Le funzioni AI
 
-Tre pulsanti, tutti con la stellina ✨. **Nessuno salva niente da solo: confermi
-tu.** Ogni chiamata ha un costo, quindi si premono quando servono.
+Tre pulsanti, tutti con la stellina ✨. Ognuno è spiegato **anche nella pagina in
+cui si trova**: qui c'è quello che vale per tutti e tre, e come si legge un
+risultato.
+
+**Nessuno salva niente da solo: confermi tu.** Ogni chiamata ha un costo, quindi
+si premono quando servono, non per vedere cosa fanno.
 
 | Pulsante | Dove | Cosa fa |
 |---|---|---|
