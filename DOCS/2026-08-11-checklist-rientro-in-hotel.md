@@ -39,10 +39,13 @@ allergia su una settimana di ospiti veri (7 su 7 corrette, zero falsi positivi).
 
 Sono le uniche cose che richiedono ancora l'hotel o una decisione.
 
-- [ ] **Gli utenti veri.** A database ci sono `admin`, `Fabio` e `read_only`, e
-      dopo le prove di ieri **nessun account reception attivo**: chi sta al banco
-      non ha con cosa entrare. Serve l'elenco delle persone con il ruolo di
-      ciascuna. Le password le imposta Mik, minimo 8 caratteri.
+- [x] ~~**Gli utenti veri.**~~ **Fatto** — verificato il 21/08/2026: cinque account
+      attivi, `admin` e `Pascal` amministratori, `Fabio` e `Reception` reception,
+      `Solalettura` in sola lettura. Nessuno spento.
+      **Da decidere:** `Reception` e `Solalettura` sono account *condivisi*. Vanno
+      bene per il collaudo, ma il CRM firma ogni preferenza, allergia e reclamo con
+      il nome di chi l'ha scritta, e il registro accessi con chi è entrato: con un
+      account in comune quelle due informazioni non distinguono più le persone.
 - [ ] **Briefing AI su un profilo LinkedIn vero.** ~~Il credito è esaurito~~ — il
       credito c'è, verificato il 19/08: Briefing, Suggerisci preferenze e Genera
       note personali funzionano tutti. Resta **solo** il caso *"Profilo
@@ -56,8 +59,9 @@ Sono le uniche cose che richiedono ancora l'hotel o una decisione.
       categorie rispecchiano i reclami veri (cambiarle dopo costa di più).
 - [ ] **"Ignora" sulle proposte di allergia**: se sono davvero rari i falsi
       positivi ricorrenti si lascia com'è. Serve qualche giorno d'uso.
-- [ ] **Nome utente con lo spazio**: `Fabio C` esisteva prima del controllo che
-      oggi vieta gli spazi. Decidere se togliere il divieto o rinominare.
+- [x] ~~**Nome utente con lo spazio**~~ — **non esiste più**: letti gli utenti veri
+      il 21/08/2026, nessuno dei cinque ha uno spazio nel nome utente (`Fabio` è
+      senza). Il divieto resta e non blocca nessuno.
 
 ---
 
